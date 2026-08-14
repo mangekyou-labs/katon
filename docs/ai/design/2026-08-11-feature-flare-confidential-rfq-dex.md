@@ -1,16 +1,34 @@
 ---
 phase: design
-title: Flare Confidential RFQ DEX System Design
-description: Architecture for confidential off-chain RFQ matching and atomic on-chain RWA settlement on Flare
+title: Flare Confidential RFQ Desk System Design
+description: Architecture for the issuer desk — confidential RFQ, standing bids, facilities, atomic lending liquidation, and FDC NAV redemption on Flare
 feature: flare-confidential-rfq-dex
 status: approved-for-planning
 ---
 
-# Flare Confidential RFQ DEX System Design
+# Flare Confidential RFQ Desk System Design
 
 ## Architecture Overview
 
-TrustRFQ is a hybrid protocol: confidential negotiation and deterministic route selection happen off-chain inside attested Flare Confidential Compute (FCC), while custody, eligibility, source registration, price guardrails, and settlement stay on Flare. Public facility quotes compete with confidential signed LP bids through one router and one atomic transaction. The expanded Flare product is authoritative while preserving the six-part settlement, coordination, facility, adapter, router, and aggregator shape.
+The Flare product is an issuer desk, not a single RFQ matcher. Confidential negotiation and deterministic route selection happen off-chain inside attested Flare Confidential Compute (FCC). Custody, eligibility, source registration, price guardrails, facility accounting, typed liquidation, and settlement stay on Flare. Public facility quotes compete with confidential signed LP bids through one router and one atomic transaction. Sealed-size RFQ is one route kind; standing liquidity, facility inventory, atomic lending-market liquidation, curator policy, and FDC-attested NAV redemption are first-class surfaces that share that router.
+
+### Product surfaces
+
+Every surface below is specified in this document and implemented as a desk route or typed contract entry. Official Morpho / Kinetic / FAsset venue adapters stay disabled until official Coston2 addresses exist; the types, FCC operations, and router entry points are not optional appendices.
+
+| Surface | Actor | On-chain entry | Confidential / public split |
+|---|---|---|---|
+| Issuer swap / redeem | Seller / taker | `RFQRouter.executeSwapRoute` | Size and losing bids stay in FCC; settlement terms are public |
+| Scheduled auction | Seller + LPs | same swap route after `MATCH FINALIZE` | Ciphertext in the blind relay; 2-of-3 `submitFccResult` |
+| Standing bids | LP | consumed as a swap or liquidation-funding leg | Encrypted capacity plus EIP-712 order; explicitly public standing orders remain reusable within signed limits |
+| Atomic liquidation | Keeper proposes; LP or facility funds | `RFQRouter.executeLiquidationRoute` | FCC `LIQUIDATION CREATE` / `FINALIZE`; result is a typed `LiquidationRoutePlan` (venue, market, position, adapter) — never arbitrary calldata |
+| Liquidity facility | Depositor / LP | ERC-4626 `deposit`, queued `requestWithdraw`, `fill`, `fundLiquidation` | Quotes are inspectable on-chain (NAV, haircut, caps); facility funding bids for liquidation may be sealed |
+| Curator / policy | Curator, guardian | adapter allowlists, haircut bounds, pause | No upgrade of deposited-fund logic; no arbitrary external calls |
+| NAV / issuer redemption | Keeper books; anyone may submit FDC proof | `bookRedemption` / `settleRedemption` on `LiquidityFacility` | Issuer receipt attested via FDC; carrying value is `min(acquisitionCost, verifiedNav)` |
+
+Selling seized collateral after a liquidation is a later inventory RFQ. It is not part of the liquidation transaction.
+
+The expanded Flare product is authoritative while preserving the six-part settlement, coordination, facility, adapter, router, and aggregator shape.
 
 ```mermaid
 flowchart LR
@@ -177,13 +195,41 @@ sequenceDiagram
 
 ### Atomic lending-market liquidation
 
+Liquidation is a first-class route kind (`routeKind = LIQUIDATION`), not a post-swap helper. It inverts a seller swap: the winner supplies the venue's **debt** asset and receives **collateral**. The desk must not fold this into `executeSwapRoute` or a generic call bundle.
+
 1. A permissionless detector or operator keeper identifies an eligible unhealthy Morpho or Kinetic position and publishes a typed liquidation opportunity; detection grants no custody or execution authority.
 2. Eligible LPs and facilities submit confidential signed funding bids denominated in the venue's debt asset and specify their minimum net collateral output.
-3. FCC validates the venue, market, position, eligibility, funding capacity, deadline, and policy, then selects the deterministic best route at a pinned decision block.
+3. FCC validates the venue, market, position, eligibility, funding capacity, deadline, and policy, then selects the deterministic best route at a pinned decision block (`LIQUIDATION CREATE` then `LIQUIDATION FINALIZE`).
 4. The result is an explicit `LiquidationRoutePlan` pairing one winning funding source with one governance-approved, venue-specific liquidation adapter. It contains no arbitrary target or calldata.
 5. The bound winner or facility authorizes the router. The funding source supplies the debt asset, the adapter repays the approved unhealthy position, and the venue releases collateral to the router in the same transaction.
 6. The router measures collateral by balance delta, deducts the single protocol fee, enforces the winner's minimum net collateral output, and transfers the remainder to the bound recipient. Any failed repayment, seizure, fee, or transfer reverts the whole route.
 7. A later RFQ that sells previously seized collateral is an inventory-management flow and is not treated as atomic liquidation.
+
+```mermaid
+sequenceDiagram
+  participant Keeper
+  participant API as Blind Coordination API
+  participant FCC as Attested FCC Matcher
+  participant LP as Eligible LP or Facility
+  participant Router as RFQ Router
+  participant Adapter as Immutable Liquidation Adapter
+  participant Venue as Morpho or Kinetic
+
+  Keeper->>API: Typed unhealthy-position opportunity
+  API->>FCC: LIQUIDATION CREATE commitment
+  LP-->>FCC: Encrypted debt-asset funding bid + min net collateral
+  FCC-->>API: Quorum-certified LiquidationRoutePlan
+  API-->>LP: Reviewable unsigned executeLiquidationRoute
+  LP->>Router: Wallet-signed liquidation route
+  Router->>LP: Pull debt-asset funding
+  Router->>Adapter: liquidate(Request) — no user calldata
+  Adapter->>Venue: Repay approved position
+  Venue-->>Adapter: Seized collateral
+  Adapter-->>Router: Measured collateral
+  Router-->>LP: Net collateral after one protocol fee
+```
+
+Official Coston2 Morpho / Kinetic addresses are not published. Adapters and the `/liquidations` desk remain typed and fail closed until those addresses are pinned. Interface-faithful fork tests exist; live venue execution does not.
 
 ### Facility fill and RWA redemption
 
@@ -598,12 +644,14 @@ Raw provider responses, signatures, proof bytes, ciphertext, and stack traces ar
 
 ### Information architecture
 
-- **Swap / Redeem:** immediate standing/facility route first; scheduled-auction creation if needed.
-- **Auctions:** filterable role-aware table for swap and liquidation opportunities with live freshness, status, expiry, best-authorized result, and actions.
+- **Swap / Redeem (`/swap`):** immediate standing/facility route first; scheduled-auction creation if needed.
+- **Auctions (`/auctions`):** filterable role-aware table for swap and liquidation opportunities with live freshness, status, expiry, best-authorized result, and actions.
 - **Auction Detail:** summary strip, bids table appropriate to the viewer, swap or typed lending-position context, route status, and finalize/settle actions.
-- **Standing Bids:** instant/delayed tabs, bid and buy assets, spread/price rule, expiry, capacity, and pause/cancel controls.
-- **Dashboard:** wallet activity, open orders, won liquidation routes, facility positions, pending withdrawals/redemptions, and transaction history.
-- **Facility / Curator:** deposits, queued withdrawals, NAV, allocations, policies, exposure, adapter health, pause controls, and audit history.
+- **Standing Bids (`/standing-bids`):** instant/delayed tabs, bid and buy assets, spread/price rule, expiry, capacity, and pause/cancel controls. Resting capacity is a first-class inventory, not a form on the swap ticket.
+- **Dashboard (`/dashboard`):** wallet activity, open orders, won liquidation routes, facility positions, pending withdrawals/redemptions, and transaction history.
+- **Facility (`/facility`):** depositor shares, verified NAV, synchronous withdraw when idle liquidity exists, otherwise a queued request with locked shares and a minimum-assets bound.
+- **Liquidations (`/liquidations`):** typed venue / market / position / max-repay / min-net-collateral review for `executeLiquidationRoute`. Keepers may list opportunities; the screen will not build a transaction from unverified addresses. Official venue adapters stay off until Coston2 addresses are pinned.
+- **Curator (`/curator`):** approved adapter set, haircut range, guardian pause. Curators cannot upgrade contracts, withdraw user assets, or redirect settlement.
 
 ### Visual system
 

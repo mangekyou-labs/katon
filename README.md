@@ -2,7 +2,7 @@
 
 **Sealed size. Atomic settlement.**
 
-A confidential RFQ exchange for RWA issuers on [Flare](https://flare.network). You request a block of liquidity without posting a public book. Liquidity providers bid inside Flare Confidential Compute. One typed route clears on-chain.
+An issuer desk on [Flare](https://flare.network): sealed RFQ, standing liquidity, a share facility, atomic lending liquidation, and FDC-attested NAV redemption. Size stays private. Settlement is one typed route.
 
 **Live demo:** [katon-azure.vercel.app](https://katon-azure.vercel.app)  
 **Network:** Flare Coston2 (chain 114)  
@@ -12,29 +12,37 @@ A confidential RFQ exchange for RWA issuers on [Flare](https://flare.network). Y
 
 ## Description
 
-Public AMMs are the wrong venue for issuer-sized flow. A large redeem walks the pool, advertises remaining inventory, and lets everyone else trade first. A handshake plus two transfers is not atomic — one side can walk.
+Public AMMs are the wrong venue for issuer-sized flow. A large redeem walks the pool, advertises remaining inventory, and lets everyone else trade first. A handshake plus two transfers is not atomic — one side can walk. A lending liquidation that funds repay in one tx and dumps collateral in another is the same failure, inverted.
 
-Katon keeps the request private, collects sealed bids, and settles once:
+Katon is one desk with several first-class surfaces. They share eligibility, FTSO freshness, a 50 bps router fee, and all-or-nothing settlement. Sealed RFQ is the private-size path, not the only product.
 
 ```
-Issuer RFQ  →  encrypted bids in FCC  →  2-of-3 submitFccResult
-                                           ↓
-                              FTSO snapshot + eligibility + fee
-                                           ↓
-                         RFQRouter.executeSwapRoute  (Coston2)
+Issuer RFQ / standing bid / facility quote
+        ↘
+   FCC 2-of-3  →  executeSwapRoute
+        ↗
+Liquidation funding auction
+   FCC LIQUIDATION FINALIZE  →  executeLiquidationRoute
+        (debt in, collateral out, typed venue adapter)
+
+Facility deposit  →  ERC-4626 shares
+Facility fill     →  book RWA lot at min(cost, verified NAV)
+Issuer redeem     →  FDC proof  →  settleRedemption  →  queued withdraw
 ```
 
-| Role | Route | What they do |
+| Surface | Route | What it is |
 |---|---|---|
-| Issuer / taker | `/swap` | Immediate or scheduled liquidity |
-| Issuer + LPs | `/auctions` | Create an RFQ, submit encrypted bids, finalize |
-| LP | `/standing-bids` | Resting capacity the matcher can use as a route leg |
-| Anyone connected | `/dashboard` | Balances and recent activity |
-| Curator / LP | `/facility` | Facility positions and withdrawals |
-| Keeper / curator | `/liquidations` | Typed venue routes (adapters off until official addresses exist) |
-| Policy admin | `/curator` | Eligibility and adapter policy |
+| Issuer swap / redeem | `/swap` | Immediate standing/facility route, or open a scheduled sealed auction |
+| Auction | `/auctions` | Create an RFQ, submit encrypted bids, finalize a 2-of-3 FCC result |
+| Standing bids | `/standing-bids` | Resting LP capacity the matcher can use as a swap or liquidation-funding leg |
+| Dashboard | `/dashboard` | Balances, open orders, won liquidation routes, pending withdrawals |
+| Facility | `/facility` | Share vault: deposit, verified NAV, synchronous withdraw when idle, otherwise a queued request |
+| Liquidation | `/liquidations` | Typed Morpho/Kinetic route: venue, market, position, max repay, min net collateral. Keeper proposes; LP or facility funds. Adapters stay **off** until official Coston2 addresses exist |
+| Curator | `/curator` | Adapter allowlist, haircut range, guardian pause. No upgrade of deposited funds, no arbitrary calls |
 
-Protocol fee is **50 bps** on the receive asset.
+Liquidation is its own router entry (`executeLiquidationRoute`) and FCC operations (`LIQUIDATION CREATE` / `FINALIZE`). The winner supplies the venue’s **debt** asset and receives **collateral** in the same transaction. Selling that collateral later is a separate inventory RFQ.
+
+Protocol fee is **50 bps** on the receive asset (net output for a swap, net collateral for a liquidation).
 
 The hosted demo is the **web app**. The full auction loop (create → encrypted bid → finalize → FCC dispatch) needs the local `flare-api` process. Browser “Sign and submit” follows the demo-router path. The live FCC settle was script-signed and is shown in the UI as proof.
 
@@ -42,7 +50,7 @@ The hosted demo is the **web app**. The full auction loop (create → encrypted 
 
 ## Motivation
 
-Tokenized funds and RWA issuers need block liquidity. They cannot leak size on a public book, and they cannot accept a two-step settlement where the other side disappears.
+Tokenized funds and RWA issuers need block liquidity. They cannot leak size on a public book, and they cannot accept a two-step settlement where the other side disappears. The same atomicity is required when a keeper funds a Morpho or Kinetic repay and takes collateral.
 
 Flare is the right substrate for that desk:
 
@@ -92,7 +100,15 @@ Copy `.env.example` to `.env` only if you run wallet QA. Never put a real seed p
 
 ### Hosted app
 
-Open [https://katon-azure.vercel.app](https://katon-azure.vercel.app). Walk `/swap`, `/auctions`, `/standing-bids`, `/dashboard`, `/facility`, `/liquidations`, and `/curator`.
+Open [https://katon-azure.vercel.app](https://katon-azure.vercel.app). Walk the whole desk, not only `/swap`:
+
+- `/swap` — quote an immediate route or start a scheduled auction
+- `/auctions` — sealed RFQ lifecycle
+- `/standing-bids` — rest LP capacity
+- `/facility` — shares, verified NAV, queue a withdrawal
+- `/liquidations` — review a typed venue/market/position route (will not build a tx from unverified addresses)
+- `/curator` — adapter policy and guardian bounds
+- `/dashboard` — connected wallet activity
 
 Unbundled runtime config lives at [`/runtime-config.js`](https://katon-azure.vercel.app/runtime-config.js). It pins the live isolated router, FCC sender, and extension id so addresses can change without a rebuild.
 
@@ -116,7 +132,7 @@ A “Read model: Failed to fetch” banner on the hosted demo is expected: Verce
 
 | Primitive | What we call | Where |
 |---|---|---|
-| **FCC** (extension **66283**, quorum 2 of 3) | `dispatchConfidential` + three `submitFccResult` + `executeSwapRoute` gated on `fccQuorumVerifier` | Isolated router `0xb136b8a1…`, sender `0x55aA4F40…` |
+| **FCC** (extension **66283**, quorum 2 of 3) | `dispatchConfidential` + three `submitFccResult` + `executeSwapRoute` / `executeLiquidationRoute` gated on `fccQuorumVerifier` | Isolated router `0xb136b8a1…`, sender `0x55aA4F40…` |
 | **FTSO** | `FtsoRiskGuard` freshness / max-age 256 | `0xe1ca72b7…` |
 | **FDC** | `NavProofRegistry` wired to official FDC verification `0x906507E0…` | NAV request + voting-round proof on Coston2 |
 | **Contract Registry / TEE manager** | Official Coston2 `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE` | Extension + machine registration |
