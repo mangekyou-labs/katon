@@ -1,0 +1,28 @@
+{
+  "upstream": "https://github.com/flare-foundation/fce-extension-scaffold",
+  "commit": null,
+  "pinStatus": "conformance-only",
+  "license": "MIT",
+  "simulatedOnly": true,
+  "http": {
+    "required": {
+      "action": "POST /action",
+      "state": "GET /state",
+      "proxyInstruction": "POST /instruction",
+      "actionStatus": "GET /action/status/<epoch>/<instructionId>",
+      "proxyPort": 6664
+    },
+    "actionHandlerStatus": "200 for routed handler errors, 400 for malformed wire input, 501 for unsupported operation"
+  },
+  "crypto": {
+    "decryptRequestEncoding": "base64",
+    "decryptResponseEncoding": "base64",
+    "originalMessageEncoding": "hex",
+    "actionResultDataEncoding": "hex"
+  },
+  "reproducibility": {
+    "sourceDateEpochRequired": true,
+    "launchPolicyLabelRequired": true
+  },
+  "sourceNote": "Retained only as a wire/conformance reference. Weather API is the implementation baseline."
+}

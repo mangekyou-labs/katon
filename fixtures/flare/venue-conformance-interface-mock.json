@@ -1,0 +1,21 @@
+{
+  "venue": "Kinetic",
+  "chainId": 114,
+  "forkBlock": 0,
+  "execution": "interface-mock",
+  "authoritativeReference": "local-interface-mock-only",
+  "cases": [
+    { "name": "deposit", "result": "pass" },
+    { "name": "accrual-read", "result": "pass" },
+    { "name": "withdrawal", "result": "pass" },
+    { "name": "pause", "result": "pass" },
+    { "name": "zero-liquidity", "result": "pass" },
+    { "name": "revert", "result": "pass" },
+    { "name": "rounding-loss", "result": "pass" },
+    { "name": "binding-rejection", "result": "pass" }
+  ],
+  "limitations": [
+    "This fixture proves the local adapter interface harness only.",
+    "It is not evidence of a deployed Kinetic market, fork execution, or venue approval."
+  ]
+}

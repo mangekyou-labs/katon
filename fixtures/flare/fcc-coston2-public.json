@@ -1,0 +1,29 @@
+{
+  "network": "coston2",
+  "chainId": 114,
+  "retrievedAt": "2026-08-13",
+  "source": "https://raw.githubusercontent.com/flare-foundation/fce-extension-scaffold/main/config/coston2/deployed-addresses.json",
+  "sourceNote": "Flare documents this file as temporary while FCC is in development. Do not invent missing names.",
+  "public": {
+    "FlareTeeManager": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+    "FlareContractRegistry": "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
+    "FdcHub": "0x48aC463d7975828989331F4De43341627b9c5f1D",
+    "FdcVerification": "0x906507E0B64bcD494Db73bd0459d1C667e14B933",
+    "TeePaymentsRegistry": "0x1A78D02DD19400138f4F3A817E95fC715B6c34Fe",
+    "sharedHelloWorldProxy": "https://tee-proxy-coston2-1.flare.rocks"
+  },
+  "envHints": {
+    "FLARE_TEE_MANAGER": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+    "FCC_NORMAL_PROXY_URL": "https://tee-proxy-coston2-1.flare.rocks/info"
+  },
+  "absentFromScaffold": [
+    "TeeExtensionRegistry",
+    "TeeMachineRegistry"
+  ],
+  "notRealFcc": [
+    "SIMULATED_TEE=true is Hello World, not TrustRFQ 2-of-3",
+    "shared proxy is not a dedicated extension",
+    "FLARE_TEE_EXTENSION_REGISTRY and FLARE_TEE_MACHINE_REGISTRY are not published under those names in deployed-addresses.json",
+    "Do not set dummy 0x0 as real registries"
+  ]
+}

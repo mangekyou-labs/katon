@@ -1,0 +1,83 @@
+# Free-tier wake-first demo only. Not a standing Coston2 FCC deployment.
+# Create three Render Web Services from this Blueprint, set secrets in the
+# dashboard (never commit keys), then paste the three https://….onrender.com/info
+# URLs back into the worktree before any register or configureFcc.
+services:
+  - type: web
+    name: trustrfq-tee-a
+    runtime: docker
+    plan: free
+    dockerfilePath: third_party/fcc-extension-scaffold/Dockerfile.render
+    dockerContext: third_party/fcc-extension-scaffold
+    healthCheckPath: /info
+    envVars:
+      - key: SIMULATED_TEE
+        value: "true"
+      - key: CHAIN_ID
+        value: "114"
+      - key: FCC_STACK_NAME
+        value: tee-a
+      - key: PROXY_PRIVATE_KEY
+        sync: false
+      - key: FCC_INDEXER_MYSQL_HOST
+        value: "34.38.42.208"
+      - key: FCC_INDEXER_MYSQL_PORT
+        value: "3306"
+      - key: FCC_INDEXER_MYSQL_DATABASE
+        value: indexer
+      - key: FCC_INDEXER_MYSQL_USER
+        sync: false
+      - key: FCC_INDEXER_MYSQL_PASSWORD
+        sync: false
+  - type: web
+    name: trustrfq-tee-b
+    runtime: docker
+    plan: free
+    dockerfilePath: third_party/fcc-extension-scaffold/Dockerfile.render
+    dockerContext: third_party/fcc-extension-scaffold
+    healthCheckPath: /info
+    envVars:
+      - key: SIMULATED_TEE
+        value: "true"
+      - key: CHAIN_ID
+        value: "114"
+      - key: FCC_STACK_NAME
+        value: tee-b
+      - key: PROXY_PRIVATE_KEY
+        sync: false
+      - key: FCC_INDEXER_MYSQL_HOST
+        value: "34.38.42.208"
+      - key: FCC_INDEXER_MYSQL_PORT
+        value: "3306"
+      - key: FCC_INDEXER_MYSQL_DATABASE
+        value: indexer
+      - key: FCC_INDEXER_MYSQL_USER
+        sync: false
+      - key: FCC_INDEXER_MYSQL_PASSWORD
+        sync: false
+  - type: web
+    name: trustrfq-tee-c
+    runtime: docker
+    plan: free
+    dockerfilePath: third_party/fcc-extension-scaffold/Dockerfile.render
+    dockerContext: third_party/fcc-extension-scaffold
+    healthCheckPath: /info
+    envVars:
+      - key: SIMULATED_TEE
+        value: "true"
+      - key: CHAIN_ID
+        value: "114"
+      - key: FCC_STACK_NAME
+        value: tee-c
+      - key: PROXY_PRIVATE_KEY
+        sync: false
+      - key: FCC_INDEXER_MYSQL_HOST
+        value: "34.38.42.208"
+      - key: FCC_INDEXER_MYSQL_PORT
+        value: "3306"
+      - key: FCC_INDEXER_MYSQL_DATABASE
+        value: indexer
+      - key: FCC_INDEXER_MYSQL_USER
+        sync: false
+      - key: FCC_INDEXER_MYSQL_PASSWORD
+        sync: false

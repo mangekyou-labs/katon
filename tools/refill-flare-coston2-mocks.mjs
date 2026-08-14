@@ -1,0 +1,24 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createPublicClient, createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { flareTestnet } from 'viem/chains';
+
+const rpcUrl = process.env.FLARE_RPC_URL ?? 'https://coston2-api.flare.network/ext/C/rpc';
+const root = resolve(import.meta.dirname, '..');
+const manifest = JSON.parse(readFileSync(resolve(root, 'contracts/flare/deployments/coston2.json'), 'utf8'));
+const key = process.env.PRIVATE_KEY ?? readFileSync(resolve(root, '.env'), 'utf8').match(/^PRIVATE_KEY=(.+)$/m)?.[1]?.trim();
+if (!key) throw new Error('PRIVATE_KEY_REQUIRED');
+const account = privateKeyToAccount(key);
+const chain = { ...flareTestnet, id: 114, rpcUrls: { default: { http: [rpcUrl] } } };
+const transport = http(rpcUrl);
+const publicClient = createPublicClient({ chain, transport });
+const walletClient = createWalletClient({ account, chain, transport });
+const abi = [{ type: 'function', name: 'mint', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [] }];
+const amount = 10_000n * 10n ** 18n;
+const hash = await walletClient.writeContract({ address: manifest.mockAssets.usdx, abi, functionName: 'mint', args: [manifest.mockAssets.source, amount], account });
+const receipt = await publicClient.waitForTransactionReceipt({ hash });
+if (receipt.status !== 'success') throw new Error(`TRANSACTION_REVERTED:${hash}`);
+console.log(`txHash=${hash}`);
+console.log(`amount=${amount}`);
+console.log('Coston2 mock source refill: PASS');

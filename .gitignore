@@ -1,0 +1,70 @@
+# OS / editor
+.DS_Store
+*.swp
+
+# Agent / IDE local trees (do not ship to the public hackathon repo)
+.agents/
+.claude/
+.codex/
+.grok/
+.opencode/
+.cline/
+.playwright-cli/
+.superstack/
+.ai-devkit.json
+
+# Claude Code — machine-specific local permissions (do not commit)
+.claude/settings.local.json
+
+# Claude Code — MCP config contains a live Supabase access token (do not commit)
+.mcp.json
+
+.vercel
+
+# Rust / Soroban build artifacts
+target/
+node_modules
+
+# Vite build output
+dist/
+.env*
+!.env.example
+
+# Local self-signed TLS for API smoke. Not production. Not Let's Encrypt.
+infra/tls-local/
+
+# Foundry build output
+cache/
+out/
+contracts/flare/cache/
+contracts/flare/out/
+
+# Local tool caches / generated noise (never commit)
+tools/.check-quorum-tmp.mjs
+.cache-go/
+.playwright-cli/
+.playwright/metamask-local/
+.playwright/metamask-extension/
+.playwright/metamask-isolated/
+.playwright/cli.config.json
+.playwright/qa-accounts.json
+output/
+
+# Reproducible FCC matcher release output (manifest is regenerated locally)
+services/fcc-matcher/dist/
+
+# Claude Design exports (source lives in src/ui/Ticket.tsx + public/styles.css)
+*.zip
+
+# Testnet demo funding secrets — NEVER commit
+demo-keys.json
+
+# Local guidance for Claude Code sessions (do not commit)
+CLAUDE.md
+
+# Filled FCC proxy configs contain indexer credentials (secrets)
+third_party/fcc-extension-scaffold/config/proxy/extension_proxy.coston2.docker.toml
+third_party/fcc-extension-scaffold/.env.coston2
+third_party/fcc-extension-scaffold/config/extension.env
+third_party/fcc-extension-scaffold/config/register-tee.state
+third_party/fcc-extension-scaffold/config/deploy.log

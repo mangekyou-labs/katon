@@ -1,0 +1,16 @@
+.env
+.env.*
+.git
+.gitignore
+node_modules
+**/node_modules
+dist
+**/dist
+target
+**/target
+contracts/flare/cache
+contracts/flare/out
+**/cache
+**/out
+**/.turbo
+**/.DS_Store

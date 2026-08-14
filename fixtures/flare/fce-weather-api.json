@@ -1,0 +1,21 @@
+{
+  "upstream": "https://github.com/flare-foundation/fce-weather-api",
+  "commit": null,
+  "pinStatus": "pending-review-network-fetch",
+  "license": "MIT",
+  "simulatedOnly": true,
+  "wire": {
+    "info": "GET /info",
+    "state": "GET /state",
+    "action": "POST /action",
+    "decrypt": "POST /decrypt",
+    "actionResultData": "hex ABI bytes"
+  },
+  "crypto": {
+    "recipientEncryption": "secp256k1 ECIES with AES-256-GCM",
+    "ciphertext": "compressed ephemeral public key || 12-byte nonce || ciphertext+tag",
+    "kdf": "HKDF-SHA256 FCC-ECIES-v1",
+    "plaintextCommitment": "keccak256(plaintext)"
+  },
+  "sourceNote": "The upstream commit must be filled after a successful network fetch and review; local implementation is dependency-free and preserves the Weather wire pattern."
+}

@@ -1,0 +1,52 @@
+{
+  "venue": "Clearpool",
+  "chainId": 14,
+  "forkBlock": 65078017,
+  "authoritativeReference": "https://docs.clearpool.finance/clearpool/security/smart-contracts",
+  "deployments": {
+    "pool": "0xFE2907DFa8DB6e320cDbF45f0aa888F6135ec4f8",
+    "asset": "0x4A771Cc1a39FDd8AA08B8EA51F7Fd412e73B3d2B"
+  },
+  "cases": [
+    {
+      "name": "deposit",
+      "testName": "testForkClearpoolDepositAndApprovalCleanup"
+    },
+    {
+      "name": "accrual-read",
+      "testName": "testForkClearpoolRewardAccountingRead"
+    },
+    {
+      "name": "withdrawal",
+      "testName": "testForkClearpoolWithdrawalToRecipient"
+    },
+    {
+      "name": "pause",
+      "testName": "testForkClearpoolPauseRejection"
+    },
+    {
+      "name": "zero-liquidity",
+      "testName": "testForkClearpoolZeroCashCapsWithdrawalAndPreservesShares"
+    },
+    {
+      "name": "revert",
+      "testName": "testForkClearpoolOverBalanceWithdrawalRejection"
+    },
+    {
+      "name": "rounding-loss",
+      "testName": "testForkClearpoolOneBaseUnitRoundTrip"
+    },
+    {
+      "name": "binding-rejection",
+      "testName": "testForkClearpoolWrongAssetRejection"
+    },
+    {
+      "name": "official-bindings",
+      "testName": "testForkClearpoolOfficialBindings"
+    },
+    {
+      "name": "caller-rejection",
+      "testName": "testForkClearpoolCallerRejection"
+    }
+  ]
+}

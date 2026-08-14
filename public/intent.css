@@ -1,0 +1,618 @@
+/* ==========================================================================
+   TrustRFQ — intent/private-offer layer styles
+   Additive companion to styles.css (the design system — never edited here).
+   Everything builds on the :root tokens from styles.css; all class names are
+   prefixed (intent-, thread, round-, pairs-, counter-) so nothing collides.
+   ========================================================================== */
+
+/* === intent layer: shared (thread, timeline, counter form, pairs) === */
+
+/* "Private offer" pill (thread headers + offer rows) */
+.intent-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: rgba(17, 18, 24, 0.04);
+  border: 1px solid var(--line-1);
+  flex: none;
+}
+
+/* status-badge modifier for the intent-layer 'countered' order status —
+   styles.css .badge provides the shape, this adds the missing color */
+.intent-badge--countered {
+  color: var(--text-1);
+  background: rgba(17, 18, 24, 0.06);
+  border-color: rgba(17, 18, 24, 0.16);
+}
+
+/* Thread view */
+.thread { margin-top: 14px; }
+.thread__head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.thread__id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.thread__pair {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+.thread__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-4);
+}
+.thread__party b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-1);
+}
+.thread__round-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 10px;
+}
+.thread__wait {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* Round timeline */
+.round-list {
+  margin-top: 16px;
+  padding: 14px 16px 16px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-3);
+}
+.round-list__title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 10px;
+}
+.round-list__items { list-style: none; margin: 0; padding: 0; }
+.round-item { padding: 11px 0; border-top: 1px solid var(--line-3); }
+.round-item:first-child { border-top: 0; padding-top: 0; }
+.round-item:last-child { padding-bottom: 0; }
+.round-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.round-item__who {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.round-item__terms { margin-top: 6px; font-size: 13.5px; color: var(--text-2); }
+.round-item__time { margin-top: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--text-4); }
+
+/* Round resolution chips (smaller siblings of .badge) */
+.round-res {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  flex: none;
+}
+.round-res--pending { color: var(--text-1); background: rgba(17, 18, 24, 0.06); border-color: rgba(17, 18, 24, 0.16); }
+.round-res--accepted { color: var(--green); background: rgba(14, 124, 74, 0.08); border-color: rgba(14, 124, 74, 0.26); }
+.round-res--declined { color: var(--red); background: rgba(201, 56, 56, 0.07); border-color: rgba(201, 56, 56, 0.24); }
+.round-res--superseded { color: var(--text-4); background: rgba(17, 18, 24, 0.04); border-color: var(--line-3); }
+
+/* Counter-offer form */
+.counter-form {
+  margin-top: 14px;
+  padding: 16px 18px 18px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-2);
+}
+.counter-form__title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 14px;
+}
+/* light theme: base inputs are borderless sunken wells (styles.css) — on the
+   counter form's own sunken well they'd vanish, so raise them to white */
+.counter-form input { background: var(--bg-raised); }
+/* fixed-token pill occupying the .leg grid's select column */
+.counter-token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: rgba(17, 18, 24, 0.04);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+}
+.counter-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+/* Pairs zone: the glass capsule + the explainer note. `display: contents` is
+   load-bearing — it dissolves this wrapper so the capsule and the note become
+   direct grid items of `[data-panel="incoming"]` (see "Incoming layout" below):
+   the capsule sits in the left column above the offers, the note owns the whole
+   right column. A wrapper box could not put them in two different tracks.
+   Both frost their backdrop, so NOTHING between them and the page canvas may
+   carry transform/filter/will-change — a transformed ancestor becomes the
+   backdrop root and the blur then samples an empty layer (renders flat). The
+   open/close animation therefore lives on the capsule itself and on its inner
+   rows, never on a parent. */
+.pairs-zone { display: contents; }
+
+.pairs-glass {
+  align-self: flex-start;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.6) inset,
+    0 10px 30px rgba(70, 80, 140, 0.10),
+    0 2px 6px rgba(70, 80, 140, 0.06);
+  transition: box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pairs-glass.is-open {
+  background: rgba(255, 255, 255, 0.68);
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.7) inset,
+    0 26px 60px rgba(70, 80, 140, 0.16),
+    0 4px 12px rgba(70, 80, 140, 0.08);
+}
+
+.pairs-glass__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  background: none;
+  border: 0;
+  border-radius: 26px;
+  cursor: pointer;
+  text-align: left;
+}
+.pairs-glass__title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+}
+/* chevron: two hairlines rotated into a caret, flipped on open */
+.pairs-glass__chev {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-bottom: 3px;
+  border-right: 1.5px solid var(--text-3);
+  border-bottom: 1.5px solid var(--text-3);
+  transform: rotate(45deg);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pairs-glass.is-open .pairs-glass__chev {
+  transform: rotate(-135deg);
+  margin-bottom: -2px;
+}
+
+/* height reveal: 0fr → 1fr is animatable and needs no magic max-height */
+.pairs-glass__reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pairs-glass.is-open .pairs-glass__reveal { grid-template-rows: 1fr; }
+.pairs-glass__rows {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.32s ease, transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pairs-glass.is-open .pairs-glass__rows {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.08s;
+}
+.pairs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 -1px 0 rgba(17, 18, 24, 0.05);
+}
+.pairs-row:last-child { padding-bottom: 18px; }
+.pairs-row__label {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+/* Toggle switch (role="switch" button) */
+.pairs-toggle {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex: none;
+  padding: 0;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-1);
+  background: var(--bg-sunken);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.pairs-toggle:disabled { opacity: 0.45; cursor: wait; }
+.pairs-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.pairs-toggle.is-on {
+  background: rgba(17, 18, 24, 0.08);
+  border-color: rgba(17, 18, 24, 0.45);
+}
+.pairs-toggle.is-on .pairs-toggle__thumb {
+  transform: translateX(20px);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  box-shadow: 0 2px 8px rgba(17, 18, 24, 0.3);
+}
+
+/* The note: a full-height glass slab holding the explainer. It sticks below the
+   topbar and runs to just short of the viewport floor, so the right half of the
+   page is one calm surface. Sticky (not fixed) keeps it inside the grid, so the
+   left column never has to reserve space for it. */
+.pairs-note {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  height: auto;
+  padding: var(--note-pad);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.46);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.75) inset,
+    0 30px 70px rgba(70, 80, 140, 0.13),
+    0 2px 8px rgba(70, 80, 140, 0.05);
+}
+/* macOS System Settings glass: the rim picks up colour, the body stays neutral.
+   A gradient FILL clipped to a 1.25px rim by an xor mask — a plain `border`
+   cannot vary its colour along the edge. The mask only ever clips this
+   pseudo-element's own paint (the gradient), which is the whole point; keep it
+   off `.pairs-note` itself, whose shadow it would erase. */
+.pairs-note::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.25px;
+  pointer-events: none;
+  background: linear-gradient(145deg,
+    rgba(31, 43, 238, 0.42) 0%,
+    rgba(255, 255, 255, 0.92) 26%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(87, 216, 206, 0.42) 74%,
+    rgba(31, 43, 238, 0.34) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+/* and the colour bleeds a little way INSIDE the rim, the way real glass does */
+.pairs-note::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(115% 62% at 100% 0%, rgba(31, 43, 238, 0.10), transparent 58%),
+    radial-gradient(105% 58% at 0% 100%, rgba(87, 216, 206, 0.12), transparent 60%);
+}
+
+/* The explainer, promoted out of the box. It is the only copy that says what the
+   toggle DOES, so it stays real text (not a decorative watermark) and keeps AA
+   contrast at this size. */
+.pairs-hero {
+  position: relative;   /* above ::after's tint wash */
+  margin: 0;
+  /* Compact info line above the pairs bar: same size/weight as the pairs-glass
+     title, wrapping naturally as one sentence. The copy is still authored as
+     phrase <span>s (see PairsPanel); they now flow inline, so a ::after space
+     restores the word gaps the block layout used to give for free. */
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--text-2);
+}
+.pairs-hero span { display: inline; }
+.pairs-hero span::after { content: ' '; }
+
+/* ---- Incoming layout ----------------------------------------------------
+   The one panel that breaks the desk's 960px column: it goes full-bleed and
+   splits the page down the middle. LEFT half = the info bar (the explainer)
+   with the pairs capsule under it. RIGHT half = the offers (or the empty
+   state), floor to ceiling. Each box is capped and centred inside its half.
+   `.panel.is-active` (styles.css) sets `display: block` at the same
+   specificity — this wins on source order alone, which is exactly why
+   otc.html loads styles.css first. */
+[data-panel="incoming"].is-active {
+  --note-top: 96px;
+  --note-bottom: 28px;
+  --note-pad: 18px 22px;
+  --left-col: 560px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  column-gap: clamp(24px, 4vw, 64px);
+  align-items: start;
+  /* full-bleed out of .wrap's centred column, then re-gutter */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding: 4px clamp(20px, 3vw, 40px) 0;
+}
+/* LEFT column: the info bar on top (row 1), the pairs capsule under it (row 2),
+   both capped to --left-col and centred so their edges line up. RIGHT column:
+   the offers (or empty state), floor to ceiling. */
+[data-panel="incoming"] .pairs-note {
+  grid-column: 1;
+  grid-row: 1;
+  width: min(100%, var(--left-col));
+  margin: 0 auto 20px;
+}
+[data-panel="incoming"] .pairs-glass {
+  grid-column: 1;
+  grid-row: 2;
+  width: min(100%, var(--left-col));
+  margin: 0 auto;
+}
+[data-panel="incoming"] > .intent-offers,
+[data-panel="incoming"] > .empty {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  width: min(100%, var(--left-col));
+  margin-inline: auto;
+}
+
+/* Stacked: the note stops being a full-height slab and becomes a normal card. */
+@media (max-width: 900px) {
+  [data-panel="incoming"].is-active {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    row-gap: 20px;
+  }
+  /* stack top-to-bottom: info bar, pairs bar, offers */
+  [data-panel="incoming"] .pairs-note { grid-column: 1; grid-row: 1; margin-bottom: 0; }
+  [data-panel="incoming"] .pairs-glass { grid-column: 1; grid-row: 2; }
+  [data-panel="incoming"] > .intent-offers,
+  [data-panel="incoming"] > .empty { grid-column: 1; grid-row: 3; }
+  .pairs-hero { font-size: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pairs-glass,
+  .pairs-glass__chev,
+  .pairs-glass__reveal,
+  .pairs-glass__rows { transition: none; }
+}
+
+/* === intent layer: taker === */
+
+/* Offer card = .order (design system) + expandable summary row */
+.thread-card__toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.thread-card__pair {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+.thread-card__party { font-size: 13px; color: var(--text-3); }
+.thread-card__party b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-1);
+}
+.thread-card__expiry { margin-left: auto; font-size: 12.5px; color: var(--text-4); }
+.thread-card__chev { color: var(--text-4); font-size: 11px; transition: transform 0.18s ease; flex: none; }
+.thread-card__toggle[aria-expanded="true"] .thread-card__chev { transform: rotate(180deg); }
+
+/* === intent layer: maker (appended by a later task) === */
+
+/* live "N takers subscribed" line above the Send button. Only rendered while
+   the counterparty address is EMPTY — that is what makes an offer a broadcast.
+   (The pair select and direction picker that used to live here are gone: the
+   ticket's two legs already carry both, via orderPairKey.) */
+.broadcast-subs { font-size: 13px; color: var(--text-3); line-height: 1.5; }
+.broadcast-subs--zero { color: var(--red); }
+
+/* Broadcast card = .order + the thread-card toggle pattern; the terms and
+   tally spans wrap onto their own full-width rows inside the flex toggle */
+.broadcast-card__terms,
+.broadcast-card__tally { flex-basis: 100%; min-width: 0; }
+.broadcast-card__terms { font-size: 13.5px; color: var(--text-2); }
+.broadcast-card__tally {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+/* broadcast status chips missing from styles.css (.badge provides the shape) */
+.broadcast-badge--active { color: var(--text-1); background: rgba(17, 18, 24, 0.06); border-color: rgba(17, 18, 24, 0.16); }
+.broadcast-badge--completed { color: var(--green); background: rgba(14, 124, 74, 0.08); border-color: rgba(14, 124, 74, 0.26); }
+
+/* settled-thread banner (spec §4.4 — a PROMPT, never an auto-cancel) */
+.broadcast-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px 15px;
+  border-radius: var(--r-md);
+  background: rgba(17, 18, 24, 0.04);
+  border: 1px solid var(--line-2);
+}
+.broadcast-banner__msg { font-size: 13.5px; color: var(--text-2); line-height: 1.55; }
+.broadcast-banner__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* expanded thread list inside a broadcast card */
+.broadcast-threads { margin-top: 12px; }
+.broadcast-thread { padding: 6px 0; border-top: 1px solid var(--line-3); }
+.broadcast-thread:last-of-type { padding-bottom: 0; }
+
+/* === intent layer: page shell + balances (appended by a later task) === */
+
+/* Sub-heading that separates the two blocks inside the Sent panel (direct
+   offers, then broadcasts) — a broadcast is one offer with N threads, a
+   different object, so it gets its own grouped list rather than being flattened
+   in with the direct ones. */
+.list-head {
+  margin: 34px 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.list-head:first-child { margin-top: 0; }
+
+/* Balance strip (spec §4.5) — quiet mono chips in the topbar, one per
+   allow-listed token; the note covers loading / failed / unfunded states */
+.bal-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+/* Cut to the .net-pill's pattern (styles.css): same padding, border and mono
+   type, so the balances read as one row with the network label they sit next
+   to. Keep them in step if that pill ever changes. */
+.bal-strip__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  background: rgba(17, 18, 24, 0.04);
+  border: 1px solid var(--line-1);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.bal-strip__token {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.bal-strip__amount {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-2);
+}
+.bal-strip__note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+  white-space: nowrap;
+}
+
+/* the strip is topbar garnish — let the wallet chip win the space fight */
+@media (max-width: 720px) {
+  .topbar .bal-strip { display: none; }
+}
+
+/* Shell spacing: each list panel stacks two blocks (incoming offers + the pairs
+   you watch; direct offers + your broadcasts). These selectors track the desk's
+   panel names — a stale one fails SILENTLY (no error, just lost separation). */
+/* incoming's own spacing now lives with its grid, above (.pairs-zone is
+   display:contents — it has no box left to give a margin to) */
+[data-panel="sent"] .intent-broadcasts { margin-top: 4px; }

@@ -1,0 +1,5 @@
+services:
+  extension-tee-c:
+    profiles: [tee-c]
+  ext-proxy-c:
+    profiles: [tee-c]

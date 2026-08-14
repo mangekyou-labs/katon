@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TrustRFQ — bundle-level golden-vector check</title>
+  <style>
+    body { background:#0B0B0E; color:#F5F3EE; font:14px/1.6 ui-monospace, monospace; padding:32px; }
+    .ok { color:#6FE3A1; } .err { color:#FF8C8C; }
+    pre { white-space:pre-wrap; word-break:break-all; }
+  </style>
+</head>
+<body>
+  <h1>Bundle-level golden-vector check</h1>
+  <p>
+    Runs src/core/canonical.ts through the BROWSER module graph (Vite resolution: npm buffer via
+    the alias, browser crypto.subtle) and asserts the fixtures byte-for-byte. Vitest proves the
+    Node-resolved graph; this proves the one users actually run. Serve via <code>npm run dev</code>
+    and open <code>/tools/bundle-check.html</code>, or drive headlessly.
+  </p>
+  <p id="status">Running…</p>
+  <pre id="out"></pre>
+
+  <script type="module">
+    import { fillCanonicalArgs, canonicalPayload, sacIdFor } from '/src/core/canonical.ts';
+    import fixtures from '/fixtures/canonical-args.json';
+
+    const status = document.getElementById('status');
+    const out = document.getElementById('out');
+    const lines = [];
+    const P = fixtures.networkPassphrase;
+
+    try {
+      let pass = 0, fail = 0;
+      const check = (name, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        ok ? pass++ : fail++;
+        lines.push(`${ok ? '✓' : '✗'} ${name}`);
+        if (!ok) lines.push(`  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`);
+      };
+
+      for (const [token, id] of Object.entries(fixtures.sacIds)) {
+        check(`sacId ${token.split(':')[0]}`, sacIdFor(token, P), id);
+      }
+      for (const v of fixtures.vectors) {
+        const args = await fillCanonicalArgs(v.order, P);
+        check(`fillArgs ${v.name}`, args.map((a) => a.toXDR('base64')), v.fillArgsXdr);
+        check(`payload ${v.name}`, canonicalPayload(v.order), v.canonicalPayload);
+      }
+
+      out.textContent = lines.join('\n');
+      status.textContent = fail === 0 ? `ALL ${pass} CHECKS PASS (browser module graph)` : `${fail} FAILED / ${pass} passed`;
+      status.className = fail === 0 ? 'ok' : 'err';
+      await fetch('/__bundle-check', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pass, fail, lines }),
+      }).catch(() => {});
+    } catch (err) {
+      status.textContent = `THREW: ${err?.message || err}`;
+      status.className = 'err';
+      out.textContent = String(err?.stack || err);
+      await fetch('/__bundle-check', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pass: 0, fail: -1, lines: [String(err?.message || err)] }),
+      }).catch(() => {});
+    }
+  </script>
+</body>
+</html>

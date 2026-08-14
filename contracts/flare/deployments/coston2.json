@@ -1,0 +1,129 @@
+{
+  "network": "coston2",
+  "chainId": 114,
+  "deployer": "0xeD37FD0d6F0f69236E7472B36796e133D20EcC32",
+  "deployedAt": "2026-08-12T12:13:18.705Z",
+  "contracts": {
+    "eligibilityRegistry": "0x040b49f3408267fbf95f048e6bb7a5b09e830fac",
+    "router": "0x593095709e16275cc0b8aa0ef908fd13d693c36c",
+    "settlement": "0x6dc51b3ef4eea9d7b0609381491e00abf3720674",
+    "instructionSender": "0x6b97db10f053e384bdc6d4acb22d3f5851040310",
+    "facilityAggregator": "0x9f120294475039166d665d8f226737acd7b96c7d",
+    "navProofRegistry": "0x792d6e3ecd9541bcf7bf31273f42bf41b758b02a",
+    "ftsoRiskGuard": "0xe1ca72b7397c361c6fc4100fa33b999681205094"
+  },
+  "configuration": {
+    "routerProtocolFeeBps": 50,
+    "routerSnapshotMaxAge": 256,
+    "routerSnapshotHashRequired": true,
+    "settlementEligibilityRegistry": "0x040b49f3408267fbf95f048e6bb7a5b09e830fac",
+    "settlementRouter": "0x593095709e16275cc0b8aa0ef908fd13d693c36c",
+    "mockSellerPolicyId": "0xfce7648109ab89be432fa46626fe3e28945504427907a6705d5a78b489343e40",
+    "mockSellerPolicyRole": 1,
+    "mockSellerPolicyIssuerReference": "0x1989e753f42feddc4e2384444ec868a7b2b7acb30922c48fef7a6d4c14379971",
+    "fdcVerification": "0x906507E0B64bcD494Db73bd0459d1C667e14B933",
+    "fccExtensionRegistry": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+    "fccMachineRegistry": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+    "fccExtensionId": "66280",
+    "fccQuorumThreshold": 2
+  },
+  "deploymentTransactions": {
+    "EligibilityRegistry": "0xe7fe826e15730ab8b0f2677c661203b27193dfc48b059345f14b7cf17919db05",
+    "RFQRouter": "0x1cab897a113fa04d155f01865914fcab16bb5c7740c63c71413a272be5f0b86d",
+    "RFQSettlement": "0xc04b1b428f1e2c823c18da1fd2a5158bde5a54a322e51c5f86a48a4d86e37b58",
+    "ConfidentialRFQInstructionSender": "0xf2b1eda6dff3026172992cf13f7ae74829cc83de83e6f0cd36319da54eee0127",
+    "FacilityAggregator": "0x2532301b644e86202236e12b90b5ea66dac655493c96a55426e7ed94b595314a",
+    "NavProofRegistry": "0x84b4c5e528a49b602dcc00122dd29d45b89e4b49055b32d832f76227a2169c09",
+    "FtsoRiskGuard": "0xe2b51c22b9fb75bfc5e3e36330d77be6d7d9d921a4278850cd9d1184203bcdb5",
+    "rwa": "0x7e99dcf8e51e4e8b5e9fa7b0d3e68d37b1bdf3e1474bc374cf28cc25f725dba5",
+    "usdx": "0x02c94ed5a648d3cc771810a192ed3db8c4359efbbc221f1ac7bf8de653dff755",
+    "source": "0x8d70127dfce7b4f86034a1c8f94950ac6b173d1f942b9e7caca890b3eed3af8c",
+    "NavProofRegistryFdc": "0x6bc199469fa5d9084ef43d7b46238d25fc7b6162e805fc4a9e6c709e56fc596a",
+    "LiquidityFacility": "0x72a0a7feacf3912a0b0a3abe20151641c2c7802e693db070a8f56e8001395428"
+  },
+  "configurationTransactions": {
+    "setEligibilityRegistry": "0x204afd683f7565a697f6c97cf1c290c1b47ad469810560a78602b85e66f1a6a0",
+    "setProtocolFeeBps": "0xa2e80a52f95c3731baa4c1b4730bbfff6dbb8a4ba2b91fd652a4f260469ccb95",
+    "setSnapshotPolicy": "0x17477ca2859ecd79951480ce56574e35869af7d6dc1c2afe115c04a9e5a5c9d2",
+    "setRouter": "0x7fb0369c2455987b90ccd9dfdd8e43d7341e416c32451845acdc93a790b89b03",
+    "mockSellerPolicy": "0x6751704a0877fb74ae1728a2ae0f91d543b2ad5c392d710a4cf67e722871b9f3",
+    "mockSourceAllowlist": "0x894f3a02b0a87eb64d94631209256f1c652b7a0d62213b40371c0fbabb35c444",
+    "mockSwap": "0xdb35277436a912bc49d1e1677aacb3918d4ff61eec303eba4f8266232acc02e4",
+    "configureFdcVerification": "0x220d7f294b3e027adcf3ef400044f6732e551ec99cfd0cfe42289b2ac4c27af3",
+    "facility:setRouter": "0x1a588107beed30503d9920439f08d16b3734be24425bef0a39779703d15378b9",
+    "facility:setEligibilityRegistry": "0xd41ad2d5aa34e3653ca61202622d1a372f6a9dd79bc2f25e2c9d10481eafe274",
+    "facility:setRwaPolicy": "0x7393476833d87925d273abd953931588acb0342d384ca819aeb33077bfe7d126",
+    "facility:approveFacility": "0x3ab1744a3720ffd221ad3dfafea5d77b3154a1b981923d6a103d592c5d8177d5",
+    "facility:approveRwa": "0x5c5a1e5d64c1450606a9522cf5831694f71c04836b8e95c7bff8b855a3ec9d71",
+    "facility:deposit": "0x7a029e71bdb64c3740f471ac13cfee70472f284ff679186e521af03e848e86e8",
+    "facility:registerFacility": "0x7f89ad4116e91519324ba3ad802f2b876304915b3ace41dd425f790eba79bfb8",
+    "facility:allowFacilitySource": "0x13e6b27f5bee84e1da5ec1364d3251999b37c5be4a3bf157709bc29f8c6e7dcd",
+    "facilitySwap": "0x15a72b60d671f8104d946ed1c5c323fb11a21280013af9eea8d890d7c3fddeec",
+    "configureFcc": "0xff575f130a0a6f3c40ce5e5b066963c546db96c265e3a3e6a8ca34059cb4ea86"
+  },
+  "bytecodeHashes": {
+    "eligibilityRegistry": "0x276d8c513c4ccaf14569a9f888c12c1871faaee7b31bc416f51025b87fcc1dfb",
+    "router": "0xa0052e61d3cd2ca551a5dad39a9842b40fbdaa73c27a52b5dc9fe59d193cc4e3",
+    "settlement": "0x18be5ae1d380a8fce971505fdbbf870d876be110232031f78c3d878e090cbbb2",
+    "instructionSender": "0xb3f55116a80cd5e9c0d16fba0757335aa79aace1fb5b8553aff3a72f3ca102df",
+    "facilityAggregator": "0xbfd574872f7892cec99202cd17dcdeb575e247130c9b32266115ad3666db5e8a",
+    "navProofRegistry": "0x39cfecf84eea0c77a41a3db58b009e24712cc1dd636642da77c934d2b17724bb",
+    "ftsoRiskGuard": "0x984b255f82cdaf0bb3a45cfed7e5a58fb1227538df2ff6e17873dcb6abb776b1",
+    "liquidityFacility": "0x01e43e7f46886716e39b5eb675f18376be6464b325606f5c6163b73d82a14003"
+  },
+  "storageLayoutHashes": {
+    "eligibilityRegistry": "0x5a3a881a7da2c3ccf58b89d2dda0df393ab33cec5be58338aa887bb069b2d984",
+    "router": "0x40160b0cec7fce69e93af4270fb8ed50d0a93c2273844c3025f9d35912b9422c",
+    "settlement": "0xca01f84f10e3e3cec91dca368d91ea35935a5be0f1bcbd06c06b7735a22741cc",
+    "instructionSender": "0xe378291f734bcf79af432e6f2086dc7895966e15a2780a5530de3c6d3f454dcb",
+    "facilityAggregator": "0xe2c338e8c60932d8a4e5b59d4a2d5886287314432679bd6942d99b7698477a72",
+    "navProofRegistry": "0xc4d8f94bd6f3dec987566614de602cc74aa3662292ff5e16d58cc6ec06099fbc",
+    "ftsoRiskGuard": "0x076d69f4e687ab02f5457a35edf7f3f9e5e5c40bd6fe62c7762fe35945f94da0"
+  },
+  "mockAssets": {
+    "seller": "0xeD37FD0d6F0f69236E7472B36796e133D20EcC32",
+    "rwa": "0xdeca491298a0e9f00d87d0390565cc33b3ac336f",
+    "usdx": "0xa8bcb4cb087a7f1abc1ba2083e3f5b518e124ef0",
+    "source": "0x29713643c62c6743a5bf68e39ac1de8eaec0bc97"
+  },
+  "mockSwap": {
+    "txHash": "0xdb35277436a912bc49d1e1677aacb3918d4ff61eec303eba4f8266232acc02e4",
+    "blockNumber": "33976530",
+    "commitment": "0x0a78fa98af67b7935f3cc7ccfca0ca75c312ba64b8d164d409159b6d4f0790db",
+    "rwaDelta": "1000000000000000000",
+    "usdxDelta": "1000000000000000000000"
+  },
+  "fdcNavProof": {
+    "requestTx": "0x9995bb9520ddb52b44dd39e5adc16327530743c237b09c107186915ecf2e012b",
+    "votingRoundId": 1423526,
+    "protocolId": 200,
+    "navTx": "0x415237c6d2efb44334177e5cb2fd0bfc446308a45dcc32854ad316e099b6bb4c",
+    "responseDigest": "0xce9530a8eaf32c738e3d64ae4caeb8a78240a0a86ed34cb50c2491414854dca2"
+  },
+  "liquidityFacility": {
+    "address": "0xd4a4AD10f85a017EfB1ff3b2739cA2313fb248e2",
+    "asset": "0xa8bcb4cb087a7f1abc1ba2083e3f5b518e124ef0",
+    "rwa": "0xdeca491298a0e9f00d87d0390565cc33b3ac336f",
+    "mode": "coston2-direct-mock-only",
+    "verifiedVenue": false,
+    "deployTx": "0x72a0a7feacf3912a0b0a3abe20151641c2c7802e693db070a8f56e8001395428",
+    "setupTransactions": {
+      "setRouter": "0x1a588107beed30503d9920439f08d16b3734be24425bef0a39779703d15378b9",
+      "setEligibilityRegistry": "0xd41ad2d5aa34e3653ca61202622d1a372f6a9dd79bc2f25e2c9d10481eafe274",
+      "setRwaPolicy": "0x7393476833d87925d273abd953931588acb0342d384ca819aeb33077bfe7d126",
+      "approveFacility": "0x3ab1744a3720ffd221ad3dfafea5d77b3154a1b981923d6a103d592c5d8177d5",
+      "approveRwa": "0x5c5a1e5d64c1450606a9522cf5831694f71c04836b8e95c7bff8b855a3ec9d71",
+      "deposit": "0x7a029e71bdb64c3740f471ac13cfee70472f284ff679186e521af03e848e86e8",
+      "registerFacility": "0x7f89ad4116e91519324ba3ad802f2b876304915b3ace41dd425f790eba79bfb8",
+      "allowFacilitySource": "0x13e6b27f5bee84e1da5ec1364d3251999b37c5be4a3bf157709bc29f8c6e7dcd"
+    },
+    "typedFacilitySwap": {
+      "txHash": "0x15a72b60d671f8104d946ed1c5c323fb11a21280013af9eea8d890d7c3fddeec",
+      "blockNumber": "33978909",
+      "commitment": "0xb7ff0b75c3f38fb89de8927b790902a95ca62dedf618ffa1bc4fc9f4798a0be5",
+      "rwaDelta": "1000000000000000000",
+      "usdxGrossDelta": "1000000000000000000",
+      "minimumNetOutput": "995000000000000000"
+    }
+  }
+}

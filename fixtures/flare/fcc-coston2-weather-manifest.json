@@ -1,0 +1,39 @@
+{
+  "status": "dry-run-blocked",
+  "network": "coston2",
+  "chainId": 114,
+  "simulatedTEE": true,
+  "deployment": {
+    "operatorApprovalRequired": true,
+    "deploy": false,
+    "instructionSender": null,
+    "extensionId": null,
+    "extensionVersion": "1.0.0"
+  },
+  "registries": {
+    "teeManager": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+    "extensionRegistry": null,
+    "machineRegistry": null,
+    "source": "fixtures/flare/fcc-coston2-public.json",
+    "sourceNote": "The public scaffold extract does not publish dedicated extension or machine registry names. Resolve them from Flare before deployment."
+  },
+  "extension": {
+    "id": null,
+    "codeVersion": "1.0.0",
+    "simulatedCodeHash": null,
+    "artifact": "services/fcc-matcher/dist/manifest.json"
+  },
+  "machines": [
+    { "name": "tee-a", "identity": null, "encryptionKeyId": null, "url": null, "simulated": true },
+    { "name": "tee-b", "identity": null, "encryptionKeyId": null, "url": null, "simulated": true },
+    { "name": "tee-c", "identity": null, "encryptionKeyId": null, "url": null, "simulated": true }
+  ],
+  "acceptance": {
+    "requiredSelectedMachines": 3,
+    "quorum": 2,
+    "normalFlow": "pending-coston2",
+    "oneMachineOutage": "pending-coston2",
+    "twoMachineOutage": "pending-coston2-fail-closed",
+    "confidentialityClaim": "none-simulated-attestation"
+  }
+}

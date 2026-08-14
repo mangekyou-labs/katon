@@ -1,0 +1,1604 @@
+/* ==========================================================================
+   TrustRFQ — design system ("milky desk", light)
+   The DESK's stylesheet, and the desk is the whole app: otc.html only, loaded
+   alongside intent.css (which must come SECOND — see otc.html).
+   The landing is self-contained in hero.css and does not load this file.
+   Redesigned 2026-07-12 from a light "swap app" reference: white cards on a
+   gray-lavender canvas, ink accent, Inter. Token NAMES and every selector are
+   a compatibility contract with intent.css and the JSX that hardcodes them —
+   never rename or drop them, only change values. --gold is the INK ACCENT now.
+   No build step; this file is the single source of truth for the desk's styling.
+   ========================================================================== */
+
+/* ---------- 1. Tokens ---------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --bg: #EFF1FA;
+  --bg-raised: #FFFFFF;
+  --bg-sunken: #EFF1F7;
+  --bg-toast: #15161B;
+
+  --line-1: rgba(17, 18, 24, 0.16);
+  --line-2: rgba(17, 18, 24, 0.10);
+  --line-3: rgba(17, 18, 24, 0.06);
+
+  /* ink accent family (names frozen — intent.css consumes them) */
+  --gold: #16171D;
+  --gold-hi: #2E3038;
+  --gold-lo: #000000;
+  --gold-ink: #FFFFFF;
+
+  --green: #0E7C4A;
+  --red: #C93838;
+
+  --text-1: #111218;
+  --text-2: rgba(17, 18, 24, 0.78);
+  --text-3: rgba(17, 18, 24, 0.66);
+  --text-4: rgba(17, 18, 24, 0.62);
+
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --r-pill: 999px;
+  --r-lg: 32px;
+  --r-md: 20px;
+  --r-sm: 14px;
+
+  --ring: 0 0 0 3px rgba(22, 23, 29, 0.22);
+  --shadow-card: 0 20px 60px rgba(70, 80, 140, 0.12);
+
+  /* additive tokens (new in the light theme) — the canvas starts white and banks
+     into the landing's pale lavender toward the floor. Do NOT take the top stop
+     to pure #FFF: the desk's cards are white, and they would lose their edge
+     against it up where the ticket sits. */
+  --bg-grad-a: #FCFCFE;
+  --bg-grad-b: #D6DCF4;
+  --bg-grad-mid: #EDF0FA;
+  /* Opaque neutral strokes for the ticket. The --line-1/2/3 family above is
+     alpha ink, which the ticket's frosted hero and 2px underlines make muddy;
+     these are the handoff's flat lavender-grays, darkest last. Additive on
+     purpose — the --line-N names are frozen (intent.css consumes them). */
+  --line-hair: #E6E9F4;
+  --line-seam: #D3D7E8;
+  --line-ink: #B9BFD8;
+  --shadow-pop: 0 32px 80px rgba(40, 46, 80, 0.25);
+  --shadow-float: 0 18px 40px rgba(22, 23, 29, 0.28);
+}
+
+/* ---------- 2. Base ------------------------------------------------------ */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+::selection { background: rgba(22, 23, 29, 0.14); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(17, 18, 24, 0.22);
+  border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-track { background: transparent; }
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* Legacy backdrop texture — the light theme is clean; the selector survives
+   because both pages render .backdrop.starfield */
+.starfield {
+  background-image: none;
+  background-size: auto;
+}
+
+/* ---------- 3. Shared primitives ----------------------------------------- */
+
+/* Brand */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand svg { display: block; }
+
+.net-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border: 1px solid var(--line-1);
+  background: rgba(17, 18, 24, 0.04);
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+
+/* Eyebrow micro-label */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-1);
+  background: rgba(17, 18, 24, 0.04);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.eyebrow__dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 26px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: transform 0.16s ease, box-shadow 0.16s ease,
+              background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn--gold {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold) 55%, var(--gold-lo));
+  color: var(--gold-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 26px rgba(22, 23, 29, 0.22);
+}
+.btn--gold:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 14px 34px rgba(22, 23, 29, 0.3);
+}
+.btn--gold:not(:disabled):active { transform: translateY(0); }
+.btn--ghost {
+  background: var(--bg-raised);
+  border-color: var(--line-2);
+  color: var(--text-1);
+  box-shadow: 0 4px 14px rgba(70, 80, 140, 0.08);
+}
+.btn--ghost:not(:disabled):hover {
+  border-color: var(--line-1);
+  background: var(--bg-raised);
+  box-shadow: 0 8px 22px rgba(70, 80, 140, 0.14);
+}
+.btn--danger {
+  background: rgba(201, 56, 56, 0.07);
+  border-color: rgba(201, 56, 56, 0.26);
+  color: var(--red);
+}
+.btn--danger:not(:disabled):hover { background: rgba(201, 56, 56, 0.13); }
+.btn--sm { padding: 9px 18px; font-size: 13.5px; }
+
+/* Presentational bits inside the primary CTA (reference "slide" look, click-activated) */
+.btn__orb {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--gold);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  flex: none;
+}
+.btn__chevs {
+  letter-spacing: 3px;
+  font-weight: 700;
+  opacity: 0.55;
+  flex: none;
+}
+
+/* Inputs */
+input[type="text"], input[type="number"], select {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  border: 1px solid transparent;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 15px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+input::placeholder { color: var(--text-4); }
+/* every form on the desk locks its inputs while a wallet prompt is open */
+input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
+input:focus, select:focus {
+  outline: none;
+  border-color: rgba(22, 23, 29, 0.35);
+  box-shadow: 0 0 0 3px rgba(22, 23, 29, 0.10);
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2316171D' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+}
+select option { background: var(--bg-raised); color: var(--text-1); }
+.input--num {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.input--addr { font-family: var(--font-mono); font-size: 13.5px; }
+
+.hint { font-size: 13px; color: var(--text-4); line-height: 1.5; }
+.field .hint { margin-top: 8px; }
+
+/* ==========================================================================
+   4. APP PAGE (otc.html)
+   ========================================================================== */
+
+/* Fixed backdrop: white at the top, banking into the landing's pale lavender at
+   the floor. The mid stop holds the white for the first third so the gradient
+   reads as a slow fall rather than a two-colour ramp. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    var(--bg-grad-a) 0%,
+    var(--bg-grad-mid) 44%,
+    var(--bg-grad-b) 100%);
+}
+.backdrop.starfield { opacity: 1; }
+.backdrop::after { content: none; }
+
+/* Top bar (shared shell on both pages) — floats on the canvas, fades out */
+/* The bar is full-bleed, but its RIGHT edge is pulled in to the ticket's column
+   (840px, centred) so the section capsule — last in the row — ends exactly on
+   the ticket's right edge. Only the right side moves: insetting the left one
+   too would squeeze brand + balances + wallet into 840px and wrap them. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0 24px;
+  padding-left: clamp(20px, 4vw, 40px);
+  padding-right: max(clamp(20px, 4vw, 40px), calc((100% - 840px) / 2));
+  border-bottom: none;
+  background: linear-gradient(180deg, var(--bg-grad-a) 55%, rgba(252, 252, 254, 0));
+}
+.topbar__right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Wallet chip */
+.wallet-chip { display: inline-flex; align-items: center; gap: 10px; }
+.wallet-chip__addr {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px;
+  border-radius: var(--r-pill);
+  background: var(--bg-raised);
+  border: 1px solid transparent;
+  box-shadow: 0 8px 24px rgba(70, 80, 140, 0.10);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--text-2);
+}
+.wallet-chip__dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* Layout. One column for the whole desk: the ticket carries its own 640px
+   max-width and self-centres, so this width only sets how much room the
+   Incoming/Sent lists get — and the thread and broadcast cards want it. */
+/* the bottom pad used to clear a bottom-center nav pill; the nav is in the bar now */
+.wrap { max-width: 960px; margin: 0 auto; padding: 40px clamp(20px, 4vw, 40px) 80px; }
+
+/* Wallet gate */
+.gate {
+  position: relative;
+  max-width: 560px;
+  margin: clamp(48px, 10vh, 96px) auto 0;
+  padding: clamp(36px, 6vw, 56px) clamp(24px, 5vw, 48px);
+  text-align: center;
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  border: none;
+  box-shadow: var(--shadow-card);
+}
+.gate::before { content: none; }
+.gate__mark { display: flex; justify-content: center; margin-bottom: 22px; color: var(--text-1); }
+.gate h1 {
+  margin: 16px 0 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(28px, 4vw, 36px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+.gate p {
+  margin: 0 auto 30px;
+  max-width: 400px;
+  color: var(--text-3);
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+.gate__trust {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.gate__trust span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  border: 1px solid var(--line-2);
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+}
+
+.panel { display: none; }
+.panel.is-active { display: block; }
+
+/* The ticket (the one compose form) — base = a single white card; the desk's
+   split-card look is the .ticket--swap modifier. Do not change the HEIGHT of
+   .field--card-top/-bottom: their facing edges carry the mask notch. */
+.ticket {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: clamp(24px, 4vw, 36px);
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  border: none;
+  box-shadow: var(--shadow-card);
+}
+.ticket::before { content: none; }
+.ticket__head { margin-bottom: 26px; }
+.ticket__title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.ticket__sub { margin: 0; font-size: 13.5px; color: var(--text-4); }
+
+.field { margin-bottom: 20px; }
+.field__label {
+  display: block;
+  margin-bottom: 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.leg { display: grid; grid-template-columns: 1fr 148px; gap: 10px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* NOTE: the old `.ticket__swap span { …34px white circle… }` rule is GONE on
+   purpose. The swap control is now a real <button> with a <span class="swap-seam">
+   beside it, and that rule — being element+class (0,1,1) — outranked .swap-seam
+   (0,1,0) and silently repainted the seam as a floating white disc, erasing the
+   line. Do not reintroduce a bare-element selector under .ticket__swap. */
+
+.maker-addr {
+  padding: 12px 15px;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  color: var(--text-2);
+  word-break: break-all;
+}
+
+.form-actions { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
+.form-actions .btn { width: 100%; }
+.form-actions .hint { text-align: center; }
+
+/* --- Desk swap look (.ticket--swap) — the AirSwap-style OTC ticket
+   (redesigned 2026-07-13 from the "New RFQ Ticket v2" handoff).
+
+   One square-cornered card: a frosted HERO carrying the two legs and the swap
+   orb, a white DETAILS strip (counterparty → expiry → CTA), and a SIGNLINE.
+
+   Two structural rules that are load-bearing, not taste:
+   1. .ticket__legs is `1fr auto 1fr` with the legs justified INWARD. The side
+      tracks stay equal, so replacing XLM with the wider USDC cannot drift the
+      orb off the horizontal centre. A flex row does drift.
+   2. .ticket__card-shadow carries a BOX-shadow, never `filter: drop-shadow`.
+      A filtered ancestor becomes the backdrop root, and the hero's
+      backdrop-filter would then sample nothing and render flat. (The old
+      notched design needed drop-shadow because a mask clipped the card's own
+      box-shadow; the mask is gone, so the constraint inverts.)                */
+.ticket--swap {
+  position: relative;
+  isolation: isolate;
+  max-width: 840px;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+/* soft light thrown from behind the card onto the desk */
+.ticket--swap::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  left: 50%;
+  top: -26px;
+  transform: translateX(-50%);
+  width: min(114%, 1180px);
+  height: 440px;
+  background: radial-gradient(50% 60% at 50% 42%,
+    rgba(70, 80, 140, 0.22), rgba(70, 80, 140, 0.08) 52%, transparent 74%);
+  filter: blur(52px);
+}
+.ticket--swap .ticket__card-shadow { box-shadow: var(--shadow-card); }
+.ticket--swap .ticket__card {
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+
+/* ---- hero ---------------------------------------------------------------- */
+.ticket--swap .ticket__hero {
+  position: relative;
+  isolation: isolate;
+  padding: 58px 40px 66px;
+  background: linear-gradient(158deg,
+    rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.52) 60%, rgba(255, 255, 255, 0.62));
+  -webkit-backdrop-filter: blur(30px) saturate(1.3);
+          backdrop-filter: blur(30px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 0;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+}
+/* diagonal specular sheen across the pane */
+.ticket--swap .ticket__hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(122deg, rgba(255, 255, 255, 0.5) 0%, transparent 26%,
+    transparent 74%, rgba(255, 255, 255, 0.28) 100%);
+}
+/* perforation seam at the hero → details join */
+.hero-flow {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  z-index: 1;
+  background: repeating-linear-gradient(90deg, var(--line-hair) 0 6px, transparent 6px 12px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+          mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+
+.ticket__legs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: clamp(20px, 3vw, 44px);
+}
+.ticket--swap .field--card { margin-bottom: 0; background: transparent; }
+.leg-col { text-align: center; min-width: 0; }
+/* the legs hug the centre seam and grow outward — see rule 1 above */
+.ticket--swap .field--card-top { justify-self: end; }
+.ticket--swap .field--card-bottom { justify-self: start; }
+
+.ticket--swap .field__label {
+  display: block;
+  margin-bottom: 18px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  line-height: 20px;
+  color: var(--text-2);
+}
+.ticket--swap .leg {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  grid-template-columns: none;
+  /* NEVER wrap. Each leg is capped at half the hero (the equal `1fr` tracks that
+     keep the orb centred), so with wrapping allowed a long amount pushes the
+     token code onto a second line and the two legs stop being mirror images.
+     Instead the token keeps its width and the AMOUNT shrinks: the size steps
+     below keep realistic numbers fully legible, and anything past them scrolls
+     inside its own box. Wrapping is unbounded; this is bounded. */
+  flex-wrap: nowrap;
+}
+.ticket--swap .leg .input--num {
+  border: 0;
+  background: none;
+  padding: 0;
+  border-radius: 10px;
+  /* the shrinkable half of the leg: the inline `width` (in ch) is the PREFERRED
+     size, and flex-shrink lets it give way rather than push the token to a new
+     line — see the nowrap note on .leg */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--font-body);
+  font-size: 46px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  color: var(--text-1);
+}
+.ticket--swap .leg .input--num::placeholder { color: var(--text-4); }
+/* The amount steps DOWN as it gets longer. Each leg is capped at half the hero
+   (the `1fr` tracks that keep the orb centred), so at 46px a realistic OTC
+   amount like 1476.25 plus a 4-letter token code overruns its track and the
+   flex row wraps the token under the number. Scaling the glyphs — what every
+   swap UI does — keeps the leg on one line; `flex-wrap` survives only as the
+   escape hatch for the absurd end of the range (amountTooLarge caps at 1e13). */
+.ticket--swap .leg .input--num.is-long { font-size: 34px; }
+.ticket--swap .leg .input--num.is-xlong { font-size: 26px; }
+.ticket--swap .leg .input--num.is-xxlong { font-size: 20px; }
+
+/* token picker — a custom listbox over a hidden native select */
+.tok { position: relative; display: inline-flex; flex: none; }
+.tok__native {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.tok__trigger {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--text-1);
+  transition: background 0.18s ease;
+}
+.tok__trigger:not(:disabled):hover { background: rgba(22, 23, 29, 0.06); }
+.tok__trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+.tok__chev {
+  flex: none;
+  margin-top: 9px;
+  color: var(--text-3);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.18s ease;
+}
+.tok.is-open .tok__chev { transform: rotate(180deg); color: var(--text-1); }
+
+.tok__menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 14px);
+  left: 50%;
+  min-width: 220px;
+  padding: 8px;
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  box-shadow: 0 26px 64px rgba(8, 9, 12, 0.34), 0 3px 12px rgba(8, 9, 12, 0.16);
+  transform-origin: top center;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.26s cubic-bezier(0.34, 1.28, 0.5, 1);
+}
+.tok.is-open .tok__menu {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+}
+.tok__menu::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  margin-left: -6px;
+  width: 12px; height: 12px;
+  background: var(--bg-raised);
+  transform: rotate(45deg);
+  border-radius: 3px;
+}
+.tok__opt {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 11px 13px;
+  border-radius: 13px;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  transition: background 0.15s ease;
+}
+.tok__opt:hover, .tok__opt.is-active { background: var(--bg-sunken); }
+.tok__opt-code { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
+.tok__opt-name { font-size: 13px; color: var(--text-3); }
+.tok__check {
+  margin-left: auto;
+  font-size: 16px;
+  color: var(--text-1);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tok__opt.is-active .tok__check { opacity: 1; }
+
+/* per-leg rate read-back — an echo of the two typed numbers, NEVER a quote */
+.readback {
+  margin: 20px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.readback__chip {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: rgba(22, 23, 29, 0.06);
+  color: var(--text-1);
+  font-weight: 500;
+}
+.readback.is-idle .readback__chip { color: var(--text-3); }
+
+/* Reflector reference-price suggestion — a tap-to-fill pill that borrows the
+   readback line while a leg is empty. Kept visually distinct from the .readback
+   echo (green "Fair" tag, interactive) so the "readback is never a quote"
+   contract still reads clearly: this pill IS the oracle reference, and only it. */
+.readback--fair { margin-top: 16px; }
+.readback__fair {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  border: 1px solid rgba(14, 124, 74, 0.22);
+  border-radius: 8px;
+  background: rgba(14, 124, 74, 0.07);
+  font: inherit;
+  cursor: pointer;
+  color: var(--text-1);
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+}
+.readback__fair:not(:disabled):hover {
+  background: rgba(14, 124, 74, 0.12);
+  border-color: rgba(14, 124, 74, 0.35);
+}
+.readback__fair:not(:disabled):active { transform: translateY(1px); }
+.readback__fair:disabled { cursor: default; opacity: 0.6; }
+.readback__fair-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.readback__fair-val { font-weight: 500; }
+
+/* swap well: a vertical seam between the legs, notched by the orb's white halo */
+.ticket--swap .ticket__swap {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  margin: 0;
+}
+.swap-seam {
+  position: absolute;
+  left: 50%;
+  top: -8px; bottom: -8px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--line-seam);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.ticket__swap-btn {
+  position: relative;
+  z-index: 1;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+  background: var(--bg-sunken);
+  box-shadow:
+    0 0 0 5px var(--bg-raised),
+    0 5px 14px rgba(70, 80, 140, 0.13),
+    inset 0 1px 1px rgba(255, 255, 255, 0.92),
+    inset 0 -2px 3px rgba(70, 80, 140, 0.10);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease;
+}
+.ticket__swap-btn:not(:disabled):hover {
+  transform: rotate(180deg);
+  box-shadow:
+    0 0 0 5px var(--bg-raised),
+    0 8px 20px rgba(70, 80, 140, 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.92),
+    inset 0 -2px 3px rgba(70, 80, 140, 0.10);
+}
+.ticket__swap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ticket__swap-btn svg { display: block; }
+
+/* ---- details strip (white) ----------------------------------------------- */
+.ticket--swap .field--details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'addr addr'
+    'exp  cta';
+  gap: 24px 32px;
+  align-items: center;
+  margin: 0;
+  padding: 30px 40px 26px;
+  border-top: 0;
+  background: var(--bg-raised);
+}
+.ticket--swap .field--details .addr { grid-area: addr; }
+.ticket--swap .field--details .exp { grid-area: exp; }
+.ticket--swap .field--details .form-actions { grid-area: cta; }
+.ticket--swap .field--details .field { margin-bottom: 0; }
+.ticket--swap .field--details .field__label {
+  margin-bottom: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+/* counterparty */
+.addr { min-width: 0; }
+.addrline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 11px;
+  border-bottom: 2px solid var(--line-seam);
+  transition: border-color 0.16s ease;
+}
+.addr:focus-within .addrline { border-bottom-color: var(--text-1); }
+.addr.is-ok .addrline { border-bottom-color: var(--green); }
+.addr.is-err .addrline { border-bottom-color: var(--red); }
+.addr__seal { flex: none; width: 28px; height: 28px; }
+.addr__seal svg { display: block; }
+.seal-ring { fill: none; stroke: var(--line-ink); stroke-width: 1.4; }
+.seal-ring--live { stroke: var(--text-1); }
+.seal-ring--idle { stroke-dasharray: 3 4; }
+.seal-ring--err { stroke: var(--red); stroke-dasharray: 3 4; }
+.seal-path { fill: none; stroke: var(--text-1); stroke-width: 1.3; stroke-linejoin: round; }
+.seal-dot { fill: var(--text-1); }
+.seal-g { font-family: var(--font-mono); font-size: 16px; font-weight: 500; fill: var(--text-4); }
+.seal-x { stroke: var(--red); stroke-width: 1.8; stroke-linecap: round; }
+
+/* two layers: printed chips underneath, transparent textarea (the caret) above.
+   One line — it grows sideways and scrolls; it never wraps downward. */
+.addr__field {
+  position: relative;
+  flex: 0 1 15.5rem;
+  min-width: 0;
+  height: 24px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.02em;
+}
+.addr__print {
+  height: 24px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.addr__print .g--head { color: var(--text-1); font-weight: 600; }
+/* the tail you actually compare against what your counterparty sent you.
+   Zero net advance (padding cancelled by margin) so the caret stays aligned. */
+.addr__print .g--tail {
+  background: var(--gold);
+  color: var(--gold-ink);
+  border-radius: 4px;
+  padding: 2px;
+  margin: -2px;
+}
+.addr__ta {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  resize: none;
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--text-1);
+}
+.addr__ta::-webkit-scrollbar { display: none; }
+.addr__ta::placeholder { color: var(--text-3); -webkit-text-fill-color: var(--text-3); }
+.addr__ta:focus { outline: none; box-shadow: none; }
+.addr__ta:disabled { cursor: not-allowed; }
+.addr-optional {
+  flex: none;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--text-4);
+  white-space: nowrap;
+}
+.addr > .hint { display: block; margin-top: 9px; min-height: 20px; }
+.hint.is-err { color: var(--red); }
+.hint.is-ok b { color: var(--text-1); font-weight: 600; }
+
+/* expiry */
+.exp { white-space: nowrap; }
+.ticket--swap .exp .row2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: none;
+}
+.exp__clock { flex: none; display: block; color: var(--text-3); }
+.ticket--swap .input--exp {
+  width: 72px;
+  flex: none;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-align: left;
+  color: var(--text-1);
+  transition: border-color 0.16s ease;
+}
+.ticket--swap .input--exp:hover { border-color: var(--line-seam); }
+.ticket--swap .exp-unit {
+  width: auto;
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 20px 9px 2px;
+  background-color: transparent;
+  background-position: right 2px center;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+/* CTA */
+.ticket--swap .field--details .form-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  margin: 0;
+}
+.ticket--swap .form-actions .btn {
+  width: auto;
+  gap: 10px;
+  padding: 14px 28px;
+  font-size: 16px;
+}
+.ticket--swap .btn__chevs {
+  display: inline-flex;
+  letter-spacing: normal;
+  opacity: 1;
+}
+.ticket--swap .btn__chevs svg { display: block; }
+.ticket--swap .btn__orb {
+  display: none;
+  width: 22px; height: 22px;
+  background: var(--gold-ink);
+  place-items: center;
+}
+/* busy = a wallet prompt is open: the chevrons give way to a spinner */
+.ticket--swap.is-busy .btn--gold { cursor: progress; }
+.ticket--swap.is-busy .btn__chevs { display: none; }
+.ticket--swap.is-busy .btn__orb { display: grid; }
+.btn__orb .spin {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(22, 23, 29, 0.18);
+  border-top-color: var(--gold);
+  animation: orbspin 0.9s linear infinite;
+}
+@keyframes orbspin { to { transform: rotate(360deg); } }
+
+/* ---- signature line ------------------------------------------------------- */
+.signline {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 15px 40px 17px;
+  border-top: 1px solid var(--line-hair);
+  background: var(--bg-raised);
+}
+.signline .field__label {
+  margin: 0;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.signline__seal { flex: none; width: 20px; height: 20px; display: inline-flex; }
+.ticket--swap .maker-addr {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  min-width: 0;
+}
+
+/* copy that floats on the CANVAS (not a white card), near the gradient's
+   darkest stop — needs a darker ink tier to clear AA on rendered pixels */
+.hint--canvas,
+.ticket--swap .broadcast-subs {
+  display: block;
+  margin: 16px auto 0;
+  max-width: 62ch;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+/* Order cards */
+.order {
+  padding: 22px 24px 24px;
+  border-radius: var(--r-lg);
+  margin-bottom: 14px;
+  background: var(--bg-raised);
+  border: none;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.18s ease;
+}
+.order:hover { box-shadow: 0 24px 70px rgba(70, 80, 140, 0.16); }
+.order__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.order__party { font-size: 13.5px; color: var(--text-3); }
+.order__party b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--text-1);
+}
+
+.legs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.legs__swap {
+  align-self: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text-1);
+  border: none;
+  background: var(--bg-raised);
+  box-shadow: 0 4px 12px rgba(70, 80, 140, 0.16);
+  font-size: 13px;
+}
+.legbox {
+  padding: 16px 18px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  border: 1px solid transparent;
+}
+.legbox__k {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-3);
+}
+.legbox__v {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  word-break: break-word;
+}
+.legbox__t {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--text-2);
+  padding: 3px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  background: var(--bg-raised);
+}
+.legbox--in { border-color: rgba(14, 124, 74, 0.16); }
+.legbox--in .legbox__v { color: var(--green); }
+.legbox--out .legbox__v { color: var(--text-1); }
+
+/* unrecognized (potentially spoofed) asset — issuer not on the token allow-list */
+.tok-warn { color: var(--red); }
+.tok-iss {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--text-4);
+  word-break: break-all;
+}
+
+.order__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-4);
+}
+.sig {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+  border: 1px solid var(--line-2);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+}
+.sig.is-done {
+  color: var(--green);
+  border-color: rgba(14, 124, 74, 0.3);
+  background: rgba(14, 124, 74, 0.06);
+}
+
+.order__actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+/* Status badges (dot is pure CSS) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  flex: none;
+}
+.badge::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.badge--pending { color: var(--text-1); background: rgba(17, 18, 24, 0.06); border-color: rgba(17, 18, 24, 0.16); }
+.badge--accepted { color: var(--green); background: rgba(14, 124, 74, 0.08); border-color: rgba(14, 124, 74, 0.26); }
+.badge--declined, .badge--cancelled { color: var(--red); background: rgba(201, 56, 56, 0.07); border-color: rgba(201, 56, 56, 0.24); }
+.badge--expired { color: var(--text-4); background: rgba(17, 18, 24, 0.04); border-color: var(--line-3); }
+.badge--expired::before { box-shadow: none; }
+
+/* Empty states */
+.empty {
+  padding: 64px 24px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 14.5px;
+  border: 1px dashed var(--line-1);
+  border-radius: var(--r-lg);
+  background-image: none;
+}
+
+/* Settlement */
+.settle {
+  margin-top: 16px;
+  padding: 16px 18px 18px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  border: 1px solid transparent;
+}
+.settle__title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 14px;
+}
+.settle__msg { font-size: 13px; color: var(--text-3); }
+.settle__msg b { color: var(--text-2); }
+.settle__msg a { color: var(--text-1); text-decoration: none; border-bottom: 1px solid rgba(17, 18, 24, 0.3); }
+.settle__msg a:hover { border-bottom-color: var(--text-1); }
+.settle__err {
+  font-size: 12.5px;
+  color: var(--red);
+  margin-top: 10px;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  line-height: 1.55;
+}
+.settle .order__actions { margin-top: 12px; }
+
+/* Settlement stepper */
+.stepper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.stepper__step { display: flex; align-items: center; gap: 8px; flex: none; }
+.stepper__dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-4);
+  border: 1px solid var(--line-1);
+  background: var(--bg-raised);
+  flex: none;
+}
+.stepper__label { font-size: 12.5px; color: var(--text-4); white-space: nowrap; }
+.stepper__bar {
+  flex: 1 1 24px;
+  min-width: 14px;
+  height: 1px;
+  margin: 0 10px;
+  background: var(--line-1);
+}
+.stepper__step.is-done .stepper__dot {
+  color: var(--gold-ink);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  border-color: transparent;
+}
+.stepper__step.is-done .stepper__label { color: var(--text-2); }
+.stepper__step.is-final.is-done .stepper__dot {
+  color: #FFFFFF;
+  background: linear-gradient(180deg, #17A05E, var(--green));
+}
+.stepper__bar.is-done { background: linear-gradient(90deg, var(--gold), rgba(22, 23, 29, 0.25)); }
+.stepper__step.is-current .stepper__dot {
+  border-color: rgba(22, 23, 29, 0.5);
+  animation: stepPulse 2.2s ease-in-out infinite;
+}
+@keyframes stepPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 23, 29, 0.22); }
+  50% { box-shadow: 0 0 0 6px rgba(22, 23, 29, 0); }
+}
+
+/* ---------- 5. Section capsule + menu (desk only) -------------------------- */
+
+/* The one nav control: a glass capsule in the topbar's right group, and a menu
+   that unfolds beneath it. The capsule is the anchor — everything below is
+   positioned off it, so the menu tracks it at every width.
+   NOTE: the capsule and the panel each carry their own backdrop-filter, and
+   NEITHER may sit under a transformed/filtered ancestor — that ancestor would
+   become the backdrop root and the frost would sample nothing (see CLAUDE.md).
+   Hover/press transforms therefore live ON the blurred element itself. */
+/* Lifted OUT of the topbar's flow: the capsule floats at the TOP CENTRE of the
+   viewport, while the wallet chip (address + Disconnect) keeps the bar's
+   top-right corner to itself. z-index sits above the topbar (40) so the bar's
+   gradient can't paint over it.
+   Centred with `inset-inline: 0 + margin: auto + width: max-content`, NOT
+   translateX — a transformed element becomes the backdrop root for its own
+   descendants and .section-fab's frost would sample nothing (see CLAUDE.md).
+   The same shrink-to-fit width keeps .sheet__panel (width: 100%) exactly as
+   wide as the capsule at every breakpoint. */
+.section-nav {
+  position: fixed;
+  top: 13px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content;
+  z-index: 50;
+  display: flex;
+  flex: none;
+}
+
+/* Fixed width, for two reasons: the menu below is exactly as wide as the
+   capsule, and a capsule that resized per label ('Sent' vs 'New offer') would
+   shove the whole bar sideways on every section switch. */
+.section-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  width: 196px;
+  height: 42px;
+  padding: 4px 14px 4px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    0 1px 2px rgba(22, 23, 29, 0.04),
+    0 10px 26px rgba(70, 80, 140, 0.16);
+  transition:
+    background 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.section-fab:hover {
+  background: rgba(255, 255, 255, 0.72);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 2px rgba(22, 23, 29, 0.04),
+    0 14px 32px rgba(70, 80, 140, 0.22);
+}
+.section-fab:active { transform: scale(0.975); }
+.section-nav.is-open .section-fab {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 1px 2px rgba(22, 23, 29, 0.04),
+    0 14px 32px rgba(70, 80, 140, 0.22);
+}
+.section-fab__glyph {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: 14px;
+  flex: none;
+}
+.section-fab__label { flex: none; }
+.section-fab__count {
+  min-width: 20px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* caret, drawn from a rotated corner — turns over when the menu opens */
+.section-fab__chevron {
+  width: 7px; height: 7px;
+  flex: none;
+  margin: -3px 2px 0 auto;
+  border-right: 1.5px solid var(--text-3);
+  border-bottom: 1.5px solid var(--text-3);
+  transform: rotate(45deg);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.section-nav.is-open .section-fab__chevron {
+  transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+/* Click-catcher. Deliberately unpainted: an Apple menu dims nothing — the
+   capsule's own lift is the "you are in a menu" signal. */
+.sheet__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+/* The menu: the capsule's own width, hanging directly beneath it, growing
+   downward — the capsule appears to extend rather than to spawn a popover. The
+   reveal is a clip, not a scale, so the rows never squash. */
+.sheet__panel {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 100%;
+  padding: 6px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.7);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  backdrop-filter: blur(30px) saturate(190%);
+  box-shadow:
+    0 1px 2px rgba(22, 23, 29, 0.05),
+    0 24px 60px rgba(40, 46, 80, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: menuIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes menuIn {
+  from { opacity: 0; clip-path: inset(0 0 100% 0 round 22px); transform: translateY(-4px); }
+  to { opacity: 1; clip-path: inset(0 0 0 0 round 22px); transform: none; }
+}
+.sheet__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  /* rows arrive a beat after the panel, one after another (--row set in JSX) */
+  animation: rowIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(60ms + var(--row, 0) * 45ms);
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.sheet__option:hover { background: rgba(17, 18, 24, 0.06); }
+.sheet__option:active { transform: scale(0.985); }
+.sheet__option.is-active { background: rgba(17, 18, 24, 0.07); }
+.sheet__option-glyph {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(17, 18, 24, 0.07);
+  color: var(--text-2);
+  font-size: 14px;
+  flex: none;
+}
+.sheet__option.is-active .sheet__option-glyph {
+  background: var(--gold);
+  box-shadow: none;
+  color: var(--gold-ink);
+}
+.sheet__option-count {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: rgba(17, 18, 24, 0.07);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-fab,
+  .section-fab__chevron,
+  .sheet__panel,
+  .sheet__option { animation: none; transition: none; }
+  .section-fab:hover,
+  .section-fab:active,
+  .sheet__option:active { transform: none; }
+}
+
+/* Toast (base styles MUST live on the ID — className is overwritten at runtime).
+   Inverts on the light theme: an ink pill. Sits above the section fab. */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 16px);
+  max-width: min(480px, 92vw);
+  padding: 13px 22px;
+  border-radius: var(--r-md);
+  background: var(--bg-toast);
+  border: none;
+  box-shadow: 0 20px 50px rgba(20, 24, 40, 0.35);
+  font-size: 14px;
+  color: #F4F5F8;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  z-index: 60;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.err {
+  box-shadow: 0 20px 50px rgba(20, 24, 40, 0.35), inset 0 0 0 1px rgba(240, 162, 162, 0.55);
+}
+#toast.ok {
+  box-shadow: 0 20px 50px rgba(20, 24, 40, 0.35), inset 0 0 0 1px rgba(127, 220, 168, 0.55);
+}
+
+/* ---------- 6. Responsive ------------------------------------------------- */
+/* the details strip stacks before the hero does */
+@media (max-width: 900px) {
+  .ticket--swap .field--details {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'addr' 'exp' 'cta';
+    gap: 22px;
+    padding: 26px 28px 22px;
+  }
+  .ticket--swap .field--details .form-actions { align-items: stretch; }
+  .ticket--swap .form-actions .btn { width: 100%; }
+  .signline { padding: 14px 28px 16px; flex-wrap: wrap; gap: 8px 11px; }
+  .exp { white-space: normal; }
+}
+
+@media (max-width: 680px) {
+  .wrap { padding: 28px 18px 64px; }
+  .legs { grid-template-columns: 1fr; gap: 8px; }
+  .legs__swap { justify-self: center; transform: rotate(90deg); }
+  .leg { grid-template-columns: 1fr; }
+  .topbar .net-pill { display: none; }
+  .order { padding: 18px 16px 18px; }
+  /* one row can't hold brand + capsule + wallet, so the right group takes its
+     own line and the capsule drops to its glyph + count */
+  /* .wrap's mobile gutter is 18px, not the clamp's 20px — match it or the bar
+     and the ticket stop lining up */
+  .topbar { flex-wrap: wrap; row-gap: 12px; padding-inline: 18px; padding-bottom: 18px; }
+  .topbar__right { width: 100%; justify-content: flex-end; }
+  /* the capsule stays top-centred; only its own width shrinks */
+  .section-fab { width: auto; padding: 4px 8px 4px 5px; gap: 7px; }
+  .section-fab__label { display: none; }
+  .wallet-chip__addr { white-space: nowrap; }
+  /* the capsule shrinks to its glyph, so the menu can't borrow its width — it
+     takes its own, still hanging from the capsule's right edge */
+  .sheet__panel { width: max-content; min-width: 200px; }
+  #toast { bottom: 24px; }
+
+  /* the legs stack, so the seam lies down with them */
+  .ticket--swap .ticket__hero { padding: 44px 24px 48px; }
+  .ticket__legs { grid-template-columns: 1fr; row-gap: 22px; }
+  .ticket--swap .field--card-top,
+  .ticket--swap .field--card-bottom { justify-self: center; }
+  .ticket--swap .ticket__swap { justify-self: stretch; align-self: auto; }
+  .swap-seam {
+    left: 12px; right: 12px;
+    top: 50%; bottom: auto;
+    width: auto; height: 2px;
+    transform: translateY(-50%);
+  }
+  .ticket--swap .field__label { margin-bottom: 10px; font-size: 15px; }
+  .tok__trigger { font-size: 32px; }
+  .tok__chev { margin-top: 6px; }
+  .ticket--swap .leg .input--num { font-size: 34px; } /* hero amounts only — not .input--exp */
+  .ticket--swap .leg .input--num.is-long { font-size: 28px; }
+  .ticket--swap .leg .input--num.is-xlong { font-size: 22px; }
+  .ticket--swap .leg .input--num.is-xxlong { font-size: 18px; }
+}
+
+@media (max-width: 480px) {
+  .stepper { flex-direction: column; align-items: flex-start; gap: 9px; }
+  .stepper__bar { display: none; }
+  .row2 { grid-template-columns: 1fr; }
+  .ticket--swap .field--details { padding: 22px 20px 20px; }
+  .signline { padding: 13px 20px 15px; }
+  .ticket--swap .leg .input--num { font-size: 28px; }
+  .ticket--swap .leg .input--num.is-long { font-size: 24px; }
+  .ticket--swap .leg .input--num.is-xlong { font-size: 20px; }
+  .ticket--swap .leg .input--num.is-xxlong { font-size: 17px; }
+  .tok__trigger { font-size: 28px; }
+  .readback { margin-top: 12px; font-size: 12px; }
+}
+
+/* ---------- 7. Motion ----------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

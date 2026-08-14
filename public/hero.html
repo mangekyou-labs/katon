@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrustRFQ — Peer-to-peer OTC on Stellar</title>
+  <meta name="description" content="TrustRFQ is a private over-the-counter desk for Stellar. Agree terms peer-to-peer, sign the exact amounts with both wallets, and settle atomically on-chain — no order book, no slippage, no custody.">
+  <meta name="theme-color" content="#FFFFFF">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- No webfont link. The landing is set in San Francisco via the system stack
+       (see --lp-display in hero.css) — SF Pro has no webfont licence, so there is
+       nothing to fetch. The desk still loads Google Fonts, so the CSP entry stays. -->
+  <link rel="stylesheet" href="hero.css">
+  <!-- Not deferred: hero.js sets .lp-js on <html>, which arms the reveal's hidden
+       state. Deferred, the browser can paint before that lands and you see the
+       page flash in, then hide itself. -->
+  <script src="hero.js"></script>
+</head>
+<body>
+
+<!-- ============================ NAV ============================
+     The nav lives OUTSIDE the panel on purpose. It has to survive the whole
+     scroll, and a sticky child is confined to its own containing block — inside
+     .lp-surface it would be released the moment the panel scrolled past. So the
+     bar is fixed, and .lp-nav__gap holds its seat in the panel's flow.
+
+     At rest it wears no chrome at all: flush to the top edge, no gap, no fill,
+     no border — it reads as the first row of the page. Past the first few pixels
+     hero.js sets .is-stuck and it lifts off: a small gap opens above it, the
+     capsule narrows, and the glass (white wash + blur + hairline + soft drop)
+     fades in. -->
+<div class="lp-topbar">
+  <header class="lp-nav">
+    <a class="lp-brand" href="hero.html">
+      <span class="lp-brand__mark">
+        <svg width="20" height="20" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M20 21 C26 13.5, 38 13.5, 44 21" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <path d="M44 43 C38 50.5, 26 50.5, 20 43" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="15" cy="32" r="8" fill="#fff"/>
+          <circle cx="49" cy="32" r="8" stroke="#fff" stroke-width="5"/>
+        </svg>
+      </span>
+      <span class="lp-brand__name">TrustRFQ</span>
+    </a>
+
+    <nav class="lp-nav__links">
+      <a class="lp-nav__link" href="#why">Why OTC</a>
+      <a class="lp-nav__link" href="#how">How it works</a>
+      <a class="lp-nav__link" href="#security">Security</a>
+    </nav>
+
+    <div class="lp-nav__actions">
+      <a class="lp-btn lp-btn--solid lp-btn--sm" href="otc.html">Open the desk</a>
+    </div>
+  </header>
+</div>
+
+<div class="lp-canvas">
+  <div class="lp-surface">
+    <div class="lp-arc lp-arc--a" aria-hidden="true"></div>
+    <div class="lp-arc lp-arc--b" aria-hidden="true"></div>
+    <div class="lp-arc lp-arc--c" aria-hidden="true"></div>
+    <div class="lp-arc lp-arc--d" aria-hidden="true"></div>
+    <div class="lp-arc lp-arc--e" aria-hidden="true"></div>
+
+    <!-- The panel is full-bleed, but its CONTENT is not: this wrap holds the nav and
+         the hero on the same --lp-col line as every section below. Without it, the
+         headline would run to the window's edge and the page would lose its column. -->
+    <div class="lp-surface__wrap">
+
+    <!-- the seat the fixed nav vacated: same height, so the hero starts exactly
+         where it always did -->
+    <div class="lp-nav__gap" aria-hidden="true"></div>
+
+    <!-- ============================ HERO =========================== -->
+    <section class="lp-hero">
+      <div class="lp-hero__copy">
+        <div class="lp-pill lp-glass lp-reveal">
+          <span class="lp-pill__marks" aria-hidden="true">
+            <span class="lp-pill__mark">XLM</span>
+            <span class="lp-pill__mark">USDC</span>
+          </span>
+          <span><strong>XLM / USDC</strong> · live on Stellar Testnet</span>
+        </div>
+
+        <h1 class="lp-h1 lp-reveal" style="--lp-delay:80ms">
+          <b>Move institutional</b>
+          <span>size. Keep the price</span>
+          <span>you agreed on.</span>
+        </h1>
+
+        <div class="lp-hero__ctas lp-reveal" style="--lp-delay:160ms">
+          <a class="lp-btn lp-btn--solid" href="otc.html">Open the desk</a>
+          <a class="lp-btn lp-btn--white" href="#how">See how it works</a>
+        </div>
+      </div>
+
+      <!-- The signature element: the deal itself, as three signed tickets. -->
+      <div class="lp-deal" aria-hidden="true">
+
+        <article class="lp-ticket lp-ticket--send" style="--lp-delay:120ms">
+          <div class="lp-ticket__top">
+            <div>
+              <div class="lp-ticket__label">Send leg · maker</div>
+              <div class="lp-ticket__val">GAM3…X4F2</div>
+            </div>
+            <div class="lp-ticket__asset">XLM</div>
+          </div>
+          <div class="lp-ticket__band">
+            <div>
+              <div class="lp-ticket__label">Amount</div>
+              <div class="lp-ticket__amount">250,000.0000000</div>
+            </div>
+            <div>
+              <div class="lp-ticket__label">Signature</div>
+              <div class="lp-ticket__mask">••••••••••</div>
+            </div>
+          </div>
+        </article>
+
+        <span class="lp-chip lp-chip--signed lp-glass" style="--lp-delay:320ms">Both wallets signed</span>
+
+        <article class="lp-ticket lp-ticket--recv" style="--lp-delay:200ms">
+          <div class="lp-ticket__top">
+            <div>
+              <div class="lp-ticket__label">Receive leg · taker</div>
+              <div class="lp-ticket__val">GBT7…K9Q1</div>
+            </div>
+            <div class="lp-ticket__asset">USDC</div>
+          </div>
+          <div class="lp-ticket__band">
+            <div>
+              <div class="lp-ticket__label">Amount</div>
+              <div class="lp-ticket__amount">62,500.0000000</div>
+            </div>
+            <div>
+              <div class="lp-ticket__label">Signature</div>
+              <div class="lp-ticket__mask">••••••••••</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="lp-ticket lp-ticket--fill" style="--lp-delay:280ms">
+          <div class="lp-ticket__top">
+            <div>
+              <div class="lp-ticket__label">Settlement · expiry</div>
+              <div class="lp-ticket__val">2026-07-08T18:00Z</div>
+            </div>
+            <div class="lp-ticket__asset">fill()</div>
+          </div>
+          <div class="lp-ticket__band">
+            <div>
+              <div class="lp-ticket__label">Both legs</div>
+              <div class="lp-ticket__amount">ONE TX</div>
+            </div>
+            <div>
+              <div class="lp-ticket__label">Nonce</div>
+              <div class="lp-ticket__mask">••••••••••</div>
+            </div>
+          </div>
+        </article>
+
+        <span class="lp-chip lp-chip--atomic lp-glass" style="--lp-delay:400ms">Atomic settlement</span>
+
+        <span class="lp-orb lp-orb--b lp-glass">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12 H20 M14 6 L20 12 L14 18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
+    </section>
+
+    </div><!-- /.lp-surface__wrap -->
+  </div>
+
+  <main>
+    <!-- ===== WHY OTC — a curve, so it is drawn as one ===== -->
+    <section class="lp-section" id="why">
+      <div class="lp-section__wrap">
+        <!-- The film's first two beats. The headline waits out the eyebrow rather than
+             racing it; the ladder below waits out both (--lp-lead-in in hero.css). -->
+        <div class="lp-eyebrow lp-pane lp-reveal lp-type" style="--lp-delay:200ms">The problem</div>
+        <!-- 44ms/char, not the length-derived default: this sentence is typed at reading
+             pace on purpose. --lp-lead-in in hero.css is set to clear it. -->
+        <h2 class="lp-h2 lp-reveal lp-type" data-lp-speed="44" style="--lp-delay:900ms">On-chain liquidity can't move institutional size</h2>
+
+        <!-- No .lp-reveal on the card: it is ALREADY there when you arrive. What
+             animates is what it says — each row deals itself out (size → bar → pct
+             → loss), and only after the heading above has landed. The card is the
+             table; the numbers are the hand being played. -->
+        <figure class="lp-ladder lp-pane">
+          <figcaption class="lp-ladder__head">
+            <span class="lp-ladder__title">What it costs to move the block</span>
+            <span class="lp-ladder__axis">0%<i></i>30%</span>
+          </figcaption>
+
+          <div class="lp-rung">
+            <div class="lp-rung__size lp-type">$250K</div>
+            <div class="lp-rung__track"><div class="lp-rung__bar" style="--w:33%"></div></div>
+            <div class="lp-rung__pct lp-type">~10%</div>
+            <div class="lp-rung__loss lp-type">~$25K lost</div>
+          </div>
+          <div class="lp-rung">
+            <div class="lp-rung__size lp-type">$1M</div>
+            <div class="lp-rung__track"><div class="lp-rung__bar" style="--w:100%"></div></div>
+            <div class="lp-rung__pct lp-type">~30%</div>
+            <div class="lp-rung__loss lp-type">~$300K lost</div>
+          </div>
+          <div class="lp-rung">
+            <div class="lp-rung__size lp-type">$2M</div>
+            <div class="lp-rung__track"><div class="lp-rung__bar" style="--w:83%"></div></div>
+            <div class="lp-rung__pct lp-type">25%+</div>
+            <div class="lp-rung__loss lp-type">$500K+ lost</div>
+          </div>
+        </figure>
+
+        <p class="lp-note lp-reveal" style="--lp-delay:240ms">Those are pool prices, and the pools are
+          <strong>structurally shallow</strong>. At block size an order moves the very price it is
+          quoted against, so the slippage is not a fee you pay once. It is a price change you cause.
+          Past a certain size, clearing a block on a DEX is not expensive. It is
+          <strong>arithmetically impossible</strong>.</p>
+      </div>
+    </section>
+
+    <!-- ===== THE SOLUTION — three parallel claims, so: one slab, three columns ===== -->
+    <section class="lp-section">
+      <div class="lp-section__wrap">
+        <div class="lp-eyebrow lp-pane lp-reveal">The solution</div>
+        <h2 class="lp-h2 lp-reveal" style="--lp-delay:60ms">OTC Desk</h2>
+
+        <div class="lp-slab lp-pane lp-reveal" style="--lp-delay:120ms">
+          <article class="lp-slab__col">
+            <span class="lp-slab__num">01</span>
+            <h3 class="lp-slab__title">Zero slippage</h3>
+            <p class="lp-slab__body">Stellar DEX pools are too shallow to absorb institutional size without
+              punishing the price. On the desk, the number you sign is the number that settles.</p>
+          </article>
+          <article class="lp-slab__col">
+            <span class="lp-slab__num">02</span>
+            <h3 class="lp-slab__title">No intent leak</h3>
+            <p class="lp-slab__body">Order books broadcast intent to the whole network. Directed orders on
+              TrustRFQ are visible only to the counterparty you addressed. Front-running has nowhere to run.</p>
+          </article>
+          <article class="lp-slab__col">
+            <span class="lp-slab__num">03</span>
+            <h3 class="lp-slab__title">Atomic settlement</h3>
+            <p class="lp-slab__body">No CEX, no off-chain escrow, no capital leaving Stellar. Both legs of the
+              trade move in a single Soroban transaction, or neither does.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== HOW IT WORKS — a real sequence, so: a ruled rail. The only place numbering earns its keep. ===== -->
+    <section class="lp-section" id="how">
+      <div class="lp-section__wrap">
+        <div class="lp-eyebrow lp-reveal">How it works</div>
+        <h2 class="lp-h2 lp-rail__lede lp-reveal" style="--lp-delay:60ms">
+          <b>From agreement to atomic swap,</b>
+          <span>in three steps.</span>
+        </h2>
+
+        <ol class="lp-rail">
+          <li class="lp-rail__step lp-reveal">
+            <div class="lp-rail__head">
+              <span class="lp-rail__num">01</span>
+              <span class="lp-rail__line"></span>
+            </div>
+            <h3 class="lp-rail__title">Agree &amp; sign</h3>
+            <p class="lp-rail__body">You agree terms with your counterparty and create a directed order —
+              amounts, tokens, expiry, their address. Your wallet signs the exact payload.</p>
+          </li>
+          <li class="lp-rail__step lp-reveal" style="--lp-delay:90ms">
+            <div class="lp-rail__head">
+              <span class="lp-rail__num">02</span>
+              <span class="lp-rail__line"></span>
+            </div>
+            <h3 class="lp-rail__title">Counter-sign</h3>
+            <p class="lp-rail__body">The order appears live on their desk. They accept, and each wallet signs
+              a Soroban authorization binding every argument of the fill — amounts included.</p>
+          </li>
+          <li class="lp-rail__step lp-reveal" style="--lp-delay:180ms">
+            <div class="lp-rail__head">
+              <span class="lp-rail__num">03</span>
+              <span class="lp-rail__line"></span>
+            </div>
+            <h3 class="lp-rail__title">Atomic fill</h3>
+            <p class="lp-rail__body">Anyone can submit the fill carrying both signatures. Both legs move in
+              one transaction — or nothing moves at all.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== SECURITY: the guarantees, as a 2×2 spec grid beside a two-tone claim ===== -->
+    <section class="lp-section" id="security">
+      <div class="lp-section__wrap lp-shield">
+        <div class="lp-shield__lede">
+          <div class="lp-eyebrow lp-pane lp-reveal">Security</div>
+          <h2 class="lp-h2 lp-shield__title lp-reveal" style="--lp-delay:60ms">
+            <b>Built for size.</b>
+            <span>Verified by the chain.</span>
+          </h2>
+        </div>
+
+        <div class="lp-shield__grid lp-pane lp-reveal" style="--lp-delay:140ms">
+          <article class="lp-shield__cell">
+            <h3 class="lp-shield__name">Non-custodial</h3>
+            <p class="lp-shield__desc">Funds never leave the signer's wallet until the atomic fill lands.</p>
+          </article>
+          <article class="lp-shield__cell">
+            <h3 class="lp-shield__name">Soroban-enforced</h3>
+            <p class="lp-shield__desc">The contract validates every argument against both signatures.</p>
+          </article>
+          <article class="lp-shield__cell">
+            <h3 class="lp-shield__name">Signature-bound</h3>
+            <p class="lp-shield__desc">Amounts, addresses and expiry are cryptographically locked to the order.</p>
+          </article>
+          <article class="lp-shield__cell">
+            <h3 class="lp-shield__name">Testnet MVP</h3>
+            <p class="lp-shield__desc">Running today on Stellar Testnet. Mainnet after a full external audit.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================== CTA =========================== -->
+    <section class="lp-section">
+      <div class="lp-section__wrap">
+        <div class="lp-cta lp-pane lp-reveal">
+          <div>
+            <h3 class="lp-cta__title">The desk is open.</h3>
+            <p class="lp-cta__sub">Connect a Testnet wallet and settle your first atomic block trade in minutes.</p>
+          </div>
+          <a class="lp-btn lp-btn--solid" href="otc.html">Open the desk</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="lp-footer">
+    <div class="lp-footer__inner">
+      <div>
+        <a class="lp-brand" href="hero.html">
+          <span class="lp-brand__mark">
+            <svg width="20" height="20" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <path d="M20 21 C26 13.5, 38 13.5, 44 21" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+              <path d="M44 43 C38 50.5, 26 50.5, 20 43" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+              <circle cx="15" cy="32" r="8" fill="#fff"/>
+              <circle cx="49" cy="32" r="8" stroke="#fff" stroke-width="5"/>
+            </svg>
+          </span>
+          <span class="lp-brand__name">TrustRFQ</span>
+        </a>
+        <p class="lp-footer__tag">Peer-to-peer OTC on Stellar.</p>
+      </div>
+      <nav class="lp-footer__links">
+        <a href="otc.html">Open the desk</a>
+        <a href="#why">Why OTC</a>
+        <a href="#how">How it works</a>
+        <a href="#security">Security</a>
+      </nav>
+    </div>
+    <div class="lp-footer__fine">Built on Stellar · Soroban settlement · Testnet MVP — no real funds involved.</div>
+  </footer>
+</div>
+
+</body>
+</html>

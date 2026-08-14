@@ -1,0 +1,111 @@
+services:
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    ports: ["27017:27017"]
+    volumes: ["flare-mongo:/data/db"]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  flare-api:
+    build:
+      context: ..
+      dockerfile: apps/flare-api/Dockerfile
+    restart: unless-stopped
+    environment:
+      FLARE_API_PORT: "8787"
+      FLARE_API_CHAIN_ID: "31337"
+      FLARE_NETWORK: "local"
+      FLARE_RPC_URL: "http://anvil:8545"
+      FLARE_MONGO_URL: "mongodb://mongodb:27017"
+      FLARE_MONGO_DATABASE: "trustrfq"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      anvil:
+        condition: service_healthy
+    ports: ["${FLARE_API_HOST_PORT:-8787}:8787"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/v1/readyz').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  flare-indexer:
+    build:
+      context: ..
+      dockerfile: apps/flare-api/Dockerfile
+    command: ["node", "--import", "tsx", "services/indexer/src/worker.ts"]
+    restart: unless-stopped
+    environment:
+      FLARE_INDEXER_PORT: "8790"
+      FLARE_INDEXER_CHAIN_ID: "31337"
+      FLARE_INDEXER_RPC_URL: "http://anvil:8545"
+      FLARE_INDEXER_REDIS_URL: "redis://broker:6379"
+      FLARE_INDEXER_MONGO_URL: "mongodb://mongodb:27017"
+      FLARE_INDEXER_MONGO_DATABASE: "trustrfq"
+      FLARE_INDEXER_CONTRACTS: ""
+    depends_on:
+      broker:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      anvil:
+        condition: service_healthy
+    ports: ["${FLARE_INDEXER_HOST_PORT:-8790}:8790"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8790/readyz').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  flare-keepers:
+    build:
+      context: ..
+      dockerfile: apps/flare-api/Dockerfile
+    command: ["node", "--import", "tsx", "services/keepers/src/server.ts"]
+    restart: unless-stopped
+    environment:
+      FLARE_KEEPER_PORT: "8791"
+      FLARE_KEEPER_REDIS_URL: "redis://broker:6379"
+      FLARE_KEEPER_POLL_MS: "5000"
+      FLARE_KEEPER_REQUIRE_JOB_SOURCES: "false"
+    depends_on:
+      broker:
+        condition: service_healthy
+    ports: ["${FLARE_KEEPER_HOST_PORT:-8791}:8791"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8791/readyz').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  broker:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports: ["${FLARE_BROKER_HOST_PORT:-6379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  fcc-matcher:
+    build:
+      context: ..
+      dockerfile: services/fcc-matcher/Dockerfile
+    restart: unless-stopped
+    environment:
+      FCC_MATCHER_PORT: "8090"
+    ports: ["${FLARE_MATCHER_HOST_PORT:-8090}:8090"]
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--chain-id", "31337"]
+    ports: ["${FLARE_ANVIL_HOST_PORT:-8545}:8545"]
+    healthcheck:
+      test: ["CMD-SHELL", "cast chain-id --rpc-url http://127.0.0.1:8545 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  flare-mongo:

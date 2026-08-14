@@ -1,0 +1,88 @@
+{
+  "venue": "Kinetic",
+  "chainId": 14,
+  "forkBlock": 65078017,
+  "authoritativeReference": "https://docs.kinetic.market/contracts-and-api-documentation",
+  "deployments": {
+    "unitroller": "0x8041680Fb73E1Fe5F851e76233DCDfA0f2D2D7c8",
+    "debtMarket": "0x76809aBd690B77488Ffb5277e0a8300a7e77B779",
+    "debtToken": "0xe7cd86e13AC4309349F30B3435a9d337750fC82D",
+    "collateralMarket": "0x291487beC339c2fE5D83DD45F0a15EFC9Ac45656",
+    "collateralToken": "0x12e605bc104e93B45e1aD99F9e555f659051c2BB",
+    "liquidatorWhiteList": "0x5fa1B6Cdc8E46BfFEed066E1ECd92F90C663e8CC"
+  },
+  "cases": [
+    {
+      "name": "deposit",
+      "testName": "testForkKineticDepositAndApprovalCleanup"
+    },
+    {
+      "name": "accrual-read",
+      "testName": "testForkKineticAccrualValuationRead"
+    },
+    {
+      "name": "withdrawal",
+      "testName": "testForkKineticWithdrawalToRecipient"
+    },
+    {
+      "name": "pause",
+      "testName": "testForkKineticPauseRejection"
+    },
+    {
+      "name": "zero-liquidity",
+      "testName": "testForkKineticZeroLiquidityCapsWithdrawalAndPreservesPosition"
+    },
+    {
+      "name": "revert",
+      "testName": "testForkKineticOverBalanceWithdrawalRejection"
+    },
+    {
+      "name": "rounding-loss",
+      "testName": "testForkKineticOneBaseUnitRoundTrip"
+    },
+    {
+      "name": "binding-rejection",
+      "testName": "testForkKineticWrongAssetRejection"
+    },
+    {
+      "name": "liquidator-allowlist-rejection",
+      "testName": "testForkKineticLiquidatorAllowlistRejection"
+    },
+    {
+      "name": "liquidation-success",
+      "testName": "testForkKineticLiquidationRouteSuccess"
+    },
+    {
+      "name": "healthy-rejection",
+      "testName": "testForkKineticHealthyPositionRejection"
+    },
+    {
+      "name": "close-factor-rejection",
+      "testName": "testForkKineticCloseFactorRejection"
+    },
+    {
+      "name": "shortfall-rejection",
+      "testName": "testForkKineticRouterMinimumOutputRollback"
+    },
+    {
+      "name": "approval-residue",
+      "testName": "testForkKineticLiquidationApprovalCleanup"
+    },
+    {
+      "name": "recipient-mismatch",
+      "testName": "testForkKineticLiquidationRecipientRejection"
+    },
+    {
+      "name": "atomic-rollback",
+      "testName": "testForkKineticRedemptionFailureAtomicRollback"
+    },
+    {
+      "name": "official-bindings",
+      "testName": "testForkKineticOfficialBindings"
+    },
+    {
+      "name": "caller-rejection",
+      "testName": "testForkKineticCallerRejection"
+    }
+  ]
+}

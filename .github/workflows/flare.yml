@@ -1,0 +1,65 @@
+name: flare-workspace
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check:flare:secrets
+      - run: npm run --silent sbom:flare > flare-sbom.cdx.json
+      - run: npm run check:flare:upgrade-layout
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flare-sbom
+          path: flare-sbom.cdx.json
+      - run: npm run typecheck:flare
+      - run: npm run typecheck:flare-api
+      - run: npm run test:flare
+      - run: npm run build:flare-web
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:flare
+      - run: npm run build
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - run: go test ./services/fcc-matcher/...
+      - run: go test -race ./services/fcc-matcher/...
+      - run: go vet ./services/fcc-matcher/...
+
+  solidity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge test --root contracts/flare
+
+  stellar-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: cargo +1.97.1 test --manifest-path contracts/otc_swap/Cargo.toml
