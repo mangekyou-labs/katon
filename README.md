@@ -37,7 +37,7 @@ Issuer redeem     →  FDC proof  →  settleRedemption  →  queued withdraw
 | Standing bids | `/standing-bids` | Resting LP capacity the matcher can use as a swap or liquidation-funding leg |
 | Dashboard | `/dashboard` | Balances, open orders, won liquidation routes, pending withdrawals |
 | Facility | `/facility` | Share vault: deposit, verified NAV, synchronous withdraw when idle, otherwise a queued request |
-| Liquidation | `/liquidations` | Typed Morpho/Kinetic route: venue, market, position, max repay, min net collateral. Keeper proposes; LP or facility funds. Adapters stay **off** until official Coston2 addresses exist |
+| Liquidation | `/liquidations` | Typed Morpho/Kinetic route: venue, market, position, max repay, min net collateral. Keeper proposes; LP or facility funds. Adapters stay **off** until official Coston2 addresses exist **and** a pinned Flare-mainnet fork manifest passes |
 | Curator | `/curator` | Adapter allowlist, haircut range, guardian pause. No upgrade of deposited funds, no arbitrary calls |
 
 Liquidation is its own router entry (`executeLiquidationRoute`) and FCC operations (`LIQUIDATION CREATE` / `FINALIZE`). The winner supplies the venue’s **debt** asset and receives **collateral** in the same transaction. Selling that collateral later is a separate inventory RFQ.
@@ -124,9 +124,24 @@ A “Read model: Failed to fetch” banner on the hosted demo is expected: Verce
 | `npm run build:flare-web` | Production bundle → `dist/flare-web` |
 | `npm run test:flare` | Vitest suites for core, SDK, API, UI |
 | `npm run typecheck:flare` | `tsc -p tsconfig.flare.json --noEmit` |
-| `forge test --root contracts/flare` | Solidity tests (Foundry, Cancun) |
+| `forge test --root contracts/flare` | Solidity tests (Foundry, Cancun). Skips the 29 opt-in `VenueMainnetFork` cases without RPC |
+| `npm run test:flare:venues:fork` | Pinned Flare **mainnet** (chain 14) fork suite for Kinetic / Clearpool. Needs `FLARE_MAINNET_RPC_URL` and exact `FLARE_MAINNET_FORK_BLOCK=65078017` |
 | `npm run smoke:flare:coston2` | Read-only Coston2 smoke |
 | `npm run settle:flare:fcc:coston2` | Operator live FCC settle (needs funded keys) |
+
+### Venue fork tests
+
+Coston2 has no official Morpho, Kinetic, or Clearpool markets. The desk still has to prove those adapters against **real** Flare mainnet contracts before any curator can turn them on. That proof is a pinned-block fork, not a Coston2 smoke and not the local mock suite.
+
+| Venue | Pinned block | Cases | Status |
+|---|---|---|---|
+| Kinetic (USDT0 / sFLR) | 65,078,017 | 18 — yield bindings plus seven real-position liquidation / rollback cases | Harness + plan shipped. **No passing manifest yet.** |
+| Clearpool USDX T-Pool | 65,078,017 | 10 — yield only (not a liquidation venue) | Same. |
+| Morpho | — | Official core / Vault V2 factory binding probe only | No live Flare vault selected. No operation fork plan. |
+
+The runner (`tools/run-flare-venue-fork-tests.mjs`) requires HTTPS RPC, the exact plan block, and `1 passed; 0 failed; 0 skipped` per case. It refuses `vm.store` / `vm.etch` evidence. A skip is not a pass. SC-9 and SC-16 stay open until a manifest exists.
+
+Plans: [`fixtures/flare/venue-fork-kinetic-mainnet.json`](fixtures/flare/venue-fork-kinetic-mainnet.json), [`fixtures/flare/venue-fork-clearpool-mainnet.json`](fixtures/flare/venue-fork-clearpool-mainnet.json).
 
 ### How Flare is used
 
@@ -177,7 +192,8 @@ Recent confidential swap (script path, 2026-08-14):
 | Confidential Space / hardware attestation | **No.** Render TEEs run with `SIMULATED_TEE=true`. |
 | Browser MetaMask `executeSwapRoute` | **No.** Live settle is `npm run settle:flare:fcc:coston2`. The UI displays that proof. |
 | Hosted full auction matcher | **No.** Vercel serves the SPA only. `apps/flare-api` is a long-lived Node process. |
-| Official Morpho / Kinetic / FAsset venues | **No.** Adapters stay off until official Coston2 addresses exist. |
+| Official Morpho / Kinetic / FAsset venues | **No.** Adapters stay off until official Coston2 addresses exist **and** a pinned Flare-mainnet fork manifest (SC-9 / SC-16) passes. |
+| Flare mainnet venue fork (block 65,078,017) | **Harness only.** 18 Kinetic + 10 Clearpool cases are pinned. Last recorded `forge test --offline` skipped all 29 fork cases. No conformance manifest. |
 | Paid FDC credentials | **No.** Public testnet verifier only. |
 | Songbird / Flare Mainnet | **No.** |
 | Users, pilots, revenue | **None.** Internal QA and Coston2 script evidence only. |
@@ -202,7 +218,7 @@ fixtures/flare/          Golden vectors (do not edit)
 
 1. Hardware Confidential Space TEEs and real attestation
 2. MetaMask-signed `executeSwapRoute` from the dApp
-3. Official Coston2 / Songbird venue adapters once addresses exist
+3. Passing Flare-mainnet fork manifests for Kinetic (and Morpho once a vault is selected), then official Coston2 / Songbird venue adapters once addresses exist
 4. Paid FDC NAV for issuer-attested funds
 5. Invite-only issuer pilot, then Songbird, then Flare Mainnet
 

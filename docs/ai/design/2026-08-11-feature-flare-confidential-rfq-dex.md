@@ -14,7 +14,7 @@ The Flare product is an issuer desk, not a single RFQ matcher. Confidential nego
 
 ### Product surfaces
 
-Every surface below is specified in this document and implemented as a desk route or typed contract entry. Official Morpho / Kinetic / FAsset venue adapters stay disabled until official Coston2 addresses exist; the types, FCC operations, and router entry points are not optional appendices.
+Every surface below is specified in this document and implemented as a desk route or typed contract entry. Official Morpho / Kinetic / FAsset venue adapters stay disabled until official Coston2 addresses exist **and** a pinned Flare-mainnet fork run has produced a conformance manifest (SC-9 / SC-16). The types, FCC operations, router entry points, and the fork harness are not optional appendices.
 
 | Surface | Actor | On-chain entry | Confidential / public split |
 |---|---|---|---|
@@ -229,7 +229,7 @@ sequenceDiagram
   Router-->>LP: Net collateral after one protocol fee
 ```
 
-Official Coston2 Morpho / Kinetic addresses are not published. Adapters and the `/liquidations` desk remain typed and fail closed until those addresses are pinned. Interface-faithful fork tests exist; live venue execution does not.
+Official Coston2 Morpho / Kinetic addresses are not published. Adapters and the `/liquidations` desk remain typed and fail closed until those addresses are pinned **and** the Flare-mainnet fork suite below has a passing evidence manifest. Local interface mocks are not a substitute.
 
 ### Facility fill and RWA redemption
 
@@ -393,6 +393,68 @@ Initial implementations:
 - **Kinetic liquidation adapter:** liquidates a configured unhealthy Kinetic borrow position, handles receipt-token seizure/redemption as required by the verified market interface, and returns measured underlying collateral.
 
 Adapters never swap assets to make an incompatible base token fit. A facility with another base asset cannot use the USDX-only adapter without an explicit separately reviewed conversion design. Clearpool T-Pool is not a liquidation adapter.
+
+### Venue fork verification
+
+Coston2 has no official Morpho, Kinetic, or Clearpool deployments. Local mocks prove our types and rollback wiring. They do not prove that a shipped adapter speaks a live venue ABI against real market state. Enabling any of those adapters on any network is therefore gated on a **pinned Flare mainnet fork** (chain ID 14), not on Coston2 smoke.
+
+That gate is already in the requirements and plan:
+
+- **SC-9:** Morpho, Kinetic, and Clearpool yield adapters pass the common conformance suite on a mainnet fork where the contracts exist, and against Coston2 interface mocks otherwise.
+- **SC-16:** On that same pinned fork (or an interface-faithful mock only when the venue is unavailable), an approved Morpho or Kinetic liquidation route repays an eligible unhealthy position, receives collateral, charges exactly one router-level protocol fee, and delivers at least the bound winner's minimum net collateral. Every injected leg failure reverts the whole route.
+
+Fork tests are how the desk can claim venue safety **before** official Coston2 addresses exist. They are not a mainnet deployment and they do not turn Coston2 adapters on.
+
+```mermaid
+flowchart TD
+  Local[Local Foundry mocks] --> Types[Typed adapters + LiquidationRoutePlan]
+  Types --> Fork[Pinned Flare mainnet fork]
+  Fork -->|manifest: every required case 1 passed 0 skipped| Enable[May enable that venue per market]
+  Fork -->|skip fail or store/etch| Closed[Adapters stay off]
+  Coston2[Official Coston2 venue addresses] --> Enable
+  Enable --> Live[Live executeLiquidationRoute / yield allocate]
+```
+
+#### Fail-closed harness
+
+- `contracts/flare/test/VenueMainnetFork.t.sol` skips unless the operator supplies `FLARE_MAINNET_RPC_URL` **and** the exact pinned `FLARE_MAINNET_FORK_BLOCK`. A missing RPC is a skip, not a pass.
+- `npm run test:flare:venues:fork` runs `tools/run-flare-venue-fork-tests.mjs`. Each planned case is invoked in isolation against `VenueMainnetForkTest` and must print exactly `1 passed; 0 failed; 0 skipped`.
+- Plans live in `fixtures/flare/venue-fork-kinetic-mainnet.json` and `fixtures/flare/venue-fork-clearpool-mainnet.json`. The runner rejects `chainId != 14`, a non-positive block, a block other than the plan's pin, or a non-HTTPS RPC.
+- Evidence records only the RPC origin. Credentials and URL paths are not persisted.
+- `vm.store`, `vm.etch`, and bytecode substitution are prohibited. A case that rewrites venue storage or code is not fork evidence.
+- `fixtures/flare/venue-conformance-interface-mock.json` is labeled as **not** deployed-venue or fork evidence. The release gate (`src/flare-release-gates.test.ts`) refuses a manifest with `forkBlock: 0` or any required case that did not actually pass.
+
+#### Pinned plan — Flare mainnet block 65,078,017
+
+Addresses come from each venue's published documentation, not from research guessed at deploy time.
+
+| Venue | Cases | What the fork is for |
+|---|---|---|
+| Kinetic | 18 | Documented Unitroller `0x8041…d7c8`, USDT0 market, sFLR collateral, liquidator allow-list. Eight common yield/binding cases, official binding + caller rejection, a fresh-adapter allow-list rejection, and **seven real-position liquidation / rollback cases**. |
+| Clearpool T-Pool | 10 | Documented USDX pool `0xFE29…c4f8`. Deposit, valuation, withdrawal, pause, zero cash, over-balance, one-base-unit, wrong-asset, official bindings, caller rejection. Yield only — Clearpool is not a liquidation venue. |
+| Morpho | Binding probe only | Official Morpho core `0xF434…E8B0` and Vault V2 factory `0x6FC8…f42`. No authoritative live Flare Vault V2 is selected, so there is **no** Morpho operation or liquidation fork plan yet. |
+
+Kinetic liquidation cases construct an actual borrower position on the forked market, accrue it into shortfall, then exercise:
+
+1. route success (`liquidateBorrow` → measured seized cTokens → `redeem` → measured underlying)
+2. healthy-position rejection
+3. close-factor rejection
+4. router net-minimum rollback
+5. approval cleanup
+6. recipient rejection
+7. redemption-failure atomic rollback
+
+Kinetic's Comptroller delegates `liquidateBorrowAllowed` to `IAllowList(liquidatorsWhitelistVerifier).allowed(liquidator)`. A strict current-state case submits the route with a **fresh unauthorized adapter** and requires complete rollback. Positive cases impersonate the verifier's real `owner()` only to call the real owner-only `allow(adapter)`. That models a **deployment prerequisite**. It is not evidence that this adapter is eligible on live mainnet today.
+
+#### What a passing fork does not claim
+
+A green fork manifest is necessary to turn a venue on. It is not sufficient by itself, and it has **not** been produced in the last recorded environment:
+
+- `forge test --offline --root contracts/flare` passes the local suite and **skips** every `VenueMainnetFork` case (29 skips as of 2026-08-13). That is compiler / mock evidence only.
+- The opt-in runner reached the first Kinetic and Clearpool cases, then installed Forge 1.5.1 panicked in macOS `SCDynamicStore` before an RPC response. No conformance manifest was written. SC-9 and SC-16 stay **open**.
+- No live Morpho vault round trip, no executed real-state Clearpool/Kinetic operation on a recorded fork, no Coston2 venue adapter, and no Flare mainnet deployment.
+
+Until a manifest exists for a venue, `/liquidations` will not build a transaction from unverified addresses, and curator policy cannot enable that venue's adapter.
 
 ### Oracle and proof modules
 
@@ -753,14 +815,14 @@ FXRP mint/redeem can expand LP capital but introduces XRPL payments, rate limits
 | FR-3 Confidential coordination | FCC extension, blind relay, LP re-encryption, storage and quorum design |
 | FR-4 Router and settlement | `RFQRouter`, `RFQSettlement`, one aggregate net-output fee, and typed-source controls |
 | FR-5 Facilities | Aggregator, lower-of-cost-and-NAV inventory accounting, ERC-4626 plus queued withdrawals |
-| FR-6 Venue adapters | Fixed adapter interface and three initial venue-specific implementations |
+| FR-6 Venue adapters | Fixed adapter interface, three initial venue-specific implementations, and the fail-closed Flare-mainnet fork harness (SC-9) |
 | FR-7 FDC and issuer NAV | NAV/redemption proof registries and asynchronous redemption flow |
 | FR-8 FTSO guardrails | `FtsoRiskGuard`, registry resolution, freshness and deviation checks |
 | FR-9 Optional FAssets | Isolated post-MVP extension and release gate |
 | FR-10 Frontend | Information architecture, visual system, interaction and state model |
 | FR-11 Authentication/compliance | SIWE, scoped bot auth, shared `EligibilityRegistry`, permissioned-token defense, safe API/log boundaries |
 | FR-12 Operations/governance | Hybrid upgrades, multisig/timelock/guardian model, keepers, observability, deployment boundaries |
-| FR-13 Atomic lending liquidation | Explicit `LiquidationRoutePlan`, LP/facility funding sources, immutable Morpho/Kinetic adapters, balance-delta fee/net-output enforcement |
+| FR-13 Atomic lending liquidation | Explicit `LiquidationRoutePlan`, LP/facility funding sources, immutable Morpho/Kinetic adapters, balance-delta fee/net-output enforcement, and pinned-fork SC-16 cases (success plus every rollback) |
 
 ## Non-Functional Requirements
 
@@ -803,5 +865,5 @@ FXRP mint/redeem can expand LP capital but introduces XRPL payments, rate limits
 - Local mode may use mock system contracts and simulated FCC solely for developer feedback.
 - Coston2 uses chain ID 114, network-specific Flare interfaces, mock RWA assets, interface-faithful liquidation venues where live contracts are unavailable, and real FCC/FDC/FTSO where available.
 - Mainnet uses chain ID 14, verified production assets and Morpho/Kinetic/Clearpool interfaces, `evmVersion = "cancun"`, real attestation only, 2-of-3 TEE quorum, conservative swap/liquidation caps, an initialized eligibility policy, and published proxy, implementation, immutable facility, and adapter addresses.
-- Clearpool T-Pool is deployed only as a USDX yield adapter. Morpho and Kinetic liquidation support is enabled per verified market only after pinned-fork conformance and failure testing.
+- Clearpool T-Pool is deployed only as a USDX yield adapter. Morpho and Kinetic liquidation support is enabled per verified market only after a passing pinned-fork conformance manifest (see **Venue fork verification**) plus official network addresses. A skipped or mocked suite does not satisfy that gate.
 - All state-changing deploy or governance actions require an explicit reviewed transaction executed from the correct multisig or deployer environment.
