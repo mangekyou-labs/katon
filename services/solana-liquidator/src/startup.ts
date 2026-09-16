@@ -4,14 +4,18 @@ import type { DeploymentManifestGate, ManifestCheck } from './manifest';
 import { LiquidationCircuitBreaker, LiquidationSolver, type SolverConfig } from './solver';
 
 const STARTUP_GATE_TOKEN = Symbol('liquidation startup gate');
+const STARTUP_GATE_BRAND: unique symbol = Symbol('validated liquidation startup gate');
 
 /** Opaque, immutable result of process startup validation. */
 export interface LiquidationStartupGate {
+  readonly [STARTUP_GATE_BRAND]: true;
   check(): ManifestCheck;
   matchesMarket(market: DiscoveredMarket | undefined): boolean;
 }
 
 class ValidatedLiquidationStartupGate implements LiquidationStartupGate {
+  readonly [STARTUP_GATE_BRAND] = true as const;
+
   static create(
     result: ManifestCheck,
     markets: readonly DiscoveredMarket[],

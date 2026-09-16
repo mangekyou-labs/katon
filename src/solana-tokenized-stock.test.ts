@@ -293,6 +293,9 @@ describe('Solana exit desk core', () => {
     const started = await startLiquidationSolver(manifestGate, [], [asset], 1_000, { nowMs: () => 1_000 });
     expect(started.startupGate.check()).toMatchObject({ ok: false, reason: 'manifest_unsigned' });
     expect(started.solver).toBeUndefined();
+
+    // @ts-expect-error A solver must receive the opaque result of startup validation.
+    new LiquidationSolver(new LiquidationCircuitBreaker(), { nowMs: () => 1_000 }, { check: () => ({ ok: true, message: 'forged' }), matchesMarket: () => true });
   });
 });
 
