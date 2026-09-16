@@ -59,12 +59,11 @@ export function checkMintAgainstRegistry(entry: AssetRegistryEntry, snapshot: Mi
   if (snapshot.extensionFingerprint !== entry.extensionFingerprint) return { ok: false, code: 'fingerprint_mismatch', message: 'extension fingerprint changed' };
   if ((snapshot.expectedHookProgram ?? '') !== (entry.expectedHookProgram ?? '')) return { ok: false, code: 'hook_mismatch', message: 'transfer-hook program changed' };
   if (snapshot.paused) return { ok: false, code: 'paused', message: 'issuer has paused transfers' };
-  // Metadata pointers are part of the signed fingerprint for Token-2022
-  // issuer assets that use them. Classic SPL mints do not have extensions,
-  // so requiring the pointer unconditionally would incorrectly reject a
-  // registry-approved classic asset.
-  const metadataPointerRequired = entry.extensionFingerprint.split('|').includes('metadata-pointer');
-  if (metadataPointerRequired && (typeof entry.expectedMetadataPointer !== 'string' || entry.expectedMetadataPointer.trim().length === 0 || !snapshot.extensions.includes('metadata-pointer') || snapshot.metadataPointer !== entry.expectedMetadataPointer)) {
+  // The registry records an exact issuer metadata source for every asset.
+  // Token-2022 assets expose it through the metadata-pointer extension; classic
+  // SPL assets are checked against their issuer metadata account/reference by
+  // the provider and still cannot proceed without the signed pointer.
+  if (typeof entry.expectedMetadataPointer !== 'string' || entry.expectedMetadataPointer.trim().length === 0 || snapshot.metadataPointer !== entry.expectedMetadataPointer || (entry.extensionFingerprint.split('|').includes('metadata-pointer') && !snapshot.extensions.includes('metadata-pointer'))) {
     return { ok: false, code: 'fingerprint_mismatch', message: 'issuer metadata pointer changed or is missing' };
   }
   if (entry.issuer === 'ondo') {

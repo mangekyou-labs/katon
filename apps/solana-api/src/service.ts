@@ -67,7 +67,7 @@ export class MemoryAssetProvider implements AssetProvider {
         extensions,
         expectedHookProgram: asset.expectedHookProgram,
         paused: false,
-        metadataPointer: extensions.includes('metadata-pointer') ? asset.expectedMetadataPointer : undefined,
+        metadataPointer: asset.expectedMetadataPointer,
         issuerAuthorityFingerprint: asset.issuerAuthorityFingerprint,
         issuerProgram: asset.issuerProgram,
         jitCapabilityFingerprint: asset.jitCapabilityFingerprint,
@@ -214,18 +214,19 @@ export class QuoteDeskService {
   async review(id: string, wallet: string, nowMs = this.clock()): Promise<QuoteSession> {
     const stored = this.sessions.get(id);
     if (!stored) throw new Error('quote session not found');
-    this.expireIfNeeded(stored, nowMs);
+    const reviewNowMs = stored.liveClock ? this.clock() : nowMs;
+    this.expireIfNeeded(stored, reviewNowMs);
     const winner = stored.session.winner;
     if (!winner || stored.session.state !== 'ready') throw new Error('quote is not ready for review');
     if (stored.session.request.wallet !== wallet || winner.wallet !== wallet) throw new Error('wallet does not match quoted seller');
-    const remaining = winner.expiresAtMs - nowMs;
+    const remaining = winner.expiresAtMs - reviewNowMs;
     if (remaining <= 2_000) {
-      this.expireIfNeeded(stored, nowMs);
+      this.expireIfNeeded(stored, reviewNowMs);
       throw new Error('quote expired; request a fresh quote');
     }
     const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
     if (!asset) throw new Error('asset is not present in the signed registry');
-    const eligibility = this.preflight(asset, wallet, stored.session.request.outputMint, stored.session.request.inputAmountAtomic, nowMs);
+    const eligibility = this.preflight(asset, wallet, stored.session.request.outputMint, stored.session.request.inputAmountAtomic, reviewNowMs);
     if (eligibility.status !== 'eligible') {
       stored.session = { ...stored.session, eligibility, state: eligibility.status, failureMessage: eligibility.message };
       this.clearTransaction(stored);
@@ -234,16 +235,21 @@ export class QuoteDeskService {
     }
     try {
       const simulation = normalizeSimulationResult(
-        await withTimeout(this.simulator.simulate(winner, nowMs), 3_000, 'final quote simulation timed out'),
-        nowMs,
+        await withTimeout(this.simulator.simulate(winner, reviewNowMs), 3_000, 'final quote simulation timed out'),
+        reviewNowMs,
       );
+      const finalReviewNowMs = stored.liveClock ? this.clock() : nowMs;
+      if (winner.expiresAtMs - finalReviewNowMs <= 2_000) {
+        this.expireIfNeeded(stored, finalReviewNowMs);
+        throw new Error('quote expired; request a fresh quote');
+      }
       stored.session = { ...stored.session, winner: { ...winner, simulation }, state: simulation.ok ? 'reviewing' : 'failed', failureMessage: simulation.ok ? undefined : simulation.errorCode ?? 'final simulation failed' };
       if (!simulation.ok) this.clearTransaction(stored);
       this.emit(stored);
       if (!simulation.ok) throw new Error(stored.session.failureMessage);
       return publicSession(stored);
     } catch (error) {
-      if (stored.session.state !== 'failed') {
+      if (stored.session.state !== 'failed' && stored.session.state !== 'expired') {
         stored.session = { ...stored.session, state: 'failed', failureMessage: error instanceof Error ? error.message : 'final simulation failed' };
         this.clearTransaction(stored);
         this.emit(stored);
@@ -255,7 +261,8 @@ export class QuoteDeskService {
   async execute(id: string, wallet: string, signedTransactionBase64: string, nowMs = this.clock()): Promise<TradeReceipt> {
     const stored = this.sessions.get(id);
     if (!stored) throw new Error('quote session not found');
-    this.expireIfNeeded(stored, nowMs);
+    const executeNowMs = stored.liveClock ? this.clock() : nowMs;
+    this.expireIfNeeded(stored, executeNowMs);
     const winner = stored.session.winner;
     if (!winner || stored.session.state !== 'reviewing') throw new Error('quote requires final review before execution');
     if (winner.wallet !== wallet || stored.session.request.wallet !== wallet) throw new Error('wallet does not match quoted seller');
@@ -265,8 +272,13 @@ export class QuoteDeskService {
       issuedQuoteId: winner.quoteId,
       issuedTransactionHash: winner.transactionHash,
       expiresAtMs: winner.expiresAtMs,
-    }, nowMs);
+    }, stored.liveClock ? this.clock() : nowMs);
     if (!validation.ok) throw new Error(validation.message);
+    const sendNowMs = stored.liveClock ? this.clock() : nowMs;
+    if (winner.expiresAtMs - sendNowMs <= 2_000) {
+      this.expireIfNeeded(stored, sendNowMs);
+      throw new Error('quote expired; request a fresh quote');
+    }
     stored.session = { ...stored.session, state: 'signing' };
     this.emit(stored);
     stored.session = { ...stored.session, state: 'submitting' };
@@ -276,7 +288,7 @@ export class QuoteDeskService {
       const senderResult = winner.sourceKind === 'jupiter'
         ? await this.jupiterExecutor.execute(winner, signedTransactionBase64)
         : await this.privateSender.send(winner, signedTransactionBase64);
-      const confirmedAtMs = nowMs + 250;
+      const confirmedAtMs = sendNowMs + 250;
       stored.session = { ...stored.session, state: 'confirmed' };
       this.emit(stored);
       const receipt: TradeReceipt = {

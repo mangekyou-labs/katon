@@ -1,6 +1,7 @@
 use anchor_lang::__private::bytemuck::{Pod, Zeroable};
 use anchor_lang::prelude::*;
 use anchor_spl::token::ID as SPL_TOKEN_PROGRAM_ID;
+use anchor_spl::token_interface::spl_token_2022::extension::metadata_pointer::MetadataPointer;
 use anchor_spl::token_interface::spl_token_2022::extension::transfer_hook::TransferHook;
 use anchor_spl::token_interface::spl_token_2022::extension::{
     BaseStateWithExtensions, ExtensionType, StateWithExtensions,
@@ -133,10 +134,22 @@ pub mod solana_rfq {
             registry.extension_fingerprint == extension_fingerprint,
             ErrorCode::ExtensionMismatch
         );
+        validate_issuer_configuration(
+            registry.issuer,
+            registry.metadata_pointer,
+            registry.issuer_authority,
+            registry.issuer_authority_fingerprint,
+            registry.issuer_program,
+            registry.jit_capability_fingerprint,
+        )?;
+        validate_generic_settlement_issuer(registry.issuer)?;
         validate_live_mint_configuration(
             &ctx.accounts.stock_mint.to_account_info(),
             registry.hook_program,
             registry.extension_fingerprint,
+            registry.metadata_pointer,
+            registry.issuer_authority,
+            registry.issuer_authority_fingerprint,
         )?;
         validate_hook_accounts(
             ctx.remaining_accounts,
@@ -410,7 +423,8 @@ pub mod solana_rfq {
     }
 
     /// Create the asset registry only after the configured governance quorum
-    /// has verified the live mint, its Token-2022 hook, and every hook meta.
+    /// has verified the issuer metadata/authority, live mint configuration,
+    /// Token-2022 hook, and every hook meta.
     /// The PDA is initialized here, so no permissionless caller can pre-seize
     /// the registry account or choose its first configuration.
     pub fn initialize_asset_registry(
@@ -420,6 +434,11 @@ pub mod solana_rfq {
         extension_fingerprint: [u8; 32],
         hook_program: Option<Pubkey>,
         hook_accounts: Vec<HookAccountMeta>,
+        metadata_pointer: Pubkey,
+        issuer_authority: Pubkey,
+        issuer_authority_fingerprint: [u8; 32],
+        issuer_program: Option<Pubkey>,
+        jit_capability_fingerprint: [u8; 32],
     ) -> Result<()> {
         require_squad_quorum(
             &ctx.accounts.governance,
@@ -431,6 +450,14 @@ pub mod solana_rfq {
             &stable_outputs,
             ctx.accounts.stable_token_program.key(),
         )?;
+        validate_issuer_configuration(
+            issuer,
+            metadata_pointer,
+            issuer_authority,
+            issuer_authority_fingerprint,
+            issuer_program,
+            jit_capability_fingerprint,
+        )?;
         require_keys_eq!(
             *ctx.accounts.stock_mint.to_account_info().owner,
             ctx.accounts.stock_token_program.key(),
@@ -440,6 +467,9 @@ pub mod solana_rfq {
             &ctx.accounts.stock_mint.to_account_info(),
             hook_program,
             extension_fingerprint,
+            metadata_pointer,
+            issuer_authority,
+            issuer_authority_fingerprint,
         )?;
         validate_hook_account_configuration(
             &ctx.accounts.stock_mint.key(),
@@ -461,6 +491,11 @@ pub mod solana_rfq {
         registry.stable_token_program = ctx.accounts.stable_token_program.key();
         registry.stable_outputs = stable_outputs;
         registry.issuer = issuer;
+        registry.metadata_pointer = metadata_pointer;
+        registry.issuer_authority = issuer_authority;
+        registry.issuer_authority_fingerprint = issuer_authority_fingerprint;
+        registry.issuer_program = issuer_program;
+        registry.jit_capability_fingerprint = jit_capability_fingerprint;
         registry.decimals = ctx.accounts.stock_mint.decimals;
         registry.extension_fingerprint = extension_fingerprint;
         registry.hook_program = hook_program;
@@ -695,6 +730,16 @@ pub struct AssetRegistry {
     pub stable_token_program: Pubkey,
     pub stable_outputs: [Pubkey; 2],
     pub issuer: u8,
+    /// Governance-recorded issuer metadata account/pointer. This is required
+    /// for both classic SPL metadata sources and Token-2022 pointers.
+    pub metadata_pointer: Pubkey,
+    /// The live mint authority at bootstrap, plus its signed fingerprint.
+    pub issuer_authority: Pubkey,
+    pub issuer_authority_fingerprint: [u8; 32],
+    /// Ondo's issuer program and JIT capability are explicit registry state;
+    /// generic settlement rejects this route even when these fields are valid.
+    pub issuer_program: Option<Pubkey>,
+    pub jit_capability_fingerprint: [u8; 32],
     pub decimals: u8,
     pub extension_fingerprint: [u8; 32],
     pub hook_program: Option<Pubkey>,
@@ -1211,6 +1256,9 @@ fn resolve_hook_pubkey_data(
 struct LiveMintConfiguration {
     hook_program: Option<Pubkey>,
     extension_fingerprint: [u8; 32],
+    metadata_pointer: Option<Pubkey>,
+    issuer_authority: Option<Pubkey>,
+    issuer_authority_fingerprint: [u8; 32],
 }
 
 fn live_mint_configuration(mint: &AccountInfo<'_>) -> Result<LiveMintConfiguration> {
@@ -1218,6 +1266,9 @@ fn live_mint_configuration(mint: &AccountInfo<'_>) -> Result<LiveMintConfigurati
         return Ok(LiveMintConfiguration {
             hook_program: None,
             extension_fingerprint: solana_sha256_hasher::hashv(&[&[]]).to_bytes(),
+            metadata_pointer: None,
+            issuer_authority: None,
+            issuer_authority_fingerprint: [0; 32],
         });
     }
     let mint_data = mint
@@ -1237,10 +1288,25 @@ fn live_mint_configuration(mint: &AccountInfo<'_>) -> Result<LiveMintConfigurati
     } else {
         None
     };
+    let metadata_pointer = if extension_types.contains(&ExtensionType::MetadataPointer) {
+        let metadata = mint_with_extensions
+            .get_extension::<MetadataPointer>()
+            .map_err(|_| error!(ErrorCode::InvalidMintTlv))?;
+        Option::<Pubkey>::from(metadata.metadata_address)
+    } else {
+        None
+    };
+    let issuer_authority = Option::<Pubkey>::from(mint_with_extensions.base.mint_authority);
+    let issuer_authority_fingerprint = issuer_authority
+        .map(|authority| solana_sha256_hasher::hashv(&[authority.as_ref()]).to_bytes())
+        .unwrap_or([0; 32]);
     Ok(LiveMintConfiguration {
         hook_program,
         extension_fingerprint: solana_sha256_hasher::hashv(&[mint_with_extensions.get_tlv_data()])
             .to_bytes(),
+        metadata_pointer,
+        issuer_authority,
+        issuer_authority_fingerprint,
     })
 }
 
@@ -1248,12 +1314,77 @@ fn validate_live_mint_configuration(
     mint: &AccountInfo<'_>,
     expected_hook_program: Option<Pubkey>,
     expected_extension_fingerprint: [u8; 32],
+    expected_metadata_pointer: Pubkey,
+    expected_issuer_authority: Pubkey,
+    expected_issuer_authority_fingerprint: [u8; 32],
 ) -> Result<()> {
     let live = live_mint_configuration(mint)?;
+    require!(
+        expected_metadata_pointer != Pubkey::default()
+            && expected_issuer_authority != Pubkey::default()
+            && expected_issuer_authority_fingerprint != [0; 32],
+        ErrorCode::IssuerConfigurationMismatch
+    );
+    if mint.owner == &token_interface::spl_token_2022::ID {
+        require!(
+            live.metadata_pointer == Some(expected_metadata_pointer),
+            ErrorCode::MetadataPointerMismatch
+        );
+        require!(
+            live.issuer_authority == Some(expected_issuer_authority)
+                && live.issuer_authority_fingerprint == expected_issuer_authority_fingerprint,
+            ErrorCode::IssuerAuthorityMismatch
+        );
+    }
     require!(
         live.hook_program == expected_hook_program
             && live.extension_fingerprint == expected_extension_fingerprint,
         ErrorCode::LiveHookMismatch
+    );
+    Ok(())
+}
+
+fn validate_issuer_configuration(
+    issuer: u8,
+    metadata_pointer: Pubkey,
+    issuer_authority: Pubkey,
+    issuer_authority_fingerprint: [u8; 32],
+    issuer_program: Option<Pubkey>,
+    jit_capability_fingerprint: [u8; 32],
+) -> Result<()> {
+    require!(
+        issuer == ISSUER_XSTOCKS || issuer == ISSUER_ONDO,
+        ErrorCode::UnsupportedIssuer
+    );
+    require!(
+        metadata_pointer != Pubkey::default()
+            && issuer_authority != Pubkey::default()
+            && issuer_authority_fingerprint != [0; 32],
+        ErrorCode::IssuerConfigurationMismatch
+    );
+    match issuer {
+        ISSUER_XSTOCKS => {
+            require!(
+                issuer_program.is_none() && jit_capability_fingerprint == [0; 32],
+                ErrorCode::IssuerConfigurationMismatch
+            );
+        }
+        ISSUER_ONDO => {
+            require!(
+                issuer_program.is_some_and(|program| program != Pubkey::default())
+                    && jit_capability_fingerprint != [0; 32],
+                ErrorCode::IssuerConfigurationMismatch
+            );
+        }
+        _ => return Err(error!(ErrorCode::UnsupportedIssuer)),
+    }
+    Ok(())
+}
+
+fn validate_generic_settlement_issuer(issuer: u8) -> Result<()> {
+    require!(
+        issuer == ISSUER_XSTOCKS,
+        ErrorCode::ManagedIssuerRouteRequired
     );
     Ok(())
 }
@@ -1398,6 +1529,14 @@ pub enum ErrorCode {
     InvalidHookValidationData,
     #[msg("live mint Token-2022 TLV data is invalid")]
     InvalidMintTlv,
+    #[msg("issuer metadata pointer is missing or changed")]
+    MetadataPointerMismatch,
+    #[msg("issuer authority is missing or changed")]
+    IssuerAuthorityMismatch,
+    #[msg("issuer-specific registry configuration is invalid")]
+    IssuerConfigurationMismatch,
+    #[msg("issuer requires its managed settlement route")]
+    ManagedIssuerRouteRequired,
     #[msg("unexpected transfer-hook accounts")]
     UnexpectedHookAccounts,
     #[msg("duplicate writable account")]
@@ -1752,12 +1891,60 @@ mod tests {
     }
 
     #[test]
+    fn issuer_registry_state_requires_exact_metadata_and_route_fields() {
+        let metadata_pointer = Pubkey::new_from_array([5; 32]);
+        let issuer_authority = Pubkey::new_from_array([6; 32]);
+        let issuer_program = Pubkey::new_from_array([7; 32]);
+
+        assert!(validate_issuer_configuration(
+            ISSUER_XSTOCKS,
+            metadata_pointer,
+            issuer_authority,
+            [8; 32],
+            None,
+            [0; 32],
+        )
+        .is_ok());
+        assert!(validate_issuer_configuration(
+            ISSUER_XSTOCKS,
+            Pubkey::default(),
+            issuer_authority,
+            [8; 32],
+            None,
+            [0; 32],
+        )
+        .is_err());
+        assert!(validate_issuer_configuration(
+            ISSUER_ONDO,
+            metadata_pointer,
+            issuer_authority,
+            [8; 32],
+            None,
+            [9; 32],
+        )
+        .is_err());
+        assert!(validate_issuer_configuration(
+            ISSUER_ONDO,
+            metadata_pointer,
+            issuer_authority,
+            [8; 32],
+            Some(issuer_program),
+            [9; 32],
+        )
+        .is_ok());
+        assert!(validate_generic_settlement_issuer(ISSUER_XSTOCKS).is_ok());
+        assert!(validate_generic_settlement_issuer(ISSUER_ONDO).is_err());
+    }
+
+    #[test]
     fn live_mint_configuration_binds_the_complete_token_2022_tlv_buffer() {
         let mint_key = Pubkey::new_from_array([7; 32]);
         let hook_program = Pubkey::new_from_array([8; 32]);
+        let issuer_authority = Pubkey::new_from_array([12; 32]);
+        let metadata_pointer = Pubkey::new_from_array([13; 32]);
         let mint_len = ExtensionType::try_calculate_account_len::<
             token_interface::spl_token_2022::state::Mint,
-        >(&[ExtensionType::TransferHook])
+        >(&[ExtensionType::TransferHook, ExtensionType::MetadataPointer])
         .unwrap();
         let mut mint_data = vec![0; mint_len];
         {
@@ -1767,9 +1954,12 @@ mod tests {
             .unwrap();
             state.base.decimals = 6;
             state.base.is_initialized = true;
+            state.base.mint_authority = Some(issuer_authority).into();
             state.init_account_type().unwrap();
             let transfer_hook = state.init_extension::<TransferHook>(true).unwrap();
             transfer_hook.program_id = Some(hook_program).try_into().unwrap();
+            let metadata = state.init_extension::<MetadataPointer>(true).unwrap();
+            metadata.metadata_address = Some(metadata_pointer).try_into().unwrap();
             state.pack_base();
         }
 
@@ -1786,11 +1976,20 @@ mod tests {
         );
         let live = live_mint_configuration(&account).unwrap();
         assert_eq!(live.hook_program, Some(hook_program));
+        assert_eq!(live.metadata_pointer, Some(metadata_pointer));
+        assert_eq!(live.issuer_authority, Some(issuer_authority));
+        assert_eq!(
+            live.issuer_authority_fingerprint,
+            solana_sha256_hasher::hashv(&[issuer_authority.as_ref()]).to_bytes()
+        );
         assert!(live.extension_fingerprint != [0; 32]);
         assert!(validate_live_mint_configuration(
             &account,
             Some(hook_program),
             live.extension_fingerprint,
+            metadata_pointer,
+            issuer_authority,
+            live.issuer_authority_fingerprint,
         )
         .is_ok());
 
@@ -1811,6 +2010,9 @@ mod tests {
             &changed_account,
             Some(hook_program),
             live.extension_fingerprint,
+            metadata_pointer,
+            issuer_authority,
+            live.issuer_authority_fingerprint,
         )
         .is_err());
     }

@@ -63,7 +63,7 @@ export interface AssetRegistryEntry {
   /** Ondo-only issuer program and managed-route capability fingerprints. */
   readonly issuerProgram?: string;
   readonly jitCapabilityFingerprint?: string;
-  /** Exact metadata pointer recorded by governance for Token-2022 assets. */
+  /** Exact issuer metadata account/reference recorded by governance. */
   readonly expectedMetadataPointer?: string;
   readonly extensionFingerprint: string;
   readonly expectedHookProgram?: string;

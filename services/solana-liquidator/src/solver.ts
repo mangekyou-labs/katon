@@ -1,6 +1,7 @@
 import { parseAtomic, routeIsInstructionBuildable, SOLANA_USDC_MINT } from '@katon/solana-core';
 import type { QuoteCandidate } from '@katon/solana-core';
-import type { ManifestCheck } from './manifest';
+import type { DiscoveredMarket } from './adapters';
+import type { LiquidationStartupGate } from './startup';
 
 export const MAX_PREFUNDED_USDC_ATOMIC = '2000000000';
 export const MIN_PROFIT_ATOMIC = '10000000';
@@ -23,6 +24,8 @@ export interface LiquidationOpportunity {
   readonly computeUnits: number;
   readonly expectedResidualStockAtomic?: string;
   readonly route?: QuoteCandidate;
+  /** Exact lender market identity returned by the reviewed startup discovery. */
+  readonly market: DiscoveredMarket;
 }
 
 export interface SolverConfig {
@@ -31,14 +34,6 @@ export interface SolverConfig {
   readonly minProfitAtomic?: string;
   readonly minProfitBps?: number;
   readonly maxComputeUnits?: number;
-}
-
-export interface ManifestGate {
-  check(): ManifestCheck;
-}
-
-export interface LiquidationStartupGate extends ManifestGate {
-  readonly kind: 'liquidation-startup';
 }
 
 export interface Decision {
@@ -147,14 +142,13 @@ export class LiquidationSolver {
   constructor(
     private readonly breaker: LiquidationCircuitBreaker,
     private readonly config: SolverConfig,
-    private readonly manifestGate: LiquidationStartupGate = new MissingManifestGate(),
+    private readonly startupGate: LiquidationStartupGate,
   ) {}
 
   async prepare(opportunity: LiquidationOpportunity, availableFlashloanAtomic: string, builder: AtomicLiquidationBuilder, simulator: SimulationGateway): Promise<{ readonly decision: Decision; readonly transactionBase64?: string; readonly messageHash?: string }> {
     if (this.breaker.snapshot().halted) return { decision: { executable: false, reason: 'circuit_breaker' } };
     try {
-      if (this.manifestGate.kind !== 'liquidation-startup') return { decision: { executable: false, reason: 'manifest_mismatch' } };
-      if (!this.manifestGate.check().ok) return { decision: { executable: false, reason: 'manifest_mismatch' } };
+      if (!this.startupGate.check().ok || !this.startupGate.matchesMarket(opportunity.market)) return { decision: { executable: false, reason: 'manifest_mismatch' } };
     } catch {
       return { decision: { executable: false, reason: 'manifest_mismatch' } };
     }
@@ -169,14 +163,6 @@ export class LiquidationSolver {
     } catch {
       return { decision: { executable: false, reason: 'simulation_failed' } };
     }
-  }
-}
-
-class MissingManifestGate implements LiquidationStartupGate {
-  readonly kind = 'liquidation-startup' as const;
-
-  check(): ManifestCheck {
-    return { ok: false, reason: 'manifest_unsigned', message: 'liquidation deployment manifest gate is not configured' };
   }
 }
 

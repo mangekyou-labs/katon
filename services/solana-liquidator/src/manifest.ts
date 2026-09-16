@@ -8,6 +8,16 @@ export interface ProgramManifestEntry {
   readonly upgradeAuthority: string;
 }
 
+export type ManifestLenderName = Extract<ProgramManifestEntry['name'], 'kamino' | 'jupiter-lend'>;
+
+export interface ManifestMarketIdentity {
+  readonly lender: ManifestLenderName;
+  readonly programId: string;
+  readonly idlSha256: string;
+  readonly bytecodeSha256: string;
+  readonly upgradeAuthority: string;
+}
+
 export interface DeploymentManifest {
   readonly cluster: 'mainnet-beta' | 'devnet' | 'localnet';
   readonly generatedAt: string;
@@ -30,7 +40,7 @@ export interface RuntimeProgramState {
 
 export interface ManifestCheck {
   readonly ok: boolean;
-  readonly reason?: 'cluster_mismatch' | 'manifest_unsigned' | 'manifest_signer_untrusted' | 'manifest_signature_invalid' | 'program_missing' | 'program_id_mismatch' | 'idl_mismatch' | 'bytecode_mismatch' | 'upgrade_authority_mismatch' | 'program_unreviewed' | 'stock_mint_unreviewed' | 'market_discovery_invalid' | 'market_discovery_unavailable';
+  readonly reason?: 'cluster_mismatch' | 'manifest_unsigned' | 'manifest_signer_untrusted' | 'manifest_signature_invalid' | 'program_missing' | 'program_id_mismatch' | 'idl_mismatch' | 'bytecode_mismatch' | 'upgrade_authority_mismatch' | 'program_unreviewed' | 'stock_mint_unreviewed' | 'market_discovery_invalid' | 'market_discovery_unavailable' | 'market_manifest_mismatch';
   readonly message: string;
 }
 
@@ -126,6 +136,7 @@ export function verifyDeploymentManifest(
  */
 export class DeploymentManifestGate {
   private readonly result: ManifestCheck;
+  private readonly manifest: DeploymentManifest;
 
   constructor(
     manifest: DeploymentManifest,
@@ -134,11 +145,21 @@ export class DeploymentManifestGate {
     cluster: DeploymentManifest['cluster'],
     trustedSignerPublicKeys: readonly string[],
   ) {
+    this.manifest = manifest;
     this.result = verifyDeploymentManifest(manifest, runtime, observedStockMints, cluster, trustedSignerPublicKeys);
   }
 
   check(): ManifestCheck {
     return this.result;
+  }
+
+  verifyMarket(market: ManifestMarketIdentity): ManifestCheck {
+    if (!this.result.ok) return this.result;
+    const expected = this.manifest.programs.find((entry) => entry.name === market.lender);
+    if (!expected || expected.programId !== market.programId || expected.idlSha256 !== market.idlSha256 || expected.bytecodeSha256 !== market.bytecodeSha256 || expected.upgradeAuthority !== market.upgradeAuthority) {
+      return { ok: false, reason: 'market_manifest_mismatch', message: `${market.lender} market does not match the signed deployment manifest` };
+    }
+    return { ok: true, message: `${market.lender} market matches the signed deployment manifest` };
   }
 }
 

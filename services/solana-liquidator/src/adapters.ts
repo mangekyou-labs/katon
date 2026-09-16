@@ -1,8 +1,9 @@
 import { SOLANA_USDC_MINT } from '@katon/solana-core';
 import type { AssetRegistryEntry } from '@katon/solana-core';
 import { MAINNET_PROGRAM_IDS } from './manifest';
+import type { ManifestMarketIdentity } from './manifest';
 
-export type LenderName = 'kamino' | 'jupiter-lend';
+export type LenderName = ManifestMarketIdentity['lender'];
 
 export interface LendingPosition {
   readonly obligationAddress: string;
@@ -15,17 +16,13 @@ export interface LendingPosition {
   readonly observedAtMs: number;
 }
 
-export interface DiscoveredMarket {
-  readonly lender: LenderName;
-  readonly programId: string;
+export interface DiscoveredMarket extends ManifestMarketIdentity {
   readonly marketAddress: string;
   readonly reserveAddress: string;
   readonly vaultAddress: string;
   readonly collateralMint: string;
   readonly debtMint: string;
   readonly oracleAddress: string;
-  readonly idlSha256: string;
-  readonly upgradeAuthority: string;
   readonly observedAtMs: number;
 }
 
@@ -116,7 +113,7 @@ export class JupiterFlashloanAdapter implements FlashloanAdapter {
 }
 
 function assertMarketMetadata(market: DiscoveredMarket): void {
-  if (!market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.collateralMint || !market.debtMint || !market.oracleAddress || !market.idlSha256 || !market.upgradeAuthority) {
+  if (!market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.collateralMint || !market.debtMint || !market.oracleAddress || !market.idlSha256 || !market.bytecodeSha256 || !market.upgradeAuthority) {
     throw new Error('market discovery is incomplete');
   }
 }
@@ -134,10 +131,16 @@ export function assertMarketForPosition(position: LendingPosition, market: Disco
   if (market.lender !== lender || market.programId !== programId) throw new Error('lender market is not pinned to the expected program');
   if (position.collateralMint !== market.collateralMint || position.debtMint !== market.debtMint) throw new Error('position mint does not match discovered market');
   if (position.debtMint !== SOLANA_USDC_MINT && position.debtMint !== 'native-usdc') throw new Error('liquidations require native USDC debt');
-  if (!position.obligationAddress || !position.owner || !market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.oracleAddress || !market.idlSha256 || !market.upgradeAuthority) throw new Error('position or market accounts are incomplete');
+  if (!position.obligationAddress || !position.owner || !market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.oracleAddress || !market.idlSha256 || !market.bytecodeSha256 || !market.upgradeAuthority) throw new Error('position or market accounts are incomplete');
 }
 
-export function verifyDiscoveredMarkets(markets: readonly DiscoveredMarket[], assets: readonly AssetRegistryEntry[], nowMs: number, maxAgeMs = 30_000): { readonly ok: boolean; readonly reason?: string } {
+export function verifyDiscoveredMarkets(
+  markets: readonly DiscoveredMarket[],
+  assets: readonly AssetRegistryEntry[],
+  nowMs: number,
+  maxAgeMs = 30_000,
+  marketVerifier?: (market: DiscoveredMarket) => { readonly ok: boolean; readonly reason?: string },
+): { readonly ok: boolean; readonly reason?: string } {
   if (markets.length === 0) return { ok: false, reason: 'no reviewed lender markets discovered' };
   if (!Number.isSafeInteger(nowMs) || nowMs < 0 || !Number.isSafeInteger(maxAgeMs) || maxAgeMs < 0) return { ok: false, reason: 'invalid discovery clock' };
   const enabledMints = new Set(assets.filter((asset) => asset.enabled).map((asset) => asset.mint));
@@ -150,7 +153,11 @@ export function verifyDiscoveredMarkets(markets: readonly DiscoveredMarket[], as
     if (market.debtMint !== SOLANA_USDC_MINT && market.debtMint !== 'native-usdc') return { ok: false, reason: 'market debt is not native USDC' };
     if (!Number.isSafeInteger(market.observedAtMs) || market.observedAtMs < 0) return { ok: false, reason: 'market discovery timestamp is invalid' };
     if (market.observedAtMs > nowMs + 5_000 || nowMs - market.observedAtMs > maxAgeMs) return { ok: false, reason: 'market/oracle discovery is stale' };
-    if (!market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.oracleAddress || !market.idlSha256 || !market.upgradeAuthority) return { ok: false, reason: 'market discovery is incomplete' };
+    if (!market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.oracleAddress || !market.idlSha256 || !market.bytecodeSha256 || !market.upgradeAuthority) return { ok: false, reason: 'market discovery is incomplete' };
+    if (marketVerifier) {
+      const manifestCheck = marketVerifier(market);
+      if (!manifestCheck.ok) return { ok: false, reason: manifestCheck.reason ?? 'market does not match the signed deployment manifest' };
+    }
   }
   return { ok: true };
 }

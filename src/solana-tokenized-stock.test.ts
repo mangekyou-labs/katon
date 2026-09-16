@@ -16,7 +16,7 @@ import {
   type RankInput,
 } from '../packages/solana-core/src/index';
 import { LiquidationCircuitBreaker, LiquidationSolver, chooseFundingSource, requiresZeroResidualStock } from '../services/solana-liquidator/src/index';
-import { deploymentManifestPayload, DeploymentManifestGate, initializeLiquidationStartup, verifyDeploymentManifest, MAINNET_PROGRAM_IDS, KaminoLendAdapter, verifyDiscoveredMarkets, type DeploymentManifest, type RuntimeProgramState, type DiscoveredMarket, type LendingPosition } from '../services/solana-liquidator/src/index';
+import { deploymentManifestPayload, DeploymentManifestGate, initializeLiquidationStartup, startLiquidationSolver, verifyDeploymentManifest, MAINNET_PROGRAM_IDS, KaminoLendAdapter, verifyDiscoveredMarkets, type DeploymentManifest, type RuntimeProgramState, type DiscoveredMarket, type LendingPosition } from '../services/solana-liquidator/src/index';
 import { MemoryAssetProvider, MockQuoteSimulationProvider, QuoteDeskService } from '../apps/solana-api/src/service';
 import { MemorySourceBalanceProvider, MockJupiterSource, MockPrivateMakerSource, MockSender } from '../apps/solana-api/src/sources';
 import { demoAssets } from '../apps/solana-api/src/registry';
@@ -27,6 +27,7 @@ const asset: AssetRegistryEntry = {
   issuerAuthorityFingerprint: 'xstocks-authority', expectedMetadataPointer: 'stock-metadata-pointer', extensionFingerprint: 'metadata-pointer|active|scaled|none|none|no-memo', capabilities: { transferHook: false, pausable: true, scaledUiAmount: true, transferFee: false, permanentDelegate: false, memoTransfer: false, confidentialTransfer: false }, supportedOutputs: [SOLANA_USDC_MINT, SOLANA_USDT_MINT], referenceState: 'open', referencePriceAtomic: '100000000', referencePriceDecimals: 6, maxDeviationBps: 150, enabled: true, registryVersion: 1,
 };
 const mint: MintAccountSnapshot = { mint: asset.mint, ownerProgram: asset.tokenProgram, decimals: asset.decimals, extensionFingerprint: asset.extensionFingerprint, extensions: ['metadata-pointer', 'pausable', 'scaled-ui-amount'], paused: false, metadataPointer: asset.expectedMetadataPointer, issuerAuthorityFingerprint: asset.issuerAuthorityFingerprint, scaledUiAmountEnabled: true, memoTransferRequired: false };
+const liquidationMarket: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', bytecodeSha256: 'byte', upgradeAuthority: 'auth', observedAtMs: 1_000 };
 
 function candidate(sourceId: string, net: string, expiresAtMs = 20_000): QuoteCandidate {
   return { quoteId: sourceId, sourceId, sourceKind: sourceId.startsWith('maker') || sourceId.startsWith('ondo') ? 'private-maker' : 'jupiter', settlementRoute: sourceId.startsWith('ondo') ? 'ondo-managed' : 'generic-spl', router: sourceId, wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', grossOutputAtomic: net, katonFeeAtomic: '0', venueFeeAtomic: '0', netOutputAtomic: net, referencePriceAtomic: asset.referencePriceAtomic, referencePriceDecimals: asset.referencePriceDecimals, createdAtMs: 0, expiresAtMs, reliabilityBps: 9_000, transactionVersion: 'v0', transactionBase64: 'AQ==', simulation: { ok: true, simulatedAtMs: 0 } };
@@ -76,10 +77,12 @@ describe('Solana exit desk core', () => {
     expect(evaluateEligibility({ entry: asset, mint, walletBalanceAtomic: '100', outputMint: 'fake-stable' }).code).toBe('unsupported_output');
     const classicAsset: AssetRegistryEntry = { ...asset, mint: 'classic-stock', tokenProgram: 'spl-token', extensionFingerprint: 'active|unscaled|none|none|no-memo', capabilities: { ...asset.capabilities, pausable: false, scaledUiAmount: false } };
     const classicMint: MintAccountSnapshot = { ...mint, mint: classicAsset.mint, ownerProgram: 'spl-token', extensionFingerprint: classicAsset.extensionFingerprint, extensions: [], metadataPointer: undefined, scaledUiAmountEnabled: false, memoTransferRequired: false };
-    expect(evaluateEligibility({ entry: classicAsset, mint: classicMint, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('eligible');
+    expect(evaluateEligibility({ entry: classicAsset, mint: classicMint, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('unknown');
+    const verifiedClassicMint = { ...classicMint, metadataPointer: classicAsset.expectedMetadataPointer };
+    expect(evaluateEligibility({ entry: classicAsset, mint: verifiedClassicMint, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('eligible');
     const classicProvider = new MemoryAssetProvider([classicAsset]);
     expect(classicProvider.mintSnapshot(classicAsset).extensions).toEqual([]);
-    expect(classicProvider.mintSnapshot(classicAsset).metadataPointer).toBeUndefined();
+    expect(classicProvider.mintSnapshot(classicAsset).metadataPointer).toBe(classicAsset.expectedMetadataPointer);
   });
 
   it('ranks net output, validity, reliability and source id deterministically', () => {
@@ -202,6 +205,60 @@ describe('Solana exit desk core', () => {
     expect(collected.audit.some((row) => row.rejectionCode === 'expired')).toBe(true);
   });
 
+  it('expires a quote when final review simulation crosses the safety margin', async () => {
+    let nowMs = 1_000;
+    let simulationCalls = 0;
+    const provider = new MemoryAssetProvider([asset]);
+    provider.setBalance('wallet', asset.mint, '2500000');
+    const sender = new MockSender();
+    const source = {
+      id: 'jupiter-review-expiry',
+      kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
+      reliabilityBps: 9_000,
+      quote: async () => candidate('jupiter-review-expiry', '100000000', 5_000),
+    };
+    const simulator = {
+      simulate: async (_quote: QuoteCandidate, simulationNowMs: number) => {
+        if (simulationCalls++ === 1) nowMs = 3_500;
+        return { ok: true, simulatedAtMs: simulationNowMs };
+      },
+    };
+    const desk = new QuoteDeskService(provider, [source], sender, sender, () => nowMs, simulator);
+    const created = await desk.createSession({ wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000' });
+    await expect(desk.collectNow(created.id)).resolves.toMatchObject({ state: 'ready' });
+    await expect(desk.review(created.id, 'wallet')).rejects.toThrow('quote expired');
+    expect(desk.getSession(created.id).state).toBe('expired');
+    expect(desk.getSession(created.id).winner?.transactionBase64).toBeUndefined();
+  });
+
+  it('rechecks the live clock after signed-transaction validation', async () => {
+    let nowMs = 1_000;
+    let executePhase = false;
+    let executeClockCalls = 0;
+    const clock = () => {
+      if (executePhase && ++executeClockCalls >= 4) nowMs = 8_000;
+      return nowMs;
+    };
+    const provider = new MemoryAssetProvider([asset]);
+    provider.setBalance('wallet', asset.mint, '2500000');
+    const sender = new MockSender();
+    const source = {
+      id: 'jupiter-execute-expiry',
+      kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
+      reliabilityBps: 9_000,
+      quote: async () => candidate('jupiter-execute-expiry', '100000000', 10_000),
+    };
+    const desk = new QuoteDeskService(provider, [source], sender, sender, clock, new MockQuoteSimulationProvider());
+    const created = await desk.createSession({ wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000' });
+    await desk.collectNow(created.id);
+    const reviewed = await desk.review(created.id, 'wallet');
+    executePhase = true;
+    await expect(desk.execute(created.id, 'wallet', reviewed.winner!.transactionBase64!)).rejects.toThrow('quote expired');
+    expect(desk.getSession(created.id).state).toBe('expired');
+  });
+
   it('binds the Solana message while allowing wallet signatures to change', async () => {
     const issued = new Uint8Array(1 + 64 + 3);
     issued[0] = 1;
@@ -221,7 +278,7 @@ describe('Solana exit desk core', () => {
   });
 
   it('prefers flashloan, caps prefunded fallback, and trips after three landing failures', () => {
-    const base = { id: 'opp', collateralMint: asset.mint, debtMint: 'native-usdc', debtAtomic: '100000000', collateralAtomic: '1000000', expectedGrossOutputAtomic: '110000000', expectedCostsAtomic: '5000000', expectedProfitAtomic: '10500000', expectedProfitBps: 105, healthFreshAtMs: Date.now(), atomicUnwind: true, computeUnits: 500_000, route: candidate('jupiter', '110000000') };
+    const base = { id: 'opp', collateralMint: asset.mint, debtMint: 'native-usdc', debtAtomic: '100000000', collateralAtomic: '1000000', expectedGrossOutputAtomic: '110000000', expectedCostsAtomic: '5000000', expectedProfitAtomic: '10500000', expectedProfitBps: 105, healthFreshAtMs: Date.now(), atomicUnwind: true, computeUnits: 500_000, market: liquidationMarket, route: candidate('jupiter', '110000000') };
     expect(chooseFundingSource(base, '100000000', { nowMs: () => Date.now() }).funding).toBe('jupiter-flashloan');
     expect(chooseFundingSource(base, '0', { nowMs: () => Date.now() }).funding).toBe('prefunded-usdc');
     expect(requiresZeroResidualStock('100', '0')).toBe(true);
@@ -230,15 +287,12 @@ describe('Solana exit desk core', () => {
     expect(chooseFundingSource({ ...base, route: { ...base.route!, router: 'jupiterz-managed' } }, '100000000', { nowMs: () => Date.now() }).reason).toBe('managed_transaction');
   });
 
-  it('keeps the liquidation solver dormant until a deployment manifest gate passes', async () => {
-    const opportunity = { id: 'opp', collateralMint: asset.mint, debtMint: 'native-usdc', debtAtomic: '100000000', collateralAtomic: '1000000', expectedGrossOutputAtomic: '110000000', expectedCostsAtomic: '5000000', expectedProfitAtomic: '10500000', expectedProfitBps: 105, healthFreshAtMs: 1_000, atomicUnwind: true, computeUnits: 500_000, route: candidate('jupiter', '110000000') };
-    const solver = new LiquidationSolver(new LiquidationCircuitBreaker(), { nowMs: () => 1_000 });
-    const result = await solver.prepare(opportunity, '100000000', {
-      build: async () => ({ transactionBase64: 'AQ==', messageHash: 'hash' }),
-    }, {
-      simulate: async () => ({ ok: true }),
-    });
-    expect(result.decision).toEqual({ executable: false, reason: 'manifest_mismatch' });
+  it('does not construct the liquidation solver before startup validation passes', async () => {
+    const invalidManifest: DeploymentManifest = { cluster: 'mainnet-beta', generatedAt: '2026-09-15', programs: [], enabledStockMints: [], signatureAlgorithm: 'ed25519', signerPublicKey: '', signature: '' };
+    const manifestGate = new DeploymentManifestGate(invalidManifest, [], [], 'mainnet-beta', []);
+    const started = await startLiquidationSolver(manifestGate, [], [asset], 1_000, { nowMs: () => 1_000 });
+    expect(started.startupGate.check()).toMatchObject({ ok: false, reason: 'manifest_unsigned' });
+    expect(started.solver).toBeUndefined();
   });
 });
 
@@ -262,19 +316,27 @@ describe('Solana deployment manifest', () => {
   it('exposes a startup gate that the solver can require before preparation', async () => {
     const gate = new DeploymentManifestGate(manifest, runtime, [asset.mint], 'mainnet-beta', trustedSignerPublicKeys);
     expect(gate.check()).toEqual({ ok: true, message: 'runtime matches signed deployment manifest' });
-    const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
+    const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', bytecodeSha256: 'byte', upgradeAuthority: 'auth', observedAtMs: 1_000 };
     const startupGate = await initializeLiquidationStartup(gate, [new KaminoLendAdapter(async () => [market])], [asset], 1_000);
-    const opportunity = { id: 'opp', collateralMint: asset.mint, debtMint: 'native-usdc', debtAtomic: '100000000', collateralAtomic: '1000000', expectedGrossOutputAtomic: '110000000', expectedCostsAtomic: '5000000', expectedProfitAtomic: '10500000', expectedProfitBps: 105, healthFreshAtMs: 1_000, atomicUnwind: true, computeUnits: 500_000, route: candidate('jupiter', '110000000') };
+    const mismatchedMarketGate = await initializeLiquidationStartup(gate, [new KaminoLendAdapter(async () => [{ ...market, idlSha256: 'changed' }])], [asset], 1_000);
+    expect(mismatchedMarketGate.check()).toMatchObject({ ok: false, reason: 'market_discovery_invalid' });
+    expect(gate.verifyMarket(market)).toEqual({ ok: true, message: 'kamino market matches the signed deployment manifest' });
+    expect(gate.verifyMarket({ ...market, bytecodeSha256: 'changed' })).toMatchObject({ ok: false, reason: 'market_manifest_mismatch' });
+    const opportunity = { id: 'opp', collateralMint: asset.mint, debtMint: 'native-usdc', debtAtomic: '100000000', collateralAtomic: '1000000', expectedGrossOutputAtomic: '110000000', expectedCostsAtomic: '5000000', expectedProfitAtomic: '10500000', expectedProfitBps: 105, healthFreshAtMs: 1_000, atomicUnwind: true, computeUnits: 500_000, market, route: candidate('jupiter', '110000000') };
     const result = await new LiquidationSolver(new LiquidationCircuitBreaker(), { nowMs: () => 1_000 }, startupGate).prepare(opportunity, '100000000', {
       build: async () => ({ transactionBase64: 'AQ==', messageHash: 'hash' }),
     }, {
       simulate: async () => ({ ok: true }),
     });
     expect(result.decision).toEqual({ executable: true, funding: 'jupiter-flashloan' });
+    const started = await startLiquidationSolver(gate, [new KaminoLendAdapter(async () => [market])], [asset], 1_000, { nowMs: () => 1_000 });
+    expect(started.solver).toBeInstanceOf(LiquidationSolver);
+    const blocked = await startLiquidationSolver(gate, [new KaminoLendAdapter(async () => [{ ...market, bytecodeSha256: 'changed' }])], [asset], 1_000, { nowMs: () => 1_000 });
+    expect(blocked.solver).toBeUndefined();
   });
 
   it('keeps the solver dormant until authoritative lender discovery also passes', async () => {
-    const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
+    const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', bytecodeSha256: 'byte', upgradeAuthority: 'auth', observedAtMs: 1_000 };
     const manifestGate = new DeploymentManifestGate(manifest, runtime, [asset.mint], 'mainnet-beta', trustedSignerPublicKeys);
     const readyGate = await initializeLiquidationStartup(manifestGate, [new KaminoLendAdapter(async () => [market])], [asset], 1_000);
     expect(readyGate.check()).toEqual({ ok: true, message: 'runtime and reviewed lender markets match deployment manifest' });
@@ -288,7 +350,7 @@ describe('Solana deployment manifest', () => {
 });
 
 describe('lending adapters and registry discovery', () => {
-  const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
+  const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', bytecodeSha256: 'byte', upgradeAuthority: 'auth', observedAtMs: 1_000 };
   const position: LendingPosition = { obligationAddress: 'obligation', owner: 'owner', collateralMint: asset.mint, collateralAtomic: '100', debtMint: SOLANA_USDC_MINT, debtAtomic: '50', healthFactorBps: 9_900, observedAtMs: 1_000 };
 
   it('pins lender discovery and accepts only injected authoritative instructions', async () => {
