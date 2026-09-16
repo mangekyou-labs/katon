@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "packages/solana-core/src/**/*.ts",
+    "packages/solana-sdk/src/**/*.ts",
+    "services/solana-liquidator/src/**/*.ts",
+    "src/solana-tokenized-stock.test.ts"
+  ]
+}

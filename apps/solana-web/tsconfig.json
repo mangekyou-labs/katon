@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["vite/client"], "noEmit": true },
+  "include": ["src", "vite.config.ts", "../../packages/solana-core/src", "../../packages/solana-sdk/src"]
+}

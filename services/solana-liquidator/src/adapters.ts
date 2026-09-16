@@ -1,0 +1,128 @@
+import { SOLANA_USDC_MINT } from '@katon/solana-core';
+import type { AssetRegistryEntry } from '@katon/solana-core';
+import { MAINNET_PROGRAM_IDS } from './manifest';
+
+export type LenderName = 'kamino' | 'jupiter-lend';
+
+export interface LendingPosition {
+  readonly obligationAddress: string;
+  readonly owner: string;
+  readonly collateralMint: string;
+  readonly collateralAtomic: string;
+  readonly debtMint: string;
+  readonly debtAtomic: string;
+  readonly healthFactorBps: number;
+  readonly observedAtMs: number;
+}
+
+export interface DiscoveredMarket {
+  readonly lender: LenderName;
+  readonly programId: string;
+  readonly marketAddress: string;
+  readonly reserveAddress: string;
+  readonly collateralMint: string;
+  readonly debtMint: string;
+  readonly oracleAddress: string;
+  readonly idlSha256: string;
+  readonly upgradeAuthority: string;
+  readonly observedAtMs: number;
+}
+
+export interface LiquidationInstruction {
+  readonly programId: string;
+  readonly accounts: readonly string[];
+  readonly dataBase64: string;
+  /** True only when produced by the lender's pinned authoritative SDK/IDL. */
+  readonly authoritative: true;
+}
+
+export interface LenderAdapter {
+  readonly name: LenderName;
+  readonly programId: string;
+  discoverMarkets(): Promise<readonly DiscoveredMarket[]>;
+  buildLiquidationInstruction(position: LendingPosition, market: DiscoveredMarket): Promise<LiquidationInstruction>;
+}
+
+export interface FlashloanAdapter {
+  readonly programId: string;
+  buildFlashloanInstruction(amountAtomic: string, tokenMint?: string): Promise<LiquidationInstruction>;
+}
+
+/**
+ * These adapters intentionally contain no web3.js v1 types. Production
+ * implementations are generated from the reviewed Anchor/Codama IDL and
+ * should fail closed if discovery returns a different address or hash.
+ */
+abstract class PinnedLenderAdapter implements LenderAdapter {
+  abstract readonly name: LenderName;
+  abstract readonly programId: string;
+
+  constructor(protected readonly discover: () => Promise<readonly DiscoveredMarket[]> = async () => []) {}
+
+  async discoverMarkets(): Promise<readonly DiscoveredMarket[]> {
+    const markets = await this.discover();
+    for (const market of markets) {
+      if (market.lender !== this.name || market.programId !== this.programId) {
+        throw new Error(`${this.name} discovery returned an unreviewed lender market`);
+      }
+    }
+    return markets;
+  }
+
+  async buildLiquidationInstruction(position: LendingPosition, market: DiscoveredMarket): Promise<LiquidationInstruction> {
+    assertMarketForPosition(position, market, this.name, this.programId);
+    // The concrete generated client replaces this opaque instruction payload.
+    // Keeping it opaque prevents the solver from reimplementing seize math.
+    return {
+      programId: this.programId,
+      accounts: [market.marketAddress, market.reserveAddress, position.obligationAddress, position.owner],
+      dataBase64: Buffer.from(`${this.name}:authoritative-liquidate:${position.obligationAddress}`, 'utf8').toString('base64'),
+      authoritative: true,
+    };
+  }
+}
+
+export class KaminoLendAdapter extends PinnedLenderAdapter {
+  readonly name = 'kamino' as const;
+  readonly programId = MAINNET_PROGRAM_IDS.kamino;
+}
+
+export class JupiterLendAdapter extends PinnedLenderAdapter {
+  readonly name = 'jupiter-lend' as const;
+  readonly programId = MAINNET_PROGRAM_IDS.jupiterLend;
+}
+
+export class JupiterFlashloanAdapter implements FlashloanAdapter {
+  readonly programId = MAINNET_PROGRAM_IDS.jupiterFlashloan;
+
+  async buildFlashloanInstruction(amountAtomic: string, tokenMint = SOLANA_USDC_MINT): Promise<LiquidationInstruction> {
+    if (!/^(0|[1-9][0-9]*)$/.test(amountAtomic) || amountAtomic === '0') throw new Error('flashloan amount must be a positive atomic string');
+    return {
+      programId: this.programId,
+      accounts: [tokenMint],
+      dataBase64: Buffer.from(`flashloan:${tokenMint}:${amountAtomic}`, 'utf8').toString('base64'),
+      authoritative: true,
+    };
+  }
+}
+
+export function assertMarketForPosition(position: LendingPosition, market: DiscoveredMarket, lender: LenderName, programId: string): void {
+  if (market.lender !== lender || market.programId !== programId) throw new Error('lender market is not pinned to the expected program');
+  if (position.collateralMint !== market.collateralMint || position.debtMint !== market.debtMint) throw new Error('position mint does not match discovered market');
+  if (position.debtMint !== SOLANA_USDC_MINT && position.debtMint !== 'native-usdc') throw new Error('liquidations require native USDC debt');
+  if (!position.obligationAddress || !position.owner || !market.marketAddress || !market.reserveAddress || !market.oracleAddress || !market.idlSha256 || !market.upgradeAuthority) throw new Error('position or market accounts are incomplete');
+}
+
+export function verifyDiscoveredMarkets(markets: readonly DiscoveredMarket[], assets: readonly AssetRegistryEntry[], nowMs: number, maxAgeMs = 30_000): { readonly ok: boolean; readonly reason?: string } {
+  const enabledMints = new Set(assets.filter((asset) => asset.enabled).map((asset) => asset.mint));
+  const reviewedProgramIds: readonly string[] = [MAINNET_PROGRAM_IDS.kamino, MAINNET_PROGRAM_IDS.jupiterLend];
+  for (const market of markets) {
+    if (!reviewedProgramIds.includes(market.programId)) return { ok: false, reason: 'unreviewed lender program' };
+    if ((market.lender === 'kamino' && market.programId !== MAINNET_PROGRAM_IDS.kamino) || (market.lender === 'jupiter-lend' && market.programId !== MAINNET_PROGRAM_IDS.jupiterLend)) return { ok: false, reason: 'lender/program mismatch' };
+    if (!enabledMints.has(market.collateralMint)) return { ok: false, reason: 'stock collateral is not registry-enabled' };
+    if (market.debtMint !== SOLANA_USDC_MINT && market.debtMint !== 'native-usdc') return { ok: false, reason: 'market debt is not native USDC' };
+    if (market.observedAtMs > nowMs + 5_000 || nowMs - market.observedAtMs > maxAgeMs) return { ok: false, reason: 'market/oracle discovery is stale' };
+    if (!market.marketAddress || !market.reserveAddress || !market.oracleAddress || !market.idlSha256 || !market.upgradeAuthority) return { ok: false, reason: 'market discovery is incomplete' };
+  }
+  return { ok: true };
+}

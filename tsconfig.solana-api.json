@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.solana.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": [
+    "packages/solana-core/src/**/*.ts",
+    "packages/solana-sdk/src/**/*.ts",
+    "apps/solana-api/src/**/*.ts"
+  ]
+}

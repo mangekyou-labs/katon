@@ -1,0 +1,10 @@
+{
+  "name": "@katon/solana-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@katon/solana-core": "0.1.0",
+    "@katon/solana-sdk": "0.1.0"
+  }
+}

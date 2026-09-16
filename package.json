@@ -13,6 +13,8 @@
     "dev": "vite",
     "dev:flare": "vite --config apps/flare-web/vite.config.ts",
     "dev:flare-api": "node --import tsx apps/flare-api/src/server.ts",
+    "dev:solana-api": "node --import tsx apps/solana-api/src/server.ts",
+    "dev:solana-web": "vite --config apps/solana-web/vite.config.ts",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
@@ -28,6 +30,7 @@
     "qa:cli": "playwright-cli",
     "qa:cli:help": "playwright-cli --help",
     "test:flare": "vitest run src/flare-*.test.ts",
+    "test:solana": "vitest run src/solana-tokenized-stock.test.ts",
     "test:e2e:flare": "node tools/flare-wallet-e2e.mjs",
     "test:e2e:flare:in-process": "node --import tsx tools/local-rfq-in-process.mjs",
     "test:e2e:flare:cli": "bash tools/verify-flare-confidential-rfq-playwright.sh",
@@ -38,7 +41,10 @@
     "soak:flare": "node tools/flare-soak.mjs",
     "typecheck:flare": "tsc -p tsconfig.flare.json --noEmit",
     "typecheck:flare-api": "tsc -p tsconfig.flare-api.json --noEmit",
+    "typecheck:solana": "tsc -p tsconfig.solana.json --noEmit",
+    "typecheck:solana-api": "tsc -p tsconfig.solana-api.json --noEmit",
     "build:flare-web": "tsc -p apps/flare-web/tsconfig.json --noEmit && vite build --config apps/flare-web/vite.config.ts",
+    "build:solana-web": "tsc -p apps/solana-web/tsconfig.json --noEmit && vite build --config apps/solana-web/vite.config.ts",
     "check:flare:web-performance": "node tools/check-flare-web-performance.mjs",
     "check:flare:secrets": "node tools/check-flare-secrets.mjs",
     "sbom:flare": "node tools/generate-flare-sbom.mjs",
@@ -81,7 +87,9 @@
     "test:go": "go test ./services/fcc-matcher",
     "test:go:race": "go test -race ./services/fcc-matcher",
     "test:go:vet": "go vet ./services/fcc-matcher",
-    "test:solidity": "forge test --root contracts/flare"
+    "test:solidity": "forge test --root contracts/flare",
+    "check:solana:release": "node scripts/check-solana-release.mjs",
+    "setup:solana:credentials": "bash scripts/solana-credentials-wizard.sh"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "1.9.5",

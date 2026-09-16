@@ -1,0 +1,11 @@
+{
+  "cluster": "mainnet-beta",
+  "generatedAt": "2026-09-15T00:00:00.000Z",
+  "programs": [
+    { "name": "kamino", "programId": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD", "idlSha256": "REPLACE_WITH_SIGNED_HASH", "bytecodeSha256": "REPLACE_WITH_SIGNED_HASH", "upgradeAuthority": "REPLACE_WITH_SIGNED_AUTHORITY" },
+    { "name": "jupiter-lend", "programId": "jupr81YtYssSyPt8jbnGuiWon5f6x9TcDEFxYe3Bdzi", "idlSha256": "REPLACE_WITH_SIGNED_HASH", "bytecodeSha256": "REPLACE_WITH_SIGNED_HASH", "upgradeAuthority": "REPLACE_WITH_SIGNED_AUTHORITY" },
+    { "name": "jupiter-flashloan", "programId": "jupgfSgfuAXv4B6R2Uxu85Z1qdzgju79s6MfZekN6XS", "idlSha256": "REPLACE_WITH_SIGNED_HASH", "bytecodeSha256": "REPLACE_WITH_SIGNED_HASH", "upgradeAuthority": "REPLACE_WITH_SIGNED_AUTHORITY" }
+  ],
+  "enabledStockMints": [],
+  "signature": "REPLACE_WITH_SQUADS_SIGNATURE"
+}

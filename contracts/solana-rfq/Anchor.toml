@@ -1,0 +1,16 @@
+[features]
+seeds = true
+skip-lint = false
+
+[programs.localnet]
+solana_rfq = "59MVYbUATHzCgYtD7uio4RvCkZhdwrRh6c38ZefycwMX"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "NO_DNA=1 anchor test"

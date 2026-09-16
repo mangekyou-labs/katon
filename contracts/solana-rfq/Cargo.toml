@@ -1,0 +1,3 @@
+[workspace]
+members = ["programs/solana-rfq"]
+resolver = "2"
