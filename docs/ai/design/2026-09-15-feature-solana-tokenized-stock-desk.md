@@ -137,7 +137,7 @@ The server has no keypair. It uses a sender interface for the final transaction 
 
 ## Liquidation solver
 
-The solver owns no API signing path. At startup it resolves Kamino and Jupiter Lend addresses/IDLs, compares runtime bytecode and upgrade authorities to a signed manifest, and remains dormant on mismatch. It polls only native-USDC-debt positions with registry-enabled stock collateral and asks each lender to build its authoritative liquidation instruction.
+The solver owns no API signing path. At startup it resolves Kamino and Jupiter Lend addresses/IDLs, compares runtime bytecode and upgrade authorities to a signed manifest, discovers reserves/vaults/oracles, and passes the immutable manifest-plus-market startup gate. It remains dormant on any mismatch, unavailable discovery, or empty reviewed market set. It polls only native-USDC-debt positions with registry-enabled stock collateral and asks each lender to build its authoritative liquidation instruction.
 
 An opportunity lock covers detection through send. Funding is Jupiter flashloan first; a prefunded wallet can cover at most 2,000 USDC. The route must include lender liquidation, stock unwind via private RFQ or instruction-buildable Jupiter/AMM route, repayment, fee/profit transfer, and zero-residual checks in one atomic transaction. JupiterZ or Ondo managed transactions cannot be embedded. `simulateTransaction` runs immediately before signing/submission. Three landing failures, residual stock >1 minute, >25 bps adverse execution, stale oracle/policy, or any manifest mismatch trips a circuit breaker.
 

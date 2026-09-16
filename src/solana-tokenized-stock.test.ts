@@ -16,7 +16,7 @@ import {
   type RankInput,
 } from '../packages/solana-core/src/index';
 import { LiquidationCircuitBreaker, LiquidationSolver, chooseFundingSource, requiresZeroResidualStock } from '../services/solana-liquidator/src/index';
-import { deploymentManifestPayload, DeploymentManifestGate, verifyDeploymentManifest, MAINNET_PROGRAM_IDS, KaminoLendAdapter, verifyDiscoveredMarkets, type DeploymentManifest, type RuntimeProgramState, type DiscoveredMarket, type LendingPosition } from '../services/solana-liquidator/src/index';
+import { deploymentManifestPayload, DeploymentManifestGate, initializeLiquidationStartup, verifyDeploymentManifest, MAINNET_PROGRAM_IDS, KaminoLendAdapter, verifyDiscoveredMarkets, type DeploymentManifest, type RuntimeProgramState, type DiscoveredMarket, type LendingPosition } from '../services/solana-liquidator/src/index';
 import { MemoryAssetProvider, MockQuoteSimulationProvider, QuoteDeskService } from '../apps/solana-api/src/service';
 import { MemorySourceBalanceProvider, MockJupiterSource, MockPrivateMakerSource, MockSender } from '../apps/solana-api/src/sources';
 import { demoAssets } from '../apps/solana-api/src/registry';
@@ -265,6 +265,19 @@ describe('Solana deployment manifest', () => {
     });
     expect(result.decision).toEqual({ executable: true, funding: 'jupiter-flashloan' });
   });
+
+  it('keeps the solver dormant until authoritative lender discovery also passes', async () => {
+    const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
+    const manifestGate = new DeploymentManifestGate(manifest, runtime, [asset.mint], 'mainnet-beta', trustedSignerPublicKeys);
+    const readyGate = await initializeLiquidationStartup(manifestGate, [new KaminoLendAdapter(async () => [market])], [asset], 1_000);
+    expect(readyGate.check()).toEqual({ ok: true, message: 'runtime and reviewed lender markets match deployment manifest' });
+
+    const dormantGate = await initializeLiquidationStartup(manifestGate, [new KaminoLendAdapter(async () => [])], [asset], 1_000);
+    expect(dormantGate.check()).toMatchObject({ ok: false, reason: 'market_discovery_invalid' });
+
+    const unavailableGate = await initializeLiquidationStartup(manifestGate, [new KaminoLendAdapter()], [asset], 1_000);
+    expect(unavailableGate.check()).toMatchObject({ ok: false, reason: 'market_discovery_unavailable' });
+  });
 });
 
 describe('lending adapters and registry discovery', () => {
@@ -279,7 +292,9 @@ describe('lending adapters and registry discovery', () => {
     await expect(new KaminoLendAdapter(async () => [market]).buildLiquidationInstruction(position, market)).rejects.toThrow('authoritative');
     await expect(new KaminoLendAdapter(async () => [market], async () => ({ ...instruction, dataBase64: 'AQ' })).buildLiquidationInstruction(position, market)).rejects.toThrow('authoritative');
     expect(verifyDiscoveredMarkets([market], [asset], 1_500).ok).toBe(true);
+    expect(verifyDiscoveredMarkets([{ ...market, lender: 'unreviewed' as DiscoveredMarket['lender'] }], [asset], 1_500).reason).toBe('unreviewed lender');
     expect(verifyDiscoveredMarkets([{ ...market, programId: 'unreviewed' }], [asset], 1_500).reason).toBe('unreviewed lender program');
+    expect(verifyDiscoveredMarkets([{ ...market, observedAtMs: Number.NaN }], [asset], 1_500).reason).toBe('market discovery timestamp is invalid');
     expect(verifyDiscoveredMarkets([], [asset], 1_500).reason).toBe('no reviewed lender markets discovered');
     await expect(new KaminoLendAdapter(async () => [{ ...market, programId: 'unreviewed' }]).discoverMarkets()).rejects.toThrow('unreviewed');
   });

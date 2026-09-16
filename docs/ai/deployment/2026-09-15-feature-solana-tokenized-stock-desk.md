@@ -28,7 +28,10 @@ mainnet/finalized transaction evidence.
   The liquidator must verify the canonical manifest payload with Ed25519,
   require the signer to be in the configured governance-key allowlist, compare
   runtime hashes/authorities and enabled mints, and pass the startup gate before
-  preparing any liquidation transaction.
+  preparing any liquidation transaction. The startup initializer must also
+  discover at least one fresh, registry-enabled native-USDC lender market with
+  complete reserve, vault, oracle, IDL, and upgrade-authority metadata; an
+  unavailable or empty discovery leaves the solver dormant.
 - Anchor registry bootstrap must run through the audited compile-time authority;
   later asset and maker registry creation requires two distinct configured
   quorum members. Transfer-hook validation PDAs, flags, account order, and

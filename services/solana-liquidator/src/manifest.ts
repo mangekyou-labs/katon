@@ -30,7 +30,7 @@ export interface RuntimeProgramState {
 
 export interface ManifestCheck {
   readonly ok: boolean;
-  readonly reason?: 'cluster_mismatch' | 'manifest_unsigned' | 'manifest_signer_untrusted' | 'manifest_signature_invalid' | 'program_missing' | 'program_id_mismatch' | 'idl_mismatch' | 'bytecode_mismatch' | 'upgrade_authority_mismatch' | 'program_unreviewed' | 'stock_mint_unreviewed';
+  readonly reason?: 'cluster_mismatch' | 'manifest_unsigned' | 'manifest_signer_untrusted' | 'manifest_signature_invalid' | 'program_missing' | 'program_id_mismatch' | 'idl_mismatch' | 'bytecode_mismatch' | 'upgrade_authority_mismatch' | 'program_unreviewed' | 'stock_mint_unreviewed' | 'market_discovery_invalid' | 'market_discovery_unavailable';
   readonly message: string;
 }
 

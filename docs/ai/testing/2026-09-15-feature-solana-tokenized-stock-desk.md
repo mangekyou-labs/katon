@@ -56,7 +56,8 @@ Evidence is appended after commands are run from this worktree. A failed
 dependency resolution is recorded as a release blocker, not converted into a
 success claim. No signing key or transaction submission is used here.
 
-- [x] `NO_DNA=1 npm run test:solana` — 21 tests passed (2026-09-16).
+- [x] `NO_DNA=1 npm run test:solana` — 22 tests passed (2026-09-16), including
+  the immutable manifest-plus-lender-discovery startup gate.
 - [x] `NO_DNA=1 npm run typecheck:solana` — passed (2026-09-16).
 - [x] `NO_DNA=1 npm run typecheck:solana-api` — passed (2026-09-16).
 - [x] `NO_DNA=1 npm run build:solana-web` — Vite production build passed (2026-09-16).

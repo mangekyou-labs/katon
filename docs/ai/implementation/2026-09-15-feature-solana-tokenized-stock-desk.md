@@ -32,7 +32,8 @@ by production adapters without changing product semantics:
   payer.
 - `services/solana-liquidator`: Ed25519 manifest signature verification against
   an explicit trusted-key allowlist, lender/flashloan program IDs, opportunity
-  gating, atomic simulation, funding order, and circuit breakers.
+  gating, authoritative market discovery startup gate, atomic simulation,
+  funding order, and circuit breakers.
 
 The local API sources are explicitly mock adapters. They are useful for
 deterministic UI and contract-shape tests only; they are not mainnet liquidity
@@ -65,9 +66,10 @@ or a custody path.
 9. The Anchor program requires seller/maker signatures and registry accounts,
    performs checked Token/Token-2022 transfers, verifies deltas, and records a
    quote-ID receipt to prevent replay.
-10. Liquidation is dormant on manifest mismatch, including an invalid or
-    untrusted Ed25519 manifest signature, stale health, non-atomic unwind,
-    compute overflow, residual inventory, or a tripped breaker.
+10. Liquidation is dormant on manifest or market-discovery mismatch, including
+    an invalid or untrusted Ed25519 manifest signature, unavailable or empty
+    lender discovery, stale health, non-atomic unwind, compute overflow,
+    residual inventory, or a tripped breaker.
 
 ## Known release work
 
@@ -77,10 +79,11 @@ adapters only after the release gates in the requirements and testing records.
 
 ## Fresh local verification (2026-09-16)
 
-The deterministic Vitest suite now covers 21 Solana tests, including source
+The deterministic Vitest suite now covers 22 Solana tests, including source
 identity binding, independent simulation, verified maker liquidity, a shared
 three-second collection deadline, live clock refresh, manifest signature
-verification, and exact price fields. Solana core/API typechecks and the
+verification plus the immutable lender-discovery startup gate, and exact price
+fields. Solana core/API typechecks and the
 seller/maker/operator Vite bundle build are part of the release baseline. The
 Anchor workspace covers eight offline unit tests for governance bootstrap,
 registry/hook invariants, live mint TLV binding, Execute-context resolution,

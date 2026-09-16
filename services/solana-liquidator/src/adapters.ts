@@ -139,13 +139,16 @@ export function assertMarketForPosition(position: LendingPosition, market: Disco
 
 export function verifyDiscoveredMarkets(markets: readonly DiscoveredMarket[], assets: readonly AssetRegistryEntry[], nowMs: number, maxAgeMs = 30_000): { readonly ok: boolean; readonly reason?: string } {
   if (markets.length === 0) return { ok: false, reason: 'no reviewed lender markets discovered' };
+  if (!Number.isSafeInteger(nowMs) || nowMs < 0 || !Number.isSafeInteger(maxAgeMs) || maxAgeMs < 0) return { ok: false, reason: 'invalid discovery clock' };
   const enabledMints = new Set(assets.filter((asset) => asset.enabled).map((asset) => asset.mint));
   const reviewedProgramIds: readonly string[] = [MAINNET_PROGRAM_IDS.kamino, MAINNET_PROGRAM_IDS.jupiterLend];
   for (const market of markets) {
+    if (market.lender !== 'kamino' && market.lender !== 'jupiter-lend') return { ok: false, reason: 'unreviewed lender' };
     if (!reviewedProgramIds.includes(market.programId)) return { ok: false, reason: 'unreviewed lender program' };
     if ((market.lender === 'kamino' && market.programId !== MAINNET_PROGRAM_IDS.kamino) || (market.lender === 'jupiter-lend' && market.programId !== MAINNET_PROGRAM_IDS.jupiterLend)) return { ok: false, reason: 'lender/program mismatch' };
     if (!enabledMints.has(market.collateralMint)) return { ok: false, reason: 'stock collateral is not registry-enabled' };
     if (market.debtMint !== SOLANA_USDC_MINT && market.debtMint !== 'native-usdc') return { ok: false, reason: 'market debt is not native USDC' };
+    if (!Number.isSafeInteger(market.observedAtMs) || market.observedAtMs < 0) return { ok: false, reason: 'market discovery timestamp is invalid' };
     if (market.observedAtMs > nowMs + 5_000 || nowMs - market.observedAtMs > maxAgeMs) return { ok: false, reason: 'market/oracle discovery is stale' };
     if (!market.marketAddress || !market.reserveAddress || !market.vaultAddress || !market.oracleAddress || !market.idlSha256 || !market.upgradeAuthority) return { ok: false, reason: 'market discovery is incomplete' };
   }
