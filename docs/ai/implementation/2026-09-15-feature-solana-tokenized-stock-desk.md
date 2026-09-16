@@ -42,7 +42,8 @@ or a custody path.
 ## Security invariants implemented
 
 1. Amounts cross the API as decimal strings and become `bigint` only in core.
-2. Unknown or changed Token-2022 extensions, hooks, pauses, delegates, and
+2. Unknown or changed Token-2022 extensions, hooks, pauses, delegates, exact
+   metadata pointers, issuer authorities, Ondo issuer/JIT fingerprints, and
    registry entries fail closed. The Anchor program hashes the complete live
    Token-2022 TLV buffer and binds it to the registry.
 3. Registry and maker PDAs are initialized by explicit instructions. Governance

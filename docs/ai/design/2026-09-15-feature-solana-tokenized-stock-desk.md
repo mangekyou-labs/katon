@@ -55,7 +55,7 @@ scripts/                          local manifests and release checks
 
 All amounts are decimal strings at API boundaries and `bigint` inside core logic. A `QuoteCandidate` contains source/router, gross output, Katon fee, venue fee, net output, reference price/deviation, simulation result, v0 transaction bytes/hash, quote ID, and expiry. A `SanitizedAuditRow` includes only source class, net amount, timestamp, and structured rejection code.
 
-The asset registry stores mint, token program, issuer, ticker/underlying, decimals, extension fingerprint, expected hook, pausable/scaled/fee capabilities, stable outputs, reference/session state, and enablement. Registry snapshots are versioned and signed; any mismatch yields `unknown`.
+The asset registry stores mint, token program, issuer, ticker/underlying, decimals, exact metadata pointer, issuer authority fingerprint, Ondo issuer/JIT fingerprints where applicable, extension fingerprint, expected hook, pausable/scaled/fee capabilities, stable outputs, reference/session state, and enablement. Registry snapshots are versioned and signed; any mismatch yields `unknown`.
 
 ## Quote sprint state machine
 

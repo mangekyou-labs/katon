@@ -1,7 +1,7 @@
 import type { AssetRegistryEntry } from '@katon/solana-core';
 import { verifyDiscoveredMarkets, type LenderAdapter } from './adapters';
 import type { ManifestCheck } from './manifest';
-import type { ManifestGate } from './solver';
+import type { LiquidationStartupGate, ManifestGate } from './solver';
 
 /**
  * Runs the process-start checks that make lender adapters executable. The
@@ -13,7 +13,7 @@ export async function initializeLiquidationStartup(
   lenders: readonly LenderAdapter[],
   assets: readonly AssetRegistryEntry[],
   nowMs: number,
-): Promise<ManifestGate> {
+): Promise<LiquidationStartupGate> {
   let manifestCheck: ManifestCheck;
   try {
     manifestCheck = manifestGate.check();
@@ -38,7 +38,9 @@ export async function initializeLiquidationStartup(
   }
 }
 
-class StaticManifestGate implements ManifestGate {
+class StaticManifestGate implements LiquidationStartupGate {
+  readonly kind = 'liquidation-startup' as const;
+
   constructor(private readonly result: ManifestCheck) {}
 
   check(): ManifestCheck {

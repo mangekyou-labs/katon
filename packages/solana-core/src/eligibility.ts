@@ -19,7 +19,7 @@ export function evaluateEligibility(input: EligibilityInput): EligibilityResult 
   const registryCheck = checkMintAgainstRegistry(input.entry, input.mint);
   if (!registryCheck.ok) {
     const status = registryCheck.code === 'paused' ? 'ineligible' : 'unknown';
-    const code = registryCheck.code === 'paused' ? 'paused_asset' : registryCheck.code === 'unknown_extension' ? 'unsupported_extension' : registryCheck.code === 'fingerprint_mismatch' || registryCheck.code === 'hook_mismatch' ? 'changed_extension' : 'policy_failure';
+    const code = registryCheck.code === 'paused' ? 'paused_asset' : registryCheck.code === 'unknown_extension' ? 'unsupported_extension' : registryCheck.code === 'fingerprint_mismatch' || registryCheck.code === 'hook_mismatch' ? 'changed_extension' : registryCheck.code === 'issuer_authority_mismatch' || registryCheck.code === 'issuer_program_mismatch' || registryCheck.code === 'jit_capability_mismatch' ? 'issuer_mismatch' : 'policy_failure';
     return { status, code, message: registryCheck.message, asset: input.entry, checkedAtMs };
   }
   try {

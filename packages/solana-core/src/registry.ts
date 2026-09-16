@@ -36,7 +36,7 @@ export function fingerprintSnapshot(snapshot: MintAccountSnapshot): string {
 
 export interface RegistryCheck {
   readonly ok: boolean;
-  readonly code?: 'unknown_extension' | 'mint_mismatch' | 'program_mismatch' | 'decimals_mismatch' | 'fingerprint_mismatch' | 'hook_mismatch' | 'paused' | 'permanent_delegate' | 'confidential_transfer';
+  readonly code?: 'unknown_extension' | 'mint_mismatch' | 'program_mismatch' | 'decimals_mismatch' | 'fingerprint_mismatch' | 'hook_mismatch' | 'paused' | 'permanent_delegate' | 'confidential_transfer' | 'issuer_authority_mismatch' | 'issuer_program_mismatch' | 'jit_capability_mismatch';
   readonly message: string;
 }
 
@@ -55,6 +55,7 @@ export function checkMintAgainstRegistry(entry: AssetRegistryEntry, snapshot: Mi
   if (snapshot.mint !== entry.mint) return { ok: false, code: 'mint_mismatch', message: 'mint does not match signed registry entry' };
   if (snapshot.ownerProgram !== entry.tokenProgram) return { ok: false, code: 'program_mismatch', message: 'token program does not match registry' };
   if (snapshot.decimals !== entry.decimals) return { ok: false, code: 'decimals_mismatch', message: 'mint decimals changed' };
+  if (typeof entry.issuerAuthorityFingerprint !== 'string' || entry.issuerAuthorityFingerprint.trim().length === 0 || snapshot.issuerAuthorityFingerprint !== entry.issuerAuthorityFingerprint) return { ok: false, code: 'issuer_authority_mismatch', message: 'issuer authority fingerprint changed' };
   if (snapshot.extensionFingerprint !== entry.extensionFingerprint) return { ok: false, code: 'fingerprint_mismatch', message: 'extension fingerprint changed' };
   if ((snapshot.expectedHookProgram ?? '') !== (entry.expectedHookProgram ?? '')) return { ok: false, code: 'hook_mismatch', message: 'transfer-hook program changed' };
   if (snapshot.paused) return { ok: false, code: 'paused', message: 'issuer has paused transfers' };
@@ -63,8 +64,12 @@ export function checkMintAgainstRegistry(entry: AssetRegistryEntry, snapshot: Mi
   // so requiring the pointer unconditionally would incorrectly reject a
   // registry-approved classic asset.
   const metadataPointerRequired = entry.extensionFingerprint.split('|').includes('metadata-pointer');
-  if (metadataPointerRequired && (!snapshot.extensions.includes('metadata-pointer') || !snapshot.metadataPointer)) {
-    return { ok: false, code: 'fingerprint_mismatch', message: 'issuer metadata pointer is missing' };
+  if (metadataPointerRequired && (typeof entry.expectedMetadataPointer !== 'string' || entry.expectedMetadataPointer.trim().length === 0 || !snapshot.extensions.includes('metadata-pointer') || snapshot.metadataPointer !== entry.expectedMetadataPointer)) {
+    return { ok: false, code: 'fingerprint_mismatch', message: 'issuer metadata pointer changed or is missing' };
+  }
+  if (entry.issuer === 'ondo') {
+    if (typeof entry.issuerProgram !== 'string' || entry.issuerProgram.trim().length === 0 || snapshot.issuerProgram !== entry.issuerProgram) return { ok: false, code: 'issuer_program_mismatch', message: 'Ondo issuer program changed' };
+    if (typeof entry.jitCapabilityFingerprint !== 'string' || entry.jitCapabilityFingerprint.trim().length === 0 || snapshot.jitCapabilityFingerprint !== entry.jitCapabilityFingerprint) return { ok: false, code: 'jit_capability_mismatch', message: 'Ondo JIT capability changed' };
   }
   const requiredExtensions: Array<[boolean, string]> = [
     [entry.capabilities.transferHook, 'transfer-hook'],

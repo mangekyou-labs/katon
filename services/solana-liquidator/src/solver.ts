@@ -37,6 +37,10 @@ export interface ManifestGate {
   check(): ManifestCheck;
 }
 
+export interface LiquidationStartupGate extends ManifestGate {
+  readonly kind: 'liquidation-startup';
+}
+
 export interface Decision {
   readonly executable: boolean;
   readonly reason?: 'stale_health' | 'non_atomic' | 'insufficient_profit' | 'compute_limit' | 'unsupported_debt' | 'unwind_missing' | 'funding_unavailable' | 'residual_risk' | 'managed_transaction' | 'simulation_failed' | 'malformed_opportunity' | 'circuit_breaker' | 'manifest_mismatch';
@@ -143,12 +147,13 @@ export class LiquidationSolver {
   constructor(
     private readonly breaker: LiquidationCircuitBreaker,
     private readonly config: SolverConfig,
-    private readonly manifestGate: ManifestGate = new MissingManifestGate(),
+    private readonly manifestGate: LiquidationStartupGate = new MissingManifestGate(),
   ) {}
 
   async prepare(opportunity: LiquidationOpportunity, availableFlashloanAtomic: string, builder: AtomicLiquidationBuilder, simulator: SimulationGateway): Promise<{ readonly decision: Decision; readonly transactionBase64?: string; readonly messageHash?: string }> {
     if (this.breaker.snapshot().halted) return { decision: { executable: false, reason: 'circuit_breaker' } };
     try {
+      if (this.manifestGate.kind !== 'liquidation-startup') return { decision: { executable: false, reason: 'manifest_mismatch' } };
       if (!this.manifestGate.check().ok) return { decision: { executable: false, reason: 'manifest_mismatch' } };
     } catch {
       return { decision: { executable: false, reason: 'manifest_mismatch' } };
@@ -167,7 +172,9 @@ export class LiquidationSolver {
   }
 }
 
-class MissingManifestGate implements ManifestGate {
+class MissingManifestGate implements LiquidationStartupGate {
+  readonly kind = 'liquidation-startup' as const;
+
   check(): ManifestCheck {
     return { ok: false, reason: 'manifest_unsigned', message: 'liquidation deployment manifest gate is not configured' };
   }

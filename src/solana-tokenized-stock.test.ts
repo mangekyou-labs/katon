@@ -24,9 +24,9 @@ import { base64FromBytes, transactionHash, validateSignedTransaction, WalletStan
 
 const asset: AssetRegistryEntry = {
   mint: 'stock-mint', issuer: 'xstocks', ticker: 'AAPLx', underlyingTicker: 'AAPL', tokenProgram: 'token-2022', decimals: 6,
-  extensionFingerprint: 'metadata-pointer|active|scaled|none|none|no-memo', capabilities: { transferHook: false, pausable: true, scaledUiAmount: true, transferFee: false, permanentDelegate: false, memoTransfer: false, confidentialTransfer: false }, supportedOutputs: [SOLANA_USDC_MINT, SOLANA_USDT_MINT], referenceState: 'open', referencePriceAtomic: '100000000', referencePriceDecimals: 6, maxDeviationBps: 150, enabled: true, registryVersion: 1,
+  issuerAuthorityFingerprint: 'xstocks-authority', expectedMetadataPointer: 'stock-metadata-pointer', extensionFingerprint: 'metadata-pointer|active|scaled|none|none|no-memo', capabilities: { transferHook: false, pausable: true, scaledUiAmount: true, transferFee: false, permanentDelegate: false, memoTransfer: false, confidentialTransfer: false }, supportedOutputs: [SOLANA_USDC_MINT, SOLANA_USDT_MINT], referenceState: 'open', referencePriceAtomic: '100000000', referencePriceDecimals: 6, maxDeviationBps: 150, enabled: true, registryVersion: 1,
 };
-const mint: MintAccountSnapshot = { mint: asset.mint, ownerProgram: asset.tokenProgram, decimals: asset.decimals, extensionFingerprint: asset.extensionFingerprint, extensions: ['metadata-pointer', 'pausable', 'scaled-ui-amount'], paused: false, metadataPointer: asset.mint, scaledUiAmountEnabled: true, memoTransferRequired: false };
+const mint: MintAccountSnapshot = { mint: asset.mint, ownerProgram: asset.tokenProgram, decimals: asset.decimals, extensionFingerprint: asset.extensionFingerprint, extensions: ['metadata-pointer', 'pausable', 'scaled-ui-amount'], paused: false, metadataPointer: asset.expectedMetadataPointer, issuerAuthorityFingerprint: asset.issuerAuthorityFingerprint, scaledUiAmountEnabled: true, memoTransferRequired: false };
 
 function candidate(sourceId: string, net: string, expiresAtMs = 20_000): QuoteCandidate {
   return { quoteId: sourceId, sourceId, sourceKind: sourceId.startsWith('maker') || sourceId.startsWith('ondo') ? 'private-maker' : 'jupiter', settlementRoute: sourceId.startsWith('ondo') ? 'ondo-managed' : 'generic-spl', router: sourceId, wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', grossOutputAtomic: net, katonFeeAtomic: '0', venueFeeAtomic: '0', netOutputAtomic: net, referencePriceAtomic: asset.referencePriceAtomic, referencePriceDecimals: asset.referencePriceDecimals, createdAtMs: 0, expiresAtMs, reliabilityBps: 9_000, transactionVersion: 'v0', transactionBase64: 'AQ==', simulation: { ok: true, simulatedAtMs: 0 } };
@@ -67,7 +67,12 @@ describe('Solana exit desk core', () => {
     expect(evaluateEligibility({ entry: asset, mint: { ...mint, extensions: ['metadata-pointer', 'confidential-transfer'] }, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('unknown');
     expect(evaluateEligibility({ entry: asset, mint: { ...mint, paused: true }, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('ineligible');
     expect(evaluateEligibility({ entry: asset, mint: { ...mint, metadataPointer: undefined }, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('unknown');
+    expect(evaluateEligibility({ entry: { ...asset, expectedMetadataPointer: 'different-pointer' }, mint, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).code).toBe('changed_extension');
     expect(evaluateEligibility({ entry: asset, mint: { ...mint, memoTransferRequired: true }, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).status).toBe('unknown');
+    const ondoAsset = demoAssets[1];
+    const ondoProvider = new MemoryAssetProvider([ondoAsset]);
+    const ondoMint = ondoProvider.mintSnapshot(ondoAsset);
+    expect(evaluateEligibility({ entry: ondoAsset, mint: { ...ondoMint, issuerProgram: 'changed-program' }, walletBalanceAtomic: '100', outputMint: SOLANA_USDC_MINT }).code).toBe('issuer_mismatch');
     expect(evaluateEligibility({ entry: asset, mint, walletBalanceAtomic: '100', outputMint: 'fake-stable' }).code).toBe('unsupported_output');
     const classicAsset: AssetRegistryEntry = { ...asset, mint: 'classic-stock', tokenProgram: 'spl-token', extensionFingerprint: 'active|unscaled|none|none|no-memo', capabilities: { ...asset.capabilities, pausable: false, scaledUiAmount: false } };
     const classicMint: MintAccountSnapshot = { ...mint, mint: classicAsset.mint, ownerProgram: 'spl-token', extensionFingerprint: classicAsset.extensionFingerprint, extensions: [], metadataPointer: undefined, scaledUiAmountEnabled: false, memoTransferRequired: false };
@@ -257,8 +262,10 @@ describe('Solana deployment manifest', () => {
   it('exposes a startup gate that the solver can require before preparation', async () => {
     const gate = new DeploymentManifestGate(manifest, runtime, [asset.mint], 'mainnet-beta', trustedSignerPublicKeys);
     expect(gate.check()).toEqual({ ok: true, message: 'runtime matches signed deployment manifest' });
+    const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
+    const startupGate = await initializeLiquidationStartup(gate, [new KaminoLendAdapter(async () => [market])], [asset], 1_000);
     const opportunity = { id: 'opp', collateralMint: asset.mint, debtMint: 'native-usdc', debtAtomic: '100000000', collateralAtomic: '1000000', expectedGrossOutputAtomic: '110000000', expectedCostsAtomic: '5000000', expectedProfitAtomic: '10500000', expectedProfitBps: 105, healthFreshAtMs: 1_000, atomicUnwind: true, computeUnits: 500_000, route: candidate('jupiter', '110000000') };
-    const result = await new LiquidationSolver(new LiquidationCircuitBreaker(), { nowMs: () => 1_000 }, gate).prepare(opportunity, '100000000', {
+    const result = await new LiquidationSolver(new LiquidationCircuitBreaker(), { nowMs: () => 1_000 }, startupGate).prepare(opportunity, '100000000', {
       build: async () => ({ transactionBase64: 'AQ==', messageHash: 'hash' }),
     }, {
       simulate: async () => ({ ok: true }),

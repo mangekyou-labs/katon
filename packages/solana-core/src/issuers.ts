@@ -24,7 +24,7 @@ abstract class RegistryIssuerAdapter implements IssuerAdapter {
     const checkedAtMs = context.nowMs ?? Date.now();
     if (asset.issuer !== this.issuer) return { status: 'unknown', code: 'policy_failure', message: 'issuer adapter does not match registry issuer', asset, checkedAtMs };
     const check = checkMintAgainstRegistry(asset, mint);
-    if (!check.ok) return { status: check.code === 'paused' ? 'ineligible' : 'unknown', code: check.code === 'unknown_extension' ? 'unsupported_extension' : check.code === 'paused' ? 'paused_asset' : 'changed_extension', message: check.message, asset, checkedAtMs };
+    if (!check.ok) return { status: check.code === 'paused' ? 'ineligible' : 'unknown', code: check.code === 'unknown_extension' ? 'unsupported_extension' : check.code === 'paused' ? 'paused_asset' : check.code === 'issuer_authority_mismatch' || check.code === 'issuer_program_mismatch' || check.code === 'jit_capability_mismatch' ? 'issuer_mismatch' : 'changed_extension', message: check.message, asset, checkedAtMs };
     if (!asset.enabled) return { status: 'ineligible', code: 'policy_failure', message: 'asset is disabled by issuer policy', asset, checkedAtMs };
     if (context.outputMint !== undefined) {
       try {

@@ -38,6 +38,7 @@ export type StructuredRejectionCode =
   | 'malformed_quote'
   | 'source_error'
   | 'transaction_unavailable'
+  | 'issuer_mismatch'
   | 'unknown';
 
 export interface TokenCapabilities {
@@ -57,6 +58,13 @@ export interface AssetRegistryEntry {
   readonly underlyingTicker: string;
   readonly tokenProgram: TokenProgram;
   readonly decimals: number;
+  /** Signed fingerprint of the issuer authority/configuration account. */
+  readonly issuerAuthorityFingerprint: string;
+  /** Ondo-only issuer program and managed-route capability fingerprints. */
+  readonly issuerProgram?: string;
+  readonly jitCapabilityFingerprint?: string;
+  /** Exact metadata pointer recorded by governance for Token-2022 assets. */
+  readonly expectedMetadataPointer?: string;
   readonly extensionFingerprint: string;
   readonly expectedHookProgram?: string;
   readonly capabilities: TokenCapabilities;
@@ -79,6 +87,9 @@ export interface MintAccountSnapshot {
   readonly expectedHookProgram?: string;
   readonly paused: boolean;
   readonly metadataPointer?: string;
+  readonly issuerAuthorityFingerprint: string;
+  readonly issuerProgram?: string;
+  readonly jitCapabilityFingerprint?: string;
   readonly scaledUiAmountEnabled: boolean;
   readonly transferFeeBps?: number;
   readonly permanentDelegate?: string;

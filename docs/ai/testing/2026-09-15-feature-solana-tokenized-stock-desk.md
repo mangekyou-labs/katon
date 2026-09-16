@@ -15,7 +15,8 @@ date: 2026-09-16
 - Fee vectors cover 0/10/25 bps, floor rounding, fee-cap rejection, and gross
   less than fees.
 - Registry vectors cover classic Token, Token-2022, unknown extensions,
-  changed hooks, pauses, permanent delegates, confidential transfers, and
+  changed hooks, pauses, permanent delegates, confidential transfers, exact
+  metadata pointers, issuer authorities, Ondo issuer/JIT fingerprints, and
   output-mint allowlists.
 - Anchor vectors cover audited bootstrap authority, distinct quorum signers,
   initialized asset/maker PDAs, derived transfer-hook validation PDA, owner and
