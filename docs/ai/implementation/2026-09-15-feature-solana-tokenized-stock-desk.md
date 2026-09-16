@@ -77,12 +77,12 @@ adapters only after the release gates in the requirements and testing records.
 
 ## Fresh local verification (2026-09-16)
 
-The deterministic Vitest suite now covers 20 Solana tests, including source
+The deterministic Vitest suite now covers 21 Solana tests, including source
 identity binding, independent simulation, verified maker liquidity, a shared
 three-second collection deadline, live clock refresh, manifest signature
 verification, and exact price fields. Solana core/API typechecks and the
 seller/maker/operator Vite bundle build are part of the release baseline. The
-Anchor workspace covers seven offline unit tests for governance bootstrap,
+Anchor workspace covers eight offline unit tests for governance bootstrap,
 registry/hook invariants, live mint TLV binding, Execute-context resolution,
 and malformed hook data; upstream Anchor macro `unexpected cfg` warnings are
 the only expected compiler warnings. The release scaffold check and
@@ -92,7 +92,11 @@ sandbox), so it remains a networked-CI gate. Mainnet manifests, real
 issuer/venue adapters, Surfpool fork evidence, independent audit, and
 legal/compliance approval remain gated.
 
-The manual credential handoff is `npm run setup:solana:credentials`. It writes
-cluster/RPC, keypair path, trusted manifest signer, signed manifest path, and a
-hidden liquidator token to owner-only `.env.solana.local`; it never reads or
-prints keypair contents and is not run by automated tests.
+The manual credential handoff is `npm run setup:solana:credentials`. The wizard
+collects cluster/RPC configuration, a wallet/deployer keypair path without
+reading keypair contents, the trusted Ed25519 manifest signer, and the signed
+deployment-manifest path. Kamino liquidation is permissionless, so there is no
+generic liquidator token. It also optionally writes a hidden Jupiter API key to
+owner-only `.env.solana.local`; keyless development access remains supported,
+and the current devnet mock does not consume the key. It is not run by
+automated tests.

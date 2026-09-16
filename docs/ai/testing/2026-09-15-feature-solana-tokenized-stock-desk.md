@@ -56,13 +56,13 @@ Evidence is appended after commands are run from this worktree. A failed
 dependency resolution is recorded as a release blocker, not converted into a
 success claim. No signing key or transaction submission is used here.
 
-- [x] `NO_DNA=1 npm run test:solana` — 20 tests passed (2026-09-16).
+- [x] `NO_DNA=1 npm run test:solana` — 21 tests passed (2026-09-16).
 - [x] `NO_DNA=1 npm run typecheck:solana` — passed (2026-09-16).
 - [x] `NO_DNA=1 npm run typecheck:solana-api` — passed (2026-09-16).
 - [x] `NO_DNA=1 npm run build:solana-web` — Vite production build passed (2026-09-16).
 - [x] `NO_DNA=1 cargo fmt --check --manifest-path contracts/solana-rfq/Cargo.toml` — passed (2026-09-16).
 - [x] `NO_DNA=1 cargo check --manifest-path contracts/solana-rfq/Cargo.toml --offline` — passed with Anchor macro `unexpected cfg` warnings (2026-09-16).
-- [x] `NO_DNA=1 cargo test --manifest-path contracts/solana-rfq/Cargo.toml --offline` — 7 unit tests passed; doc-tests passed (2026-09-16).
+- [x] `NO_DNA=1 cargo test --manifest-path contracts/solana-rfq/Cargo.toml --offline` — 8 unit tests passed; doc-tests passed (2026-09-16).
 - [x] `NO_DNA=1 npm run check:solana:release` — scaffold checks passed; production gates remain explicit (2026-09-16).
 - [x] `git diff --check` — passed (2026-09-16).
 

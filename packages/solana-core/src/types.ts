@@ -3,6 +3,8 @@ export type TokenProgram = 'spl-token' | 'token-2022';
 export type EligibilityStatus = 'eligible' | 'action_required' | 'ineligible' | 'unknown';
 export type ReferenceState = 'open' | 'closed' | 'stale' | 'unknown';
 export type QuoteSourceKind = 'jupiter' | 'private-maker';
+/** Route semantics are part of the signed quote, not inferred from a router label. */
+export type SettlementRoute = 'generic-spl' | 'ondo-managed';
 export type QuoteSessionState =
   | 'validating'
   | 'action_required'
@@ -103,6 +105,7 @@ export interface QuoteCandidate {
   readonly quoteId: string;
   readonly sourceId: string;
   readonly sourceKind: QuoteSourceKind;
+  readonly settlementRoute: SettlementRoute;
   readonly router: string;
   readonly wallet: string;
   readonly inputMint: string;

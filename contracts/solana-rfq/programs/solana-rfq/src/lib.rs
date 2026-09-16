@@ -1,5 +1,6 @@
 use anchor_lang::__private::bytemuck::{Pod, Zeroable};
 use anchor_lang::prelude::*;
+use anchor_spl::token::ID as SPL_TOKEN_PROGRAM_ID;
 use anchor_spl::token_interface::spl_token_2022::extension::transfer_hook::TransferHook;
 use anchor_spl::token_interface::spl_token_2022::extension::{
     BaseStateWithExtensions, ExtensionType, StateWithExtensions,
@@ -25,6 +26,16 @@ const GOVERNANCE_DELAY_SECONDS: i64 = 24 * 60 * 60;
 const MAX_FEE_BPS: u16 = 25;
 const BPS_DENOMINATOR: u128 = 10_000;
 const MAX_HOOK_ACCOUNTS: usize = 16;
+const ISSUER_XSTOCKS: u8 = 0;
+const ISSUER_ONDO: u8 = 1;
+const NATIVE_USDC_MINT: Pubkey = Pubkey::new_from_array([
+    198, 250, 122, 243, 190, 219, 173, 58, 61, 101, 243, 106, 171, 201, 116, 49, 177, 187, 228,
+    194, 210, 246, 224, 228, 124, 166, 2, 3, 69, 47, 93, 97,
+]);
+const NATIVE_USDT_MINT: Pubkey = Pubkey::new_from_array([
+    206, 1, 14, 96, 175, 237, 178, 39, 23, 189, 99, 25, 47, 84, 20, 90, 63, 150, 90, 51, 187, 130,
+    210, 199, 2, 158, 178, 206, 30, 32, 130, 100,
+]);
 
 // The production build must replace this audited, compile-time authority with
 // the address controlled by the deployment ceremony. Keeping it outside the
@@ -73,6 +84,11 @@ pub mod solana_rfq {
         require!(fee_bps <= MAX_FEE_BPS, ErrorCode::FeeCapExceeded);
 
         let registry = &ctx.accounts.asset_registry;
+        validate_registry_scope(
+            registry.issuer,
+            &registry.stable_outputs,
+            registry.stable_token_program,
+        )?;
         require!(
             registry.enabled && !registry.paused,
             ErrorCode::AssetNotEnabled
@@ -410,12 +426,11 @@ pub mod solana_rfq {
             &ctx.accounts.squad_signer_one,
             &ctx.accounts.squad_signer_two,
         )?;
-        require!(
-            stable_outputs[0] != Pubkey::default()
-                && stable_outputs[1] != Pubkey::default()
-                && stable_outputs[0] != stable_outputs[1],
-            ErrorCode::UnsupportedOutput
-        );
+        validate_registry_scope(
+            issuer,
+            &stable_outputs,
+            ctx.accounts.stable_token_program.key(),
+        )?;
         require_keys_eq!(
             *ctx.accounts.stock_mint.to_account_info().owner,
             ctx.accounts.stock_token_program.key(),
@@ -1254,6 +1269,28 @@ fn validate_maker_allowlist(allowlisted: &[Pubkey]) -> Result<()> {
     Ok(())
 }
 
+fn validate_registry_scope(
+    issuer: u8,
+    stable_outputs: &[Pubkey; 2],
+    stable_token_program: Pubkey,
+) -> Result<()> {
+    require!(
+        issuer == ISSUER_XSTOCKS || issuer == ISSUER_ONDO,
+        ErrorCode::UnsupportedIssuer
+    );
+    require_keys_eq!(
+        stable_token_program,
+        SPL_TOKEN_PROGRAM_ID,
+        ErrorCode::TokenProgramMismatch
+    );
+    require!(
+        (stable_outputs[0] == NATIVE_USDC_MINT && stable_outputs[1] == NATIVE_USDT_MINT)
+            || (stable_outputs[0] == NATIVE_USDT_MINT && stable_outputs[1] == NATIVE_USDC_MINT),
+        ErrorCode::UnsupportedOutput
+    );
+    Ok(())
+}
+
 fn validate_governance_initialization(
     payer: Pubkey,
     squad_signers: &[Pubkey; 3],
@@ -1339,6 +1376,8 @@ pub enum ErrorCode {
     DecimalsMismatch,
     #[msg("stable output is not registry-approved")]
     UnsupportedOutput,
+    #[msg("issuer is not supported by this settlement program")]
+    UnsupportedIssuer,
     #[msg("token program does not match registry")]
     TokenProgramMismatch,
     #[msg("Token-2022 extension fingerprint changed")]
@@ -1674,6 +1713,40 @@ mod tests {
             BOOTSTRAP_AUTHORITY,
             &signers,
             Pubkey::default()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn registry_scope_is_locked_to_native_stables_and_known_issuers() {
+        assert!(validate_registry_scope(
+            ISSUER_XSTOCKS,
+            &[NATIVE_USDC_MINT, NATIVE_USDT_MINT],
+            SPL_TOKEN_PROGRAM_ID,
+        )
+        .is_ok());
+        assert!(validate_registry_scope(
+            ISSUER_ONDO,
+            &[NATIVE_USDT_MINT, NATIVE_USDC_MINT],
+            SPL_TOKEN_PROGRAM_ID,
+        )
+        .is_ok());
+        assert!(validate_registry_scope(
+            2,
+            &[NATIVE_USDC_MINT, NATIVE_USDT_MINT],
+            SPL_TOKEN_PROGRAM_ID,
+        )
+        .is_err());
+        assert!(validate_registry_scope(
+            ISSUER_XSTOCKS,
+            &[Pubkey::new_from_array([9; 32]), NATIVE_USDT_MINT],
+            SPL_TOKEN_PROGRAM_ID,
+        )
+        .is_err());
+        assert!(validate_registry_scope(
+            ISSUER_XSTOCKS,
+            &[NATIVE_USDC_MINT, NATIVE_USDT_MINT],
+            token_interface::spl_token_2022::ID,
         )
         .is_err());
     }

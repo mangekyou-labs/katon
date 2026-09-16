@@ -4,6 +4,7 @@ import type { AssetRegistryEntry, QuoteCandidate, QuoteSessionRequest, Simulatio
 export interface QuoteSource {
   readonly id: string;
   readonly kind: QuoteCandidate['sourceKind'];
+  readonly settlementRoute: QuoteCandidate['settlementRoute'];
   readonly reliabilityBps: number;
   quote(request: QuoteSessionRequest, asset: AssetRegistryEntry, nowMs: number): Promise<QuoteCandidate>;
 }
@@ -36,7 +37,7 @@ export class MemorySourceBalanceProvider implements SourceBalanceProvider {
   }
 
   async verify(source: QuoteSource, candidate: QuoteCandidate, asset: AssetRegistryEntry, nowMs: number): Promise<VerifiedSourceBalance> {
-    if (candidate.sourceId !== source.id || candidate.sourceKind !== source.kind) throw new Error('source identity does not match quote');
+    if (candidate.sourceId !== source.id || candidate.sourceKind !== source.kind || candidate.settlementRoute !== source.settlementRoute) throw new Error('source identity does not match quote');
     if (!asset.supportedOutputs.includes(candidate.outputMint)) throw new Error('source output is not registry-approved');
     const balanceAtomic = this.balances.get(`${source.id}:${candidate.outputMint}`);
     if (balanceAtomic === undefined) throw new Error('source balance is unavailable');
@@ -68,6 +69,7 @@ function makeJupiterCandidate(request: QuoteSessionRequest, asset: AssetRegistry
     quoteId: `jup-${nowMs}`,
     sourceId: 'jupiter-meta-aggregator',
     sourceKind: 'jupiter',
+    settlementRoute: 'generic-spl',
     router: 'jupiter/order',
     wallet: request.wallet,
     inputMint: request.inputMint,
@@ -90,14 +92,32 @@ function makeJupiterCandidate(request: QuoteSessionRequest, asset: AssetRegistry
   };
 }
 
-function makeMakerCandidate(request: QuoteSessionRequest, asset: AssetRegistryEntry, nowMs: number): QuoteCandidate {
-  const gross = baseGross(request, asset, 8);
+interface MakerCandidateOptions {
+  readonly sourceId: string;
+  readonly router: string;
+  readonly settlementRoute: QuoteCandidate['settlementRoute'];
+  readonly premiumBps: number;
+}
+
+function makeMakerCandidate(
+  request: QuoteSessionRequest,
+  asset: AssetRegistryEntry,
+  nowMs: number,
+  options: MakerCandidateOptions = {
+    sourceId: 'maker-sandbox-01',
+    router: 'katon/private-rfq',
+    settlementRoute: 'generic-spl',
+    premiumBps: 8,
+  },
+): QuoteCandidate {
+  const gross = baseGross(request, asset, options.premiumBps);
   const venueFee = 0n;
   const provisional = {
-    quoteId: `maker-${nowMs}`,
-    sourceId: 'maker-sandbox-01',
+    quoteId: `${options.sourceId}-${nowMs}`,
+    sourceId: options.sourceId,
     sourceKind: 'private-maker' as const,
-    router: 'katon/private-rfq',
+    settlementRoute: options.settlementRoute,
+    router: options.router,
     wallet: request.wallet,
     inputMint: request.inputMint,
     outputMint: request.outputMint,
@@ -106,13 +126,13 @@ function makeMakerCandidate(request: QuoteSessionRequest, asset: AssetRegistryEn
     venueFeeAtomic: venueFee.toString(),
     referencePriceAtomic: asset.referencePriceAtomic,
     referencePriceDecimals: asset.referencePriceDecimals,
-    deviationBps: 8,
+    deviationBps: options.premiumBps,
     priceImpactBps: 1,
     createdAtMs: nowMs,
     expiresAtMs: nowMs + quoteLifetimeMs('private-maker'),
     reliabilityBps: 9_700,
     transactionVersion: 'v0' as const,
-    transactionBase64: encodeEnvelope({ route: 'katon-private-rfq', quoteId: `maker-${nowMs}`, input: request.inputAmountAtomic, output: gross.toString() }),
+    transactionBase64: encodeEnvelope({ route: options.router, quoteId: `${options.sourceId}-${nowMs}`, input: request.inputAmountAtomic, output: gross.toString() }),
     simulation: simulation(nowMs),
   };
   return withComputedPrivateFee(provisional);
@@ -121,9 +141,11 @@ function makeMakerCandidate(request: QuoteSessionRequest, asset: AssetRegistryEn
 export class MockJupiterSource implements QuoteSource {
   readonly id = 'jupiter-meta-aggregator';
   readonly kind = 'jupiter' as const;
+  readonly settlementRoute = 'generic-spl' as const;
   readonly reliabilityBps = 9_900;
 
   async quote(request: QuoteSessionRequest, asset: AssetRegistryEntry, nowMs: number): Promise<QuoteCandidate> {
+    if (asset.issuer !== 'xstocks') throw new Error('Jupiter mock route does not support Ondo managed assets');
     return makeJupiterCandidate(request, asset, nowMs);
   }
 }
@@ -131,10 +153,30 @@ export class MockJupiterSource implements QuoteSource {
 export class MockPrivateMakerSource implements QuoteSource {
   readonly id = 'maker-sandbox-01';
   readonly kind = 'private-maker' as const;
+  readonly settlementRoute = 'generic-spl' as const;
   readonly reliabilityBps = 9_700;
 
   async quote(request: QuoteSessionRequest, asset: AssetRegistryEntry, nowMs: number): Promise<QuoteCandidate> {
+    if (asset.issuer !== 'xstocks') throw new Error('private maker mock route does not support Ondo managed assets');
     return makeMakerCandidate(request, asset, nowMs);
+  }
+}
+
+/** Local-only stand-in for Ondo's issuer-managed JIT route. */
+export class MockOndoManagedSource implements QuoteSource {
+  readonly id = 'ondo-managed-sandbox-01';
+  readonly kind = 'private-maker' as const;
+  readonly settlementRoute = 'ondo-managed' as const;
+  readonly reliabilityBps = 9_700;
+
+  async quote(request: QuoteSessionRequest, asset: AssetRegistryEntry, nowMs: number): Promise<QuoteCandidate> {
+    if (asset.issuer !== 'ondo') throw new Error('Ondo managed mock route only supports Ondo assets');
+    return makeMakerCandidate(request, asset, nowMs, {
+      sourceId: this.id,
+      router: 'ondo/jit-managed',
+      settlementRoute: this.settlementRoute,
+      premiumBps: 8,
+    });
   }
 }
 

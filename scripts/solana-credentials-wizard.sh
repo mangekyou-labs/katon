@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=5
+TOTAL_STAGES=6
 ENV_FILE="${ENV_FILE:-.env.solana.local}"
 umask 077
 
@@ -231,11 +231,23 @@ if [[ -z "$SOLANA_DEPLOYMENT_MANIFEST" ]]; then
   warn "a signed deployment manifest path is required"; exit 1
 fi
 
-stage "Liquidator access token"
-say "Paste the provider or liquidator access token. Input is hidden and the token is written only to the local env file."
-ask_secret SOLANA_LIQUIDATOR_API_TOKEN "Liquidator access token:"
-if [[ -z "$SOLANA_LIQUIDATOR_API_TOKEN" ]]; then
-  warn "a liquidator access token is required"; exit 1
+stage "Optional Jupiter API access"
+JUPITER_API_KEY=""
+say "Kamino liquidation is permissionless and does not require a provider token."
+say "Jupiter works without a key for low-rate development requests; an API key only raises limits and adds portal analytics."
+note "The current devnet mock does not consume this key; saving it prepares for a future real Jupiter adapter."
+if confirm "Create or enter a free Jupiter API key?"; then
+  open_url "https://developers.jup.ag/portal"
+  step "Sign in, create or join a team, and generate an API key."
+  step "Copy the key; do not paste it into chat, an issue, or a committed file."
+  ask_secret JUPITER_API_KEY "Jupiter API key:"
+  if [[ -z "$JUPITER_API_KEY" ]]; then
+    warn "no key entered; continuing with keyless Jupiter access"
+  else
+    note "The key will be stored with owner-only permissions in $ENV_FILE after final confirmation."
+  fi
+else
+  note "No optional key selected; use keyless Jupiter access for development."
 fi
 
 printf '\n'
@@ -249,6 +261,8 @@ write_env SOLANA_RPC_URL "$SOLANA_RPC_URL"
 write_env SOLANA_KEYPAIR_PATH "$SOLANA_KEYPAIR_PATH"
 write_env SOLANA_TRUSTED_MANIFEST_SIGNER_PUBLIC_KEY "$SOLANA_TRUSTED_MANIFEST_SIGNER_PUBLIC_KEY"
 write_env SOLANA_DEPLOYMENT_MANIFEST "$SOLANA_DEPLOYMENT_MANIFEST"
-write_env SOLANA_LIQUIDATOR_API_TOKEN "$SOLANA_LIQUIDATOR_API_TOKEN"
+if [[ -n "$JUPITER_API_KEY" ]]; then
+  write_env JUPITER_API_KEY "$JUPITER_API_KEY"
+fi
 
 finish

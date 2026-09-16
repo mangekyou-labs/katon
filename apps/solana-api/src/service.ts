@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { EFFECTIVE_PRICE_DECIMALS, QUOTE_SPRINT_MS, adapterForIssuer, assertAtomicString, assertJupiterPayloadUnchanged, buildSession, effectivePriceAtomic, rankExecutableCandidates, sanitizeAudit } from '@katon/solana-core';
+import { EFFECTIVE_PRICE_DECIMALS, QUOTE_SPRINT_MS, adapterForIssuer, assertAtomicString, assertJupiterPayloadUnchanged, buildSession, effectivePriceAtomic, rankExecutableCandidates, routeAllowedForIssuer, sanitizeAudit } from '@katon/solana-core';
 import { transactionHash, validateSignedTransaction } from '@katon/solana-sdk';
 import type { AssetRegistryEntry, EligibilityResult, MintAccountSnapshot, QuoteCandidate, QuoteSession, QuoteSessionRequest, SanitizedAuditRow, SimulationResult, TradeReceipt, VerifiedSourceBalance } from '@katon/solana-core';
 import { RejectingSourceBalanceProvider, type JupiterExecutor, type PrivateSender, type QuoteSource, type SourceBalanceProvider } from './sources';
@@ -355,8 +355,11 @@ export class QuoteDeskService {
       try {
         const quoteNowMs = stored.liveClock ? this.clock() : nowMs;
         const sourceCandidate = await withDeadline(source.quote(stored.session.request, asset, quoteNowMs), sprintDeadline, this.monotonicClock, 'quote sprint timed out');
-        if (sourceCandidate.sourceId !== source.id || sourceCandidate.sourceKind !== source.kind) {
+        if (sourceCandidate.sourceId !== source.id || sourceCandidate.sourceKind !== source.kind || sourceCandidate.settlementRoute !== source.settlementRoute) {
           throw new Error('source identity does not match quote');
+        }
+        if (!routeAllowedForIssuer(asset.issuer, sourceCandidate)) {
+          throw new Error('source route is not allowed for issuer');
         }
         // Reliability is adapter configuration, not untrusted quote payload
         // data. Normalize it before the candidate reaches the ranker.
@@ -412,6 +415,11 @@ export class QuoteDeskService {
       inputMint: stored.session.request.inputMint,
       outputMint: stored.session.request.outputMint,
       inputAmountAtomic: stored.session.request.inputAmountAtomic,
+      issuer: asset.issuer,
+      inputDecimals: asset.decimals,
+      outputDecimals: 6,
+      referencePriceAtomic: asset.referencePriceAtomic,
+      referencePriceDecimals: asset.referencePriceDecimals,
       wallet: stored.session.request.wallet,
       maxDeviationBps: asset.maxDeviationBps,
       verifiedSourceBalances: stored.verifiedSourceBalances,

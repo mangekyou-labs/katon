@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { MemoryAssetProvider, MockQuoteSimulationProvider, QuoteDeskService } from './service';
-import { MemorySourceBalanceProvider, MockJupiterSource, MockPrivateMakerSource, MockSender } from './sources';
+import { MemorySourceBalanceProvider, MockJupiterSource, MockOndoManagedSource, MockPrivateMakerSource, MockSender } from './sources';
 import { demoAssets } from './registry';
 import type { QuoteSessionRequest } from '@katon/solana-core';
 
@@ -12,8 +12,9 @@ const sender = new MockSender();
 const sourceBalances = new MemorySourceBalanceProvider();
 for (const outputMint of [demoAssets[0].supportedOutputs[0], demoAssets[0].supportedOutputs[1]]) {
   sourceBalances.setBalance('maker-sandbox-01', outputMint, '1000000000000');
+  sourceBalances.setBalance('ondo-managed-sandbox-01', outputMint, '1000000000000000');
 }
-export const desk = new QuoteDeskService(assets, [new MockJupiterSource(), new MockPrivateMakerSource()], sender, sender, Date.now, new MockQuoteSimulationProvider(), sourceBalances);
+export const desk = new QuoteDeskService(assets, [new MockJupiterSource(), new MockPrivateMakerSource(), new MockOndoManagedSource()], sender, sender, Date.now, new MockQuoteSimulationProvider(), sourceBalances);
 
 function json(response: ServerResponse, status: number, body: unknown): void {
   response.statusCode = status;

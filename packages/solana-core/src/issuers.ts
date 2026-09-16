@@ -1,6 +1,6 @@
 import { parseAtomic } from './amounts';
 import { assertSupportedOutput, checkMintAgainstRegistry } from './registry';
-import type { AssetRegistryEntry, EligibilityResult, MintAccountSnapshot } from './types';
+import type { AssetRegistryEntry, EligibilityResult, MintAccountSnapshot, QuoteCandidate, SettlementRoute } from './types';
 
 export interface IssuerPreflightContext {
   readonly wallet: string;
@@ -12,11 +12,13 @@ export interface IssuerPreflightContext {
 
 export interface IssuerAdapter {
   readonly issuer: AssetRegistryEntry['issuer'];
+  readonly settlementRoute: SettlementRoute;
   preflight(asset: AssetRegistryEntry, mint: MintAccountSnapshot, context: IssuerPreflightContext): EligibilityResult;
 }
 
 abstract class RegistryIssuerAdapter implements IssuerAdapter {
   abstract readonly issuer: AssetRegistryEntry['issuer'];
+  abstract readonly settlementRoute: SettlementRoute;
 
   preflight(asset: AssetRegistryEntry, mint: MintAccountSnapshot, context: IssuerPreflightContext): EligibilityResult {
     const checkedAtMs = context.nowMs ?? Date.now();
@@ -49,10 +51,20 @@ abstract class RegistryIssuerAdapter implements IssuerAdapter {
 }
 
 /** xStocks metadata and policy are deliberately not shared with Ondo JIT. */
-export class XStocksIssuerAdapter extends RegistryIssuerAdapter { readonly issuer = 'xstocks' as const; }
+export class XStocksIssuerAdapter extends RegistryIssuerAdapter {
+  readonly issuer = 'xstocks' as const;
+  readonly settlementRoute = 'generic-spl' as const;
+}
 
-/** Ondo routes may carry issuer-managed JIT accounts; generic SPL routes are rejected upstream. */
-export class OndoIssuerAdapter extends RegistryIssuerAdapter { readonly issuer = 'ondo' as const; }
+/** Ondo routes carry issuer-managed JIT accounts; generic SPL routes are rejected. */
+export class OndoIssuerAdapter extends RegistryIssuerAdapter {
+  readonly issuer = 'ondo' as const;
+  readonly settlementRoute = 'ondo-managed' as const;
+}
+
+export function routeAllowedForIssuer(issuer: AssetRegistryEntry['issuer'], candidate: Pick<QuoteCandidate, 'settlementRoute'>): boolean {
+  return adapterForIssuer(issuer).settlementRoute === candidate.settlementRoute;
+}
 
 export function adapterForIssuer(issuer: AssetRegistryEntry['issuer']): IssuerAdapter {
   return issuer === 'xstocks' ? new XStocksIssuerAdapter() : new OndoIssuerAdapter();

@@ -13,6 +13,7 @@ import {
   type AssetRegistryEntry,
   type MintAccountSnapshot,
   type QuoteCandidate,
+  type RankInput,
 } from '../packages/solana-core/src/index';
 import { LiquidationCircuitBreaker, LiquidationSolver, chooseFundingSource, requiresZeroResidualStock } from '../services/solana-liquidator/src/index';
 import { deploymentManifestPayload, DeploymentManifestGate, verifyDeploymentManifest, MAINNET_PROGRAM_IDS, KaminoLendAdapter, verifyDiscoveredMarkets, type DeploymentManifest, type RuntimeProgramState, type DiscoveredMarket, type LendingPosition } from '../services/solana-liquidator/src/index';
@@ -28,7 +29,23 @@ const asset: AssetRegistryEntry = {
 const mint: MintAccountSnapshot = { mint: asset.mint, ownerProgram: asset.tokenProgram, decimals: asset.decimals, extensionFingerprint: asset.extensionFingerprint, extensions: ['metadata-pointer', 'pausable', 'scaled-ui-amount'], paused: false, metadataPointer: asset.mint, scaledUiAmountEnabled: true, memoTransferRequired: false };
 
 function candidate(sourceId: string, net: string, expiresAtMs = 20_000): QuoteCandidate {
-  return { quoteId: sourceId, sourceId, sourceKind: sourceId.startsWith('maker') ? 'private-maker' : 'jupiter', router: sourceId, wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', grossOutputAtomic: net, katonFeeAtomic: '0', venueFeeAtomic: '0', netOutputAtomic: net, createdAtMs: 0, expiresAtMs, reliabilityBps: 9_000, transactionVersion: 'v0', transactionBase64: 'AQ==', simulation: { ok: true, simulatedAtMs: 0 } };
+  return { quoteId: sourceId, sourceId, sourceKind: sourceId.startsWith('maker') || sourceId.startsWith('ondo') ? 'private-maker' : 'jupiter', settlementRoute: sourceId.startsWith('ondo') ? 'ondo-managed' : 'generic-spl', router: sourceId, wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', grossOutputAtomic: net, katonFeeAtomic: '0', venueFeeAtomic: '0', netOutputAtomic: net, referencePriceAtomic: asset.referencePriceAtomic, referencePriceDecimals: asset.referencePriceDecimals, createdAtMs: 0, expiresAtMs, reliabilityBps: 9_000, transactionVersion: 'v0', transactionBase64: 'AQ==', simulation: { ok: true, simulatedAtMs: 0 } };
+}
+
+function rank(candidates: readonly QuoteCandidate[], overrides: Partial<Omit<RankInput, 'candidates'>> = {}) {
+  return rankExecutableCandidates({
+    nowMs: 0,
+    inputMint: asset.mint,
+    outputMint: SOLANA_USDC_MINT,
+    inputAmountAtomic: '1000000',
+    issuer: asset.issuer,
+    inputDecimals: asset.decimals,
+    outputDecimals: 6,
+    referencePriceAtomic: asset.referencePriceAtomic,
+    referencePriceDecimals: asset.referencePriceDecimals,
+    ...overrides,
+    candidates,
+  });
 }
 
 function verifiedSourceBalance(sourceId: string, balanceAtomic: string, checkedAtMs = 0) {
@@ -62,19 +79,56 @@ describe('Solana exit desk core', () => {
 
   it('ranks net output, validity, reliability and source id deterministically', () => {
     const verifiedSourceBalances = { 'maker-a': verifiedSourceBalance('maker-a', '1000'), 'maker-b': verifiedSourceBalance('maker-b', '1000') };
-    const result = rankExecutableCandidates({ candidates: [candidate('maker-b', '1000'), candidate('maker-a', '1000', 30_000), candidate('jupiter', '9999')], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', verifiedSourceBalances });
+    const result = rank([candidate('maker-b', '1000'), candidate('maker-a', '1000', 30_000), candidate('jupiter', '9999')], { verifiedSourceBalances });
     expect(result.winner?.sourceId).toBe('jupiter');
     expect(result.audit).toHaveLength(3);
-    expect(rankExecutableCandidates({ candidates: [candidate('maker-b', '1000'), candidate('maker-a', '1000')], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', verifiedSourceBalances }).winner?.sourceId).toBe('maker-a');
-    expect(rankExecutableCandidates({ candidates: [{ ...candidate('bad-sim', '5000'), simulation: { ok: false, errorCode: 'slippage', simulatedAtMs: 0 } }, { ...candidate('bad-fee', '5000'), grossOutputAtomic: '4', katonFeeAtomic: '3', venueFeeAtomic: '3' }, { ...candidate('bad-band', '9000'), deviationBps: 999 }, candidate('too-long', '8000', 31_000)], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', maxDeviationBps: 150 }).audit.map((row) => row.rejectionCode)).toEqual(['failed_simulation', 'malformed_quote', 'price_band', 'malformed_quote']);
+    expect(rank([candidate('maker-b', '1000'), candidate('maker-a', '1000')], { verifiedSourceBalances }).winner?.sourceId).toBe('maker-a');
+    expect(rank([{ ...candidate('bad-sim', '5000'), simulation: { ok: false, errorCode: 'slippage', simulatedAtMs: 0 } }, { ...candidate('bad-fee', '5000'), grossOutputAtomic: '4', katonFeeAtomic: '3', venueFeeAtomic: '3' }, { ...candidate('bad-band', '9000'), deviationBps: 999 }, candidate('too-long', '8000', 31_000)], { maxDeviationBps: 150 }).audit.map((row) => row.rejectionCode)).toEqual(['failed_simulation', 'malformed_quote', 'price_band', 'malformed_quote']);
   });
 
   it('fails closed when a private maker lacks independently verified liquidity', () => {
     const quote = candidate('maker-unverified', '1000');
-    expect(rankExecutableCandidates({ candidates: [quote], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000' })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'insufficient_liquidity', status: 'rejected' }] });
-    expect(rankExecutableCandidates({ candidates: [quote], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', verifiedSourceBalances: { 'maker-unverified': verifiedSourceBalance('maker-unverified', '999') } })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'insufficient_liquidity', status: 'rejected' }] });
-    expect(rankExecutableCandidates({ candidates: [quote], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', verifiedSourceBalances: { 'maker-unverified': verifiedSourceBalance('maker-unverified', '1000', 4_000) } })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'source_error', status: 'rejected' }] });
-    expect(rankExecutableCandidates({ candidates: [quote], nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', verifiedSourceBalances: { 'maker-unverified': { ...verifiedSourceBalance('maker-unverified', '1000'), outputMint: SOLANA_USDT_MINT } } })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'insufficient_liquidity', status: 'rejected' }] });
+    expect(rank([quote])).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'insufficient_liquidity', status: 'rejected' }] });
+    expect(rank([quote], { verifiedSourceBalances: { 'maker-unverified': verifiedSourceBalance('maker-unverified', '999') } })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'insufficient_liquidity', status: 'rejected' }] });
+    expect(rank([quote], { verifiedSourceBalances: { 'maker-unverified': verifiedSourceBalance('maker-unverified', '1000', 4_000) } })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'source_error', status: 'rejected' }] });
+    expect(rank([quote], { verifiedSourceBalances: { 'maker-unverified': { ...verifiedSourceBalance('maker-unverified', '1000'), outputMint: SOLANA_USDT_MINT } } })).toMatchObject({ winner: undefined, audit: [{ rejectionCode: 'insufficient_liquidity', status: 'rejected' }] });
+  });
+
+  it('recomputes price bands from registry terms and separates Ondo managed routes', () => {
+    const spoofedDeviation = { ...candidate('jupiter-spoofed-deviation', '98000000'), deviationBps: 0 };
+    expect(rank([spoofedDeviation], { maxDeviationBps: 150 })).toMatchObject({
+      winner: undefined,
+      audit: [{ rejectionCode: 'price_band', status: 'rejected' }],
+    });
+
+    const ondoAsset = demoAssets[1];
+    const genericRoute = {
+      ...candidate('ondo-generic-route', '100000000'),
+      inputMint: ondoAsset.mint,
+      referencePriceAtomic: ondoAsset.referencePriceAtomic,
+      referencePriceDecimals: ondoAsset.referencePriceDecimals,
+      settlementRoute: 'generic-spl' as const,
+      sourceKind: 'jupiter' as const,
+    };
+    const managedRoute = {
+      ...candidate('ondo-managed-route', '100000000'),
+      inputMint: ondoAsset.mint,
+      referencePriceAtomic: ondoAsset.referencePriceAtomic,
+      referencePriceDecimals: ondoAsset.referencePriceDecimals,
+    };
+    const result = rank([genericRoute, managedRoute], {
+      issuer: ondoAsset.issuer,
+      inputMint: ondoAsset.mint,
+      inputDecimals: ondoAsset.decimals,
+      referencePriceAtomic: ondoAsset.referencePriceAtomic,
+      referencePriceDecimals: ondoAsset.referencePriceDecimals,
+      maxDeviationBps: ondoAsset.maxDeviationBps,
+      verifiedSourceBalances: {
+        [managedRoute.sourceId]: verifiedSourceBalance(managedRoute.sourceId, '100000000'),
+      },
+    });
+    expect(result.winner?.sourceId).toBe(managedRoute.sourceId);
+    expect(result.audit).toMatchObject([{ rejectionCode: 'policy_failure', status: 'rejected' }, { status: 'executable' }]);
   });
 
   it('rejects non-finite or unsafe quote metadata before sorting', () => {
@@ -87,8 +141,8 @@ describe('Solana exit desk core', () => {
       undefined as unknown as QuoteCandidate,
       { ...candidate('missing-simulation', '1000'), simulation: undefined as unknown as QuoteCandidate['simulation'] },
     ];
-    expect(() => rankExecutableCandidates({ candidates: malformed, nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', maxDeviationBps: 150 })).not.toThrow();
-    expect(rankExecutableCandidates({ candidates: malformed, nowMs: 0, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000', maxDeviationBps: 150 }).audit.map((row) => row.rejectionCode)).toEqual([
+    expect(() => rank(malformed, { maxDeviationBps: 150 })).not.toThrow();
+    expect(rank(malformed, { maxDeviationBps: 150 }).audit.map((row) => row.rejectionCode)).toEqual([
       'malformed_quote',
       'malformed_quote',
       'malformed_quote',
@@ -106,6 +160,7 @@ describe('Solana exit desk core', () => {
     const delayedSource = {
       id: 'jupiter-delayed',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_900,
       quote: async () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -127,6 +182,7 @@ describe('Solana exit desk core', () => {
     const delayedSource = {
       id: 'jupiter-clock-refresh',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_900,
       quote: async () => {
         await Promise.resolve();
@@ -212,15 +268,19 @@ describe('Solana deployment manifest', () => {
 });
 
 describe('lending adapters and registry discovery', () => {
-  const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
+  const market: DiscoveredMarket = { lender: 'kamino', programId: MAINNET_PROGRAM_IDS.kamino, marketAddress: 'market', reserveAddress: 'reserve', vaultAddress: 'vault', collateralMint: asset.mint, debtMint: SOLANA_USDC_MINT, oracleAddress: 'oracle', idlSha256: 'idl', upgradeAuthority: 'authority', observedAtMs: 1_000 };
   const position: LendingPosition = { obligationAddress: 'obligation', owner: 'owner', collateralMint: asset.mint, collateralAtomic: '100', debtMint: SOLANA_USDC_MINT, debtAtomic: '50', healthFactorBps: 9_900, observedAtMs: 1_000 };
 
-  it('pins lender discovery and builds opaque authoritative instructions', async () => {
-    const adapter = new KaminoLendAdapter(async () => [market]);
+  it('pins lender discovery and accepts only injected authoritative instructions', async () => {
+    const instruction = { programId: MAINNET_PROGRAM_IDS.kamino, accounts: ['market', 'reserve', 'vault', 'obligation', 'owner'], dataBase64: 'AQ==', authoritative: true as const };
+    const adapter = new KaminoLendAdapter(async () => [market], async () => instruction);
     expect(await adapter.discoverMarkets()).toEqual([market]);
-    expect((await adapter.buildLiquidationInstruction(position, market)).authoritative).toBe(true);
+    expect(await adapter.buildLiquidationInstruction(position, market)).toEqual(instruction);
+    await expect(new KaminoLendAdapter(async () => [market]).buildLiquidationInstruction(position, market)).rejects.toThrow('authoritative');
+    await expect(new KaminoLendAdapter(async () => [market], async () => ({ ...instruction, dataBase64: 'AQ' })).buildLiquidationInstruction(position, market)).rejects.toThrow('authoritative');
     expect(verifyDiscoveredMarkets([market], [asset], 1_500).ok).toBe(true);
     expect(verifyDiscoveredMarkets([{ ...market, programId: 'unreviewed' }], [asset], 1_500).reason).toBe('unreviewed lender program');
+    expect(verifyDiscoveredMarkets([], [asset], 1_500).reason).toBe('no reviewed lender markets discovered');
     await expect(new KaminoLendAdapter(async () => [{ ...market, programId: 'unreviewed' }]).discoverMarkets()).rejects.toThrow('unreviewed');
   });
 });
@@ -246,9 +306,10 @@ describe('local coordination seam', () => {
     const source = {
       id: 'jupiter-untrusted-simulation',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_000,
       quote: async () => ({
-        ...candidate('jupiter-untrusted-simulation', '1000'),
+        ...candidate('jupiter-untrusted-simulation', '100000000'),
         simulation: { ok: false, errorCode: 'source-claimed-failure', simulatedAtMs: 0 },
       }),
     };
@@ -277,10 +338,11 @@ describe('local coordination seam', () => {
     const source = {
       id: 'maker-sprint-boundary',
       kind: 'private-maker' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_000,
       quote: async () => {
         monotonicMs = 2_500;
-        return candidate('maker-sprint-boundary', '1000');
+        return candidate('maker-sprint-boundary', '100000000');
       },
     };
     const independentSimulator = {
@@ -319,11 +381,12 @@ describe('local coordination seam', () => {
     const source = {
       id: 'jupiter-live-clock',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_000,
       quote: async (_request: unknown, _asset: unknown, sourceNowMs: number) => {
         expect(sourceNowMs).toBe(1_000);
         nowMs = 1_100;
-        return candidate('jupiter-live-clock', '1000');
+        return candidate('jupiter-live-clock', '100000000');
       },
     };
     const independentSimulator = {
@@ -346,20 +409,23 @@ describe('local coordination seam', () => {
     const lowReliability = {
       id: 'jupiter-low',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 100,
-      quote: async () => ({ ...candidate('jupiter-low', '1000'), reliabilityBps: 10_000 }),
+      quote: async () => ({ ...candidate('jupiter-low', '100000000'), reliabilityBps: 10_000 }),
     };
     const highReliability = {
       id: 'jupiter-high',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_000,
-      quote: async () => ({ ...candidate('jupiter-high', '1000'), reliabilityBps: 0 }),
+      quote: async () => ({ ...candidate('jupiter-high', '100000000'), reliabilityBps: 0 }),
     };
     const spoofing = {
       id: 'jupiter-spoofing',
       kind: 'jupiter' as const,
+      settlementRoute: 'generic-spl' as const,
       reliabilityBps: 9_000,
-      quote: async () => candidate('jupiter-high', '1000'),
+      quote: async () => candidate('jupiter-high', '100000000'),
     };
     const desk = new QuoteDeskService(provider, [lowReliability, highReliability, spoofing], sender, sender, Date.now, new MockQuoteSimulationProvider());
     const created = await desk.createSession({ wallet: 'wallet', inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000' }, 1_000);

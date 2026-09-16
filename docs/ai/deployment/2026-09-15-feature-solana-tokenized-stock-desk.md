@@ -73,8 +73,12 @@ cd /Users/kyler/repos/katon/.worktrees/feature-solana-tokenized-stock-desk
 npm run setup:solana:credentials
 ```
 
-The wizard writes an owner-only `.env.solana.local` containing the cluster/RPC,
-wallet keypair path (never key contents), trusted manifest signer public key,
-signed manifest path, and hidden liquidator API token. Do not paste secrets into
-chat or commit this file. Network, wallet, RPC, deployment, and transaction
-submission checks remain explicit operator-run gates.
+The wizard collects the cluster/RPC endpoint, a wallet/deployer keypair path
+(never keypair contents), the trusted Ed25519 manifest signer, and the signed
+deployment-manifest path. Kamino liquidation is permissionless and does not
+require a provider token. It also offers an optional Jupiter API key for higher
+rate limits and portal analytics; keyless access is sufficient for low-rate
+development. Do not paste secrets into chat or commit this file. The current
+devnet mock does not consume the optional key. Network, wallet, RPC,
+deployment, manifest, and transaction-submission checks remain explicit
+operator-run gates.
