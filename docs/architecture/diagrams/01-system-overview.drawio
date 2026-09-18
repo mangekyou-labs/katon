@@ -1,0 +1,132 @@
+<mxfile host="app.diagrams.net" agent="Katon" version="22.0.0">
+  <diagram id="sys" name="System overview">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Katon on Base — system overview" style="text;html=1;fontSize=18;fontStyle=1;align=left;fontFamily=Helvetica;fontColor=#1F4E79;" vertex="1" parent="1">
+          <mxGeometry x="40" y="16" width="520" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="part" value="Participants" style="swimlane;startSize=28;fillColor=#dae8fc;strokeColor=#6c8ebf;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="200" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="keeper" value="Keeper" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="part">
+          <mxGeometry x="30" y="50" width="140" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp" value="LP / facility executor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="part">
+          <mxGeometry x="30" y="130" width="140" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="dep" value="Depositor / curator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="part">
+          <mxGeometry x="30" y="210" width="140" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="plat" value="Katon (keyless)" style="swimlane;startSize=28;fillColor=#d5e8d4;strokeColor=#82b366;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="300" y="60" width="220" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="be" value="Backend&lt;br&gt;NestJS ranker + API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="plat">
+          <mxGeometry x="30" y="70" width="160" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="mongo" value="MongoDB" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontFamily=Helvetica;size=12;" vertex="1" parent="plat">
+          <mxGeometry x="50" y="180" width="120" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="evm" value="Base EVM (atomic settlement)" style="swimlane;startSize=28;fillColor=#fff2cc;strokeColor=#d6b656;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="580" y="60" width="420" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="router" value="RFQ Router" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontFamily=Helvetica;" vertex="1" parent="evm">
+          <mxGeometry x="140" y="50" width="140" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="settle" value="Settlement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Helvetica;" vertex="1" parent="evm">
+          <mxGeometry x="20" y="140" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="agg" value="Facility Aggregator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Helvetica;" vertex="1" parent="evm">
+          <mxGeometry x="150" y="140" width="130" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="adapt" value="Venue adapters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="evm">
+          <mxGeometry x="290" y="140" width="110" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="fac" value="Liquidity Facilities" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Helvetica;" vertex="1" parent="evm">
+          <mxGeometry x="140" y="230" width="140" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="ven" value="v1 venues" style="swimlane;startSize=28;fillColor=#f8cecc;strokeColor=#b85450;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="60" width="220" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="aave" value="Aave" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontFamily=Helvetica;" vertex="1" parent="ven">
+          <mxGeometry x="40" y="50" width="140" height="44" as="geometry"/>
+        </mxCell>
+        <mxCell id="morpho" value="Morpho" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontFamily=Helvetica;" vertex="1" parent="ven">
+          <mxGeometry x="40" y="110" width="140" height="44" as="geometry"/>
+        </mxCell>
+        <mxCell id="euler" value="Euler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontFamily=Helvetica;" vertex="1" parent="ven">
+          <mxGeometry x="40" y="170" width="140" height="44" as="geometry"/>
+        </mxCell>
+        <mxCell id="aero" value="Aerodrome (read-only floor)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#ffffff;strokeColor=#b85450;fontFamily=Helvetica;" vertex="1" parent="ven">
+          <mxGeometry x="20" y="240" width="180" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="keeper" target="be" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontFamily=Helvetica;fontSize=10;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1l" value="public RFQ" style="edgeLabel;html=1;align=center;fontSize=10;fontFamily=Helvetica;" vertex="1" connectable="0" parent="e1">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="lp" target="be" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontFamily=Helvetica;fontSize=10;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2l" value="TLS EIP-712 bid" style="edgeLabel;html=1;align=center;fontSize=10;fontFamily=Helvetica;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="dep" target="be" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="be" target="mongo" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="be" target="router" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;endArrow=classic;fontSize=10;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5l" value="unsigned route (winner only)" style="edgeLabel;html=1;align=center;fontSize=10;fontFamily=Helvetica;" vertex="1" connectable="0" parent="e5">
+          <mxGeometry x="-0.1" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="lp" target="router" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6l" value="signed tx" style="edgeLabel;html=1;align=center;fontSize=10;fontFamily=Helvetica;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="router" target="settle" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="router" target="agg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="router" target="adapt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="agg" target="fac" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="adapt" target="aave" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="adapt" target="morpho" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="adapt" target="euler" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="be" target="aero" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note" value="Dashed: read-only or unsigned calldata. Solid to venues: typed liquidate / allocate. Aerodrome is never a dump venue." style="text;html=1;align=left;fontSize=11;fontFamily=Helvetica;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="900" height="24" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

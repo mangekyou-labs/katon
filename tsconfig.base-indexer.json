@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [
+    "services/indexer/src/base/**/*.ts",
+    "services/indexer/src/baseProjector.ts",
+    "services/indexer/src/baseWorker.ts",
+    "packages/base-contracts/src"
+  ]
+}

@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "network": "sepolia",
+  "networkName": "Base Sepolia",
+  "chainId": 84532,
+  "environment": "sepolia",
+  "rpcUrl": "https://sepolia.base.org",
+  "deployer": "0x23f8359353c078D855F01a9B0812F582C8011e18",
+  "deployedAt": "2026-09-11T16:30:17.346Z",
+  "blockNumber": "46687964",
+  "blockHash": "0x69d99829d4086685ea647c7de554c3724f7ac210967d309caeccd8b8dc5a500d",
+  "productionEligible": false,
+  "releaseCandidate": true,
+  "forkQa": false,
+  "nativeUsdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "nativeUsdcRuntimeBytecodeHash": "0xedc5281a85c0efecd49999a1ef668390c59b88702f2d4a07029d7f5d63059d6c",
+  "roles": {
+    "operator": "0x23f8359353c078D855F01a9B0812F582C8011e18",
+    "depositor": "0x23F166fD1FBd679e27B2A4c67CAD7eE0F02A31AA",
+    "lp": "0xE91543C333B1f6927598a151427d10BCC598CA8c",
+    "admin": "0x23f8359353c078D855F01a9B0812F582C8011e18",
+    "curator": "0x23F166fD1FBd679e27B2A4c67CAD7eE0F02A31AA",
+    "executor": "0x23f8359353c078D855F01a9B0812F582C8011e18",
+    "guardian": "0x23f8359353c078D855F01a9B0812F582C8011e18"
+  },
+  "addresses": {
+    "mockPolicyRegistry": "0x26487dd0B823AC325f9bE75bBCFF88CAe03337f9",
+    "mockOracleFeed": "0xE2837021ddDf0bF6F7DbA405443489617E565345",
+    "mockSequencerFeed": "0xd61203534Dd064036EC2e060B24927007CbE64dE",
+    "mockB20": "0xCc150D8ac6781f06cf96841534663dB17a789009",
+    "mockMutableOracle": "0x882BaB0a3Fe3921DE47fE9a333c218e2DDf788f2",
+    "router": "0x05390561CDF2012ff4203a5F4e97027aA857B2Ee",
+    "settlement": "0xFa2e05214C5c5219A09b903aE67431532ed22992",
+    "facility": "0xba7B0d7148a013e14C42798794B5847826652Dd0",
+    "facilityAggregator": "0x0f257bb7e8C21d3E4E7C6586d7713F9b13ec50dc",
+    "oracleGuard": "0x87c43560533e48e0aA02d86f431E2154eF730f58",
+    "b20Guard": "0x99c27e1E0815a3a02D63f0D9b6C10bfB8AE04bb1",
+    "mockAavePool": "0xa065E14b287567c0054f715F5a974a2917b021bA",
+    "mockMorphoBlue": "0x9e911c92fbcdf0946d097C82be0f1fe4a7968424",
+    "mockEulerDebtVault": "0xE167a10Cf7616B4Ba2F0053cB96a24045FA5B184",
+    "mockEulerCollateralVault": "0xB323cf48DA8245fB979A8Ef220BC48e7dCFC3435",
+    "mockAerodromePool": "0x5E471fd326E205612eC43B29f96661D4D66f6fb3",
+    "aaveLiquidationAdapter": "0x15c5402b401aD2bCdd8026F2f59Da79921fd042d",
+    "morphoLiquidationAdapter": "0x2061119e538795EB447400bAbeb7b6374652d6E1",
+    "eulerLiquidationAdapter": "0x9aD1902A9e2be4d992af2Ba4a694202dc796A681",
+    "morphoYieldAdapter": "0x516133AAfa6226f78AC7c0e8E46d1dcE262E2Cf1",
+    "eulerYieldAdapter": "0xB6b58E18fd068DbaD370E2BA1C2C38fc2811e8dD"
+  },
+  "transactions": {
+    "mockPolicyRegistry": "0x3573218c902ff2a8d37013387c4b38c1b157c93e6956e601af917f03173491db",
+    "mockOracleFeed": "0xc6ffcdd33df7f6f3ecd2aff1ef0ce3158a40b2ffd40aee7228c447ee09793814",
+    "mockSequencerFeed": "0xde2ca371abc5b7fcbce2b4bf3c762ee923a2f0a88c3c0988647e16445c1d2290",
+    "mockB20": "0xe768c9771146f9590aa0d137a1461c4aa4f54765c55131023c11ee2bdfe994ba",
+    "mockMutableOracle": "0x60920711293331ab0f02fcd1f8176c525e9c5014aee2ac12fb1bf01ff023fc1a",
+    "router": "0xca60c53910eaed98c536c45006de23ce9e1793d2b2f5e6cf78b4e74fcc07e231",
+    "settlement": "0x31e2ccd7b936facfebc2069a14067b875d7d0f6d32dd35a2ef00608468c67bc3",
+    "facility": "0x273aabf445310623c48f979255773060d8fe1c22ed15e6d82f60435c7e2efddf",
+    "facilityAggregator": "0xec0d2708656db87da1a49e1b671d5e902ba6cf1798418a6e111d31c743039c02",
+    "oracleGuard": "0xc5188362b8fb33844bd862cf19785f0709b8278a236ae8d6e182d5cd3eb14614",
+    "b20Guard": "0x4a4bb5fa908cf886d92919ba834ed91e6793ba1edf0d445d00dd4f1d0de69858",
+    "mockAavePool": "0xafbcd1e9fcd6ba4a7cc3ad123c22e1485a03a346d11849c39c2bd4d1e9949b4d",
+    "mockMorphoBlue": "0xc9b089f8bf02dff0a4ecfda0793f681a0a3048e0858e36a27c56fe16fe2924be",
+    "mockEulerDebtVault": "0x65577800d9ed907aef2bc8f2e25cc30a4af229f9af4ee537b30aad6cf9778faf",
+    "mockEulerCollateralVault": "0x2778875ce05deeef606c0b2a28b2ec372dd7a0a0f45b06609443e9b647001c2c",
+    "mockAerodromePool": "0x42490dcdbb02af8160b7aa92a0323cd768a3fc6dc437e1ebaab0f0b7b255b9f5",
+    "aaveLiquidationAdapter": "0x64f9ba2cfa53b1f51dfcd22a52c086e59fd0c25eb299862677ca80b43e7345d4",
+    "morphoLiquidationAdapter": "0x6d90d4da16a6ad8446b25eaba49217e1d584101dac948c7c0946c5c8cc695f9a",
+    "eulerLiquidationAdapter": "0x70dc9172668a49977192d526429bcb9c96558de8fba2431f9f42f76fec0112b4",
+    "morphoYieldAdapter": "0x8f8a221dc8d11440a03d5f0bf3a54b415f8874cd7393e53816931ecd5e8def75",
+    "eulerYieldAdapter": "0xa35650fcaf8e64901420e4f940ba54e3aa606d52dc7770f1eef075caef6b1960",
+    "initializeMockB20": "0xf7b75ec69e80f6f52a2ff72bd303c7aae55e79c3b130d84293682945a985d3ad",
+    "routerOracleGuard": "0x3e2c29b8cb60c970a654635c6d169f6cca5c3f619ad0dd3ec82abe44953632f6",
+    "routerB20Guard": "0x6d304579a4da1bd6159c7e750d3a557439f02ab091704687d1984dfa399a4c4c",
+    "routerSettlement": "0x87f4226432f30c4a9f81a126dacc8d5867bd43366f47777b741d0d3ec0fb5743",
+    "routerFacility": "0x66c1e131a4a7ffdf6e314c675a21586b5ec0afedc3d3ed339a77fb15b065ed71",
+    "routerFee": "0x688134afa7713172b10d989766542fababfacd80fdb9b4521d3d769e195f9765",
+    "routerDecisionAge": "0x43e38d1ab6becf4ccde4b87ce344f08ae4ac6aaa15549bf5d8be549e25abb074",
+    "routerFeeRecipient": "0x7c27cf209e2611ab68b20e1601aae483d70f9e00d034ab6fc9f813f1cf51ffd1",
+    "settlementRouter": "0xe1b4c9f81c5bc5292952397f31bb5095b9313c347d45f9cc9e7e4b3a0bdd0a6c",
+    "settlementFee": "0x8febcce1fbda4c6a6aa1630b5e50123dbccffc8e7086b9b4f2ce2b98b7ae2e42",
+    "facilityRouter": "0x03dd24ef42e4ce239511fed1245207e5751601d9dca2cc7f82bc303ce6f87248",
+    "aggregatorFacility": "0xcc3bb6f3e332c1b852a9bef6a5ef634b4c9f0526389594942f14b7b03d0eeb78",
+    "oracleGuardB20": "0xef43c583726486df9bbeb82b8fe9cef2a8af0c774a0fe919e870505e56f6a7d1",
+    "mockEulerCollateralLink": "0xf3a80da5d2c396994ab55f65df02a8329872a650f79b2e26ff7ed351246c6346",
+    "mockAaveLimit": "0x0e08af2bb1385410f0c7196e188381365faaf275840b13549f9dfb54f7b1c6b9",
+    "mockMorphoTotals": "0xfcb1964fec375e564dc64de332157b3b28ecf074ef15f9384cf73b4283f36032",
+    "mockMorphoLimit": "0x8abdae17d82481afff6dfc99932ab7538e6f71d0e3e9bf61ec3c1c82cd18e4eb",
+    "mockEulerLimits": "0x094435e793c23538d5dfdbfd07df68e6c4c2300cb2ca42c8c8a8eac956e75c58",
+    "routerAdapter:aaveLiquidationAdapter": "0x40da52939c5ab07e3b903059d0e10e797af7c482d3bf94371770711fc7db159d",
+    "routerAdapter:morphoLiquidationAdapter": "0x065ff47741e7083fa3bc6f73fd97b0ffd9e66e7acd321fadea4906e60cacc3a9",
+    "routerAdapter:eulerLiquidationAdapter": "0xf2d013db3cb3f7dd4cf53ab7918a7a9a8f4506685b3d8937b9861edf3034fbd1",
+    "facilityMorphoAllowed": "0xf1f59e4ab43d41edd1830fa357fee70f0fe7203ad029507489573c470615fd3e",
+    "facilityEulerAllowed": "0xfaf38a564864a1f0c4846553b5f5a275201982922d896aae2edee839f0b70473"
+  },
+  "runtimeBytecodeHashes": {
+    "mockPolicyRegistry": "0x0397e721830f3c9fe4da7ab438f1212cf79e6c48bfd3a8ce7655475c3139fc55",
+    "mockOracleFeed": "0xbe4fd67de6106116fc12e0a37b447c642676dd7143b945a22cd4b9ecd64eccae",
+    "mockSequencerFeed": "0x01b00465b8b4af049277d7856dbb4ae562ea6aeb4aa68505b172ef2b7a13f4a7",
+    "mockB20": "0x732e50987533421310a6f51b964696bc5bde4912a9f00a4d93ac0c00dbb29392",
+    "mockMutableOracle": "0x5cc0c200ed67f9c830a47b0c26854ed7de93fd9610edec9095ae75d602abf548",
+    "router": "0x6d66fcdb39eb90df1e7ed6d2c63c05e83b2b0074d5b51af71fe5304d1ef1cc09",
+    "settlement": "0x5e813f258680aaecfd51aa77ca47a09b92c2327b55029b63340900fe1a79b4da",
+    "facility": "0x6abea4ba3274ba70a7a27c20e7c4c1579e80da67c375b63316976e25d75e12b7",
+    "facilityAggregator": "0x4632011d4ce193c075b6d5243f0d2d5c3b18781498e1cc249dacad62b0362f26",
+    "oracleGuard": "0x817503223c20ee1f29b2d7e76dcdaccd75b3252e0e3241478fc7ac8194468718",
+    "b20Guard": "0x0383b6ab92cb93538b2237be5fa898d3846640cfd441b68f29efed6612bc5647",
+    "mockAavePool": "0x8861da7707082c55cc49126716ebbbf9e58bb4c40e06268a7858835ae50b0e36",
+    "mockMorphoBlue": "0x8e740b644420715d1b11478be8dfeb763335c297516ed1f233716ff3f6875b5c",
+    "mockEulerDebtVault": "0x446d8a312cc3de75f23f77333c107db79e2c71520451eb20f29f0b272c817c0c",
+    "mockEulerCollateralVault": "0x0f17d407508514fe563a78ef161a7cf2d20195d8cb6bfb7b301a7a51162fa301",
+    "mockAerodromePool": "0x59b58b4cc78489eacd7a031bf74968799ec2a496f148306987a52937ac18f1b8",
+    "aaveLiquidationAdapter": "0xd7fe34b1e71ac17e948a18465a3acbaf8ec6e14336670671ea18c5e4b703a0b1",
+    "morphoLiquidationAdapter": "0xe5ce6c0092c3feb3717ed93579eed72c90d1772672c1474e5d02af6803d26c49",
+    "eulerLiquidationAdapter": "0x6be7498c7e374d881ae101bd2be09c3453f7127216b772d19f939cabfcfd4148",
+    "morphoYieldAdapter": "0xa8fa79461acf4e2305b52b2338964133507f91b59ab0f21f1c286c9ec43f141f",
+    "eulerYieldAdapter": "0x5bd827a0117bd96d090153e9f0eb2badfb1d88cc3ad3ed853dc1c37977de4c56"
+  },
+  "venueAddresses": {
+    "weth": "0x4200000000000000000000000000000000000006",
+    "aavePool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "aavePoolAddressesProvider": "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D",
+    "aaveUsdcAToken": "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB",
+    "morphoBlue": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+    "morphoAdaptiveCurveIrm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+    "eulerEvc": "0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989",
+    "eulerEvaultFactory": "0x7F321498A801A191a93C840750ed637149dDf8D0",
+    "eulerEvaultImplementation": "0x30a9A9654804F1e5b3291a86E83EdeD7cF281618",
+    "aerodromeRouter": "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43",
+    "aerodromePoolFactory": "0x420DD381b31aEf6683db6B902084cB0FFECe40Da"
+  },
+  "venuePins": [],
+  "mockClassifications": [
+    {
+      "name": "policy-registry",
+      "address": "0x26487dd0B823AC325f9bE75bBCFF88CAe03337f9",
+      "classification": "QA_POLICY_REGISTRY",
+      "venueEvidence": false
+    },
+    {
+      "name": "oracle-feed",
+      "address": "0xE2837021ddDf0bF6F7DbA405443489617E565345",
+      "classification": "QA_ORACLE_FEED",
+      "venueEvidence": false
+    },
+    {
+      "name": "sequencer-feed",
+      "address": "0xd61203534Dd064036EC2e060B24927007CbE64dE",
+      "classification": "QA_SEQUENCER_FEED",
+      "venueEvidence": false
+    },
+    {
+      "name": "mutable-oracle",
+      "address": "0x882BaB0a3Fe3921DE47fE9a333c218e2DDf788f2",
+      "classification": "QA_MUTABLE_ORACLE",
+      "venueEvidence": false
+    },
+    {
+      "name": "b20",
+      "address": "0xCc150D8ac6781f06cf96841534663dB17a789009",
+      "classification": "QA_B20_CONTROL",
+      "venueEvidence": false
+    },
+    {
+      "name": "aave-pool",
+      "address": "0xa065E14b287567c0054f715F5a974a2917b021bA",
+      "classification": "QA_AAVE_CONTROL",
+      "venueEvidence": false
+    },
+    {
+      "name": "morpho-blue",
+      "address": "0x9e911c92fbcdf0946d097C82be0f1fe4a7968424",
+      "classification": "QA_MORPHO_CONTROL",
+      "venueEvidence": false
+    },
+    {
+      "name": "euler-debt-vault",
+      "address": "0xE167a10Cf7616B4Ba2F0053cB96a24045FA5B184",
+      "classification": "QA_EULER_CONTROL",
+      "venueEvidence": false
+    },
+    {
+      "name": "euler-collateral-vault",
+      "address": "0xB323cf48DA8245fB979A8Ef220BC48e7dCFC3435",
+      "classification": "QA_EULER_CONTROL",
+      "venueEvidence": false
+    },
+    {
+      "name": "aerodrome-pool",
+      "address": "0x5E471fd326E205612eC43B29f96661D4D66f6fb3",
+      "classification": "QA_AERODROME_CONTROL",
+      "venueEvidence": false
+    }
+  ],
+  "adapters": [],
+  "b20Assets": {
+    "0xCc150D8ac6781f06cf96841534663dB17a789009": {
+      "ticker": "B20",
+      "feed": "0xE2837021ddDf0bF6F7DbA405443489617E565345",
+      "decimals": 18,
+      "classification": "QA_B20_CONTROL"
+    }
+  },
+  "scenarios": {},
+  "configuration": {
+    "feeBps": 0,
+    "maxDecisionBlockAge": 3,
+    "sequencerGracePeriod": 3600,
+    "oracleHeartbeat": 86400,
+    "settlementUsdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "firstWaveMarkets": [],
+    "aerodromeSwapSubmitted": false
+  }
+}

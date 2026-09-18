@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "apps/base-web",
+    "packages/base-core",
+    "packages/base-sdk",
+    "packages/base-contracts"
+  ]
+}

@@ -1,0 +1,107 @@
+<mxfile host="app.diagrams.net" agent="Katon" version="22.0.0">
+  <diagram id="fifo" name="Facility deposit withdraw FIFO">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="820" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Katon — facility deposit, withdraw, and FIFO queue (SC-19)" style="text;html=1;fontSize=18;fontStyle=1;align=left;fontFamily=Helvetica;fontColor=#1F4E79;" vertex="1" parent="1">
+          <mxGeometry x="40" y="12" width="720" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-dep" value="Depositor" style="swimlane;horizontal=0;startSize=110;fillColor=#dae8fc;strokeColor=#6c8ebf;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="1420" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-approve" value="approve native USDC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="lane-dep">
+          <mxGeometry x="130" y="50" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-deposit" value="deposit(assets)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="lane-dep">
+          <mxGeometry x="320" y="50" width="140" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-want" value="redeem / withdraw" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="lane-dep">
+          <mxGeometry x="780" y="50" width="140" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-claim" value="claimWithdraw(id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="lane-dep">
+          <mxGeometry x="1220" y="50" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-fac" value="Liquidity Facility" style="swimlane;horizontal=0;startSize=110;fillColor=#e1d5e7;strokeColor=#9673a6;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="1420" height="280" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-mint" value="mint shares at NAV" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontFamily=Helvetica;" vertex="1" parent="lane-fac">
+          <mxGeometry x="320" y="50" width="140" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-nav" value="NAV = idle + adapter.totalAssets + inventory at cost − losses − reserved queue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontFamily=Helvetica;fontSize=10;" vertex="1" parent="lane-fac">
+          <mxGeometry x="490" y="50" width="220" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-dec" value="idle + maxWithdraw cover redeem?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Helvetica;fontSize=11;" vertex="1" parent="lane-fac">
+          <mxGeometry x="760" y="40" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-sync" value="burn shares, pay USDC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="lane-fac">
+          <mxGeometry x="1120" y="50" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-queue" value="requestWithdraw FIFO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=Helvetica;" vertex="1" parent="lane-fac">
+          <mxGeometry x="780" y="170" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-settle" value="settle queue in order" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontFamily=Helvetica;" vertex="1" parent="lane-fac">
+          <mxGeometry x="1220" y="170" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-ad" value="Yield adapters" style="swimlane;horizontal=0;startSize=110;fillColor=#d5e8d4;strokeColor=#82b366;html=1;fontStyle=1;fontFamily=Helvetica;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="480" width="1420" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-alloc" value="curator allocate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="lane-ad">
+          <mxGeometry x="490" y="50" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-venues" value="Aave / Morpho / Euler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="lane-ad">
+          <mxGeometry x="680" y="50" width="160" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n-de" value="deallocate to idle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="lane-ad">
+          <mxGeometry x="980" y="50" width="150" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="n-approve" target="n-deposit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="n-deposit" target="n-mint" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="n-mint" target="n-nav" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="n-nav" target="n-alloc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;dashed=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="n-alloc" target="n-venues" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="n-want" target="n-dec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="n-dec" target="n-sync" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7l" value="yes" style="edgeLabel;html=1;align=center;fontSize=10;fontFamily=Helvetica;" vertex="1" connectable="0" parent="e7">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="n-dec" target="n-queue" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8l" value="no" style="edgeLabel;html=1;align=center;fontSize=10;fontFamily=Helvetica;" vertex="1" connectable="0" parent="e8">
+          <mxGeometry x="-0.1" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="n-queue" target="n-de" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;dashed=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="n-de" target="n-settle" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="n-settle" target="n-claim" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note" value="v1 does not redeem B20 with an issuer and does not run a spot auction to sell inventory. USDC exits may queue while inventory is illiquid. Haircut is not applied to depositor NAV; it discounts quoteUsdc capacity only." style="text;html=1;align=left;fontSize=11;fontFamily=Helvetica;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="650" width="1320" height="40" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
