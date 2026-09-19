@@ -15,6 +15,42 @@ Katon is a private quote coordinator around a public Solana settlement boundary.
 
 The product deliberately separates issuer policy from route mechanics. xStocks and Ondo each get an adapter implementing the same preflight contract, but no generic “SPL stock” path exists. A Token-2022 mint is accepted only when the registry fingerprint, authorities, transfer hook, and account list match the recorded manifest.
 
+## Resolved architecture decisions (2026-09-19)
+
+The following decisions close the remaining ambiguity between the requirements,
+the production launch boundary, and the initial scaffold:
+
+1. A private maker partially signs the exact frozen v0 transaction before it is
+   delivered to the seller. The seller reviews and adds the final required
+   signature without changing the message. Katon does not use a detached maker
+   signature, standing token delegate, or inventory vault. If the blockhash or
+   quote lifetime can no longer accommodate seller review, the quote expires and
+   a new transaction is built and signed.
+2. V1 rejects stock mints with a nonzero Token-2022 transfer fee because exact
+   seller input and exact maker receipt must be the same atomic amount. A mint
+   carrying a zero-fee configuration is eligible only when the transaction uses
+   `transfer_checked_with_fee` and binds the expected fee to zero. A required
+   incoming-transfer memo must be detected on the destination token account and
+   satisfied by a canonical memo immediately before settlement.
+3. The governance authority is a Squads vault PDA, not a list of individual
+   Squads members copied into the RFQ program. Registry mutations require that
+   authority to sign through an executed Squads proposal. The RFQ program also
+   enforces its own 24-hour queue before applying non-emergency changes. The
+   separate guardian remains pause-only.
+4. Initial mainnet execution supports registry-approved xStocks only. Ondo
+   assets remain disabled until an official managed-route adapter, audited
+   issuer/JIT fingerprints, and end-to-end fork evidence exist. Disabled Ondo
+   assets must not be presented as executable inventory.
+5. Quote price bands, session state, and corporate-action adjustments come from
+   one licensed equities market-data authority. An independent source is a
+   fail-closed cross-check, never a fallback price. Missing, stale, conflicting,
+   or corporate-action-incomplete evidence halts quoting; an on-chain DEX price
+   cannot reopen eligibility.
+6. Seller-desk and liquidation execution have independent release gates. The
+   seller desk may launch after its own gates pass. The liquidation service
+   remains absent or read-only until at least one reviewed tokenized-stock
+   lending market passes signed-manifest, discovery, oracle, and fork tests.
+
 ## System boundaries
 
 ```mermaid
@@ -92,7 +128,7 @@ No candidate is silently repriced. If the best candidate loses validity during r
 
 ### Private maker route
 
-The API asks the program client to build a v0 transaction containing the exact quote terms and all transfer-hook accounts. It returns a payload hash and transaction bytes to the seller. The seller's wallet signs those exact bytes. On execute, the API verifies the signed message hash equals the issued winner hash, verifies the wallet identity, and forwards the transaction to a trusted RPC sender. A maker signature is embedded as instruction data; no browser mutation is allowed after signing.
+The API asks the program client to build a v0 transaction containing the exact quote terms and all transfer-hook accounts. The maker partially signs that frozen transaction, and the API returns the partially signed bytes and payload hash to the seller. The seller's wallet reviews and signs the identical message. On execute, the API verifies the signed message hash equals the issued winner hash, verifies both required Ed25519 transaction signatures against their static signer keys, and forwards the transaction to a trusted RPC sender. No browser mutation is allowed after either signature. An expired blockhash or quote always causes a fresh quote; signatures are never transplanted to rebuilt bytes.
 
 The Anchor instruction `settle_private_quote`:
 
@@ -106,6 +142,11 @@ The Anchor instruction `settle_private_quote`:
 - permits a permissionless close only after expiry + one hour, subject to rent-payer rules.
 
 The registry PDAs are read-only in settlement and are changed only by 2-of-3 Squads after a 24-hour delay. A separate guardian can pause enabled assets/programs but cannot upgrade or transfer funds.
+
+The program stores the Squads vault PDA as its governance authority. Individual
+member keys and quorum membership remain Squads state and are not duplicated in
+the RFQ program. Initial registry creation and delayed changes therefore arrive
+as instructions executed by the Squads vault signer.
 
 ### Jupiter route
 
@@ -133,7 +174,17 @@ The server has no keypair. It uses a sender interface for the final transaction 
 
 ## Issuer and Token-2022 adapters
 
-`IssuerAdapter.preflight` receives a validated mint account and wallet. `xstocks` requires the recorded metadata pointer, scaled UI amount, pausable configuration, and issuer authority fingerprint. `ondo` additionally requires its issuer program/JIT capability fingerprint and refuses generic route payloads. Both adapters reject permanent delegates, confidential/unknown extensions, paused transfers, changed hook programs, and insufficient post-fee balance deltas. DBC is not a secondary route.
+`IssuerAdapter.preflight` receives a validated mint account and wallet. `xstocks` requires the recorded metadata pointer, scaled UI amount, pausable configuration, and issuer authority fingerprint. `ondo` additionally requires its issuer program/JIT capability fingerprint and refuses generic route payloads; it remains disabled for initial mainnet execution. Both adapters reject permanent delegates, confidential/unknown extensions, paused transfers, changed hook programs, nonzero transfer fees, and insufficient balance deltas. Zero-fee configurations use `transfer_checked_with_fee` with an expected fee of zero. Required destination-account memos are detected at preflight and inserted immediately before settlement. DBC is not a secondary route.
+
+## Reference-policy boundary
+
+Production registry snapshots identify the licensed primary market-data source,
+independent cross-check source, exchange calendar, freshness limit, and
+corporate-action version. Quote collection begins only when both observations
+are fresh and agree within the configured tolerance, the primary marks the
+session executable, and the active corporate-action version matches policy.
+The exact provider contracts are deployment-manifest data, but those semantic
+checks are mandatory and cannot be replaced by a DEX-derived reference.
 
 ## Liquidation solver
 
@@ -160,8 +211,8 @@ Wallet UI uses Wallet Standard discovery with disconnected/connecting/locked/con
 
 ## Operational rollout
 
-Local LiteSVM/Surfpool and mock devnet precede mainnet. Shadow quote collection and solver observation run for seven consecutive days with no submission. At least 20 representative opportunities and 95% prediction-to-simulation agreement are required. A human/multisig action enables execution. Caps rise only through reviewed config; no automatic escalation.
+Local LiteSVM/Surfpool and mock devnet precede mainnet. Shadow quote collection precedes seller-desk execution. Solver observation runs independently for seven consecutive days with no submission; at least 20 representative liquidation opportunities and 95% prediction-to-simulation agreement are required before liquidation execution can be enabled. A human/multisig action enables each execution surface independently. Caps rise only through reviewed config; no automatic escalation.
 
 ## Open launch gates
 
-Legal/compliance approval for non-US access, signed asset/venue manifests, independent security audit, reproducible program and IDL hashes, production RPC/SWQoS/Jito, concrete Kamino/Jupiter stock markets, and a completed wallet QA artifact review remain explicit gates. The code in this worktree intentionally fails closed when those gates are absent.
+Legal/compliance approval for non-US access, signed asset/venue manifests, independent security audit, reproducible program and IDL hashes, production RPC/SWQoS/Jito, and a completed wallet QA artifact review remain seller-desk gates. Concrete Kamino/Jupiter stock markets and liquidation shadow evidence gate only liquidation execution. The code in this worktree intentionally fails closed when the applicable gates are absent.
