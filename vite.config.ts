@@ -9,6 +9,18 @@ export default defineConfig({
   // whole module graph dies with "global is not defined" at load.
   define: { global: 'globalThis' },
 
+  // The keyless Base API uses Nest's legacy parameter decorators. Keep the
+  // test transform aligned with the API tsconfig so Vitest can exercise the
+  // real controller/gateway module instead of a mock.
+  oxc: {
+    decorator: { legacy: true, emitDecoratorMetadata: true },
+    typescript: {
+      experimentalDecorators: true,
+      emitDecoratorMetadata: true,
+      useDefineForClassFields: false,
+    },
+  },
+
   resolve: {
     alias: {
       // Node resolves a bare `buffer` import to the BUILT-IN node:buffer, while a

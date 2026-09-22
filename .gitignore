@@ -3,6 +3,7 @@
 *.swp
 
 # Agent / IDE local trees (do not ship to the public hackathon repo)
+.worktrees/
 .agents/
 .claude/
 .codex/
@@ -38,6 +39,8 @@ cache/
 out/
 contracts/flare/cache/
 contracts/flare/out/
+contracts/base/cache/
+contracts/base/out/
 
 # Local tool caches / generated noise (never commit)
 tools/.check-quorum-tmp.mjs
@@ -48,6 +51,10 @@ tools/.check-quorum-tmp.mjs
 .playwright/metamask-isolated/
 .playwright/cli.config.json
 .playwright/qa-accounts.json
+.playwright/base-*-profile/
+.playwright/base-*-extension/
+.playwright/base-*-cli.config.json
+.playwright/base-*-accounts.json
 output/
 
 # Reproducible FCC matcher release output (manifest is regenerated locally)

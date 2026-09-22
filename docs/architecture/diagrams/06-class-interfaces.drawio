@@ -1,0 +1,190 @@
+<mxfile host="app.diagrams.net" agent="Katon" version="22.0.0">
+  <diagram id="cls" name="Class interfaces">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Katon — contract interfaces and structs" style="text;html=1;fontSize=18;fontStyle=1;align=left;fontFamily=Helvetica;fontColor=#1F4E79;" vertex="1" parent="1">
+          <mxGeometry x="40" y="12" width="560" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-router" value="IRFQRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="280" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-router-f" value="enum FundingSource { LP, FACILITY }" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-router">
+          <mxGeometry y="26" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-router-s" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" vertex="1" parent="c-router">
+          <mxGeometry y="52" width="280" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-router-m1" value="+ executeLiquidationRoute(plan)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-router">
+          <mxGeometry y="60" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-router-m2" value="+ executeSwapRoute()  «reserved, unexposed»" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;fontColor=#666666;" vertex="1" parent="c-router">
+          <mxGeometry y="86" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-plan" value="LiquidationRoutePlan" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="280" height="234" as="geometry"/>
+        </mxCell>
+        <mxCell id="p1" value="rfqId : bytes32" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="26" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p2" value="winner / recipient : address" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="48" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p3" value="source : FundingSource" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="70" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p4" value="settlementOrFacility : address" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="92" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p5" value="liquidationAdapter : address" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="114" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p6" value="repayAssets / dual min_out : uint256" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="136" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p7" value="decisionBlock / hash" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="158" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="p8" value="fundingPayload : bytes" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-plan">
+          <mxGeometry y="180" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-set" value="IRFQSettlement" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="360" y="50" width="280" height="182" as="geometry"/>
+        </mxCell>
+        <mxCell id="s1" value="+ fundLiquidationOrder(order, sig, maxFunding)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-set">
+          <mxGeometry y="26" width="280" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="s1b" value="+ finalizeLiquidationOrder(order, recipient, actuals)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-set">
+          <mxGeometry y="62" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="s2" value="+ registerOrderSigner / revokeOrderSigner" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-set">
+          <mxGeometry y="88" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="s3" value="+ cancelOrder(orderHash)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-set">
+          <mxGeometry y="114" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="s4" value="+ cancelPairBelowSalt(...)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-set">
+          <mxGeometry y="140" width="280" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-ord" value="LiquidationFundingOrder" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="360" y="260" width="280" height="182" as="geometry"/>
+        </mxCell>
+        <mxCell id="o1" value="maker / signer / assets" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-ord">
+          <mxGeometry y="26" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="o2" value="maxRepayAssets / minCollateralOut" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-ord">
+          <mxGeometry y="48" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="o3" value="fillMode 0=FOK · 1=standing" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-ord">
+          <mxGeometry y="70" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="o4" value="expiry / salt / feeLimitBps / rfqId" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-ord">
+          <mxGeometry y="92" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="o5" value="venue / marketId" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-ord">
+          <mxGeometry y="114" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-agg" value="IFacilityAggregator" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="680" y="50" width="260" height="156" as="geometry"/>
+        </mxCell>
+        <mxCell id="a1" value="+ registerFacility / pause / revoke" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-agg">
+          <mxGeometry y="26" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="a2" value="+ quote(debt, collat, repay) view" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-agg">
+          <mxGeometry y="52" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="a3" value="+ fill(facility, repay, recipient)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-agg">
+          <mxGeometry y="78" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-fac" value="ILiquidityFacility" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="680" y="240" width="260" height="208" as="geometry"/>
+        </mxCell>
+        <mxCell id="f1" value="+ deposit / withdraw (ERC-4626)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-fac">
+          <mxGeometry y="26" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="f2" value="+ requestWithdraw / claimWithdraw" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-fac">
+          <mxGeometry y="52" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="f3" value="+ quoteUsdcCapacity()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-fac">
+          <mxGeometry y="78" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="f4" value="+ fundLiquidation(repay, recipient)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-fac">
+          <mxGeometry y="104" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="f5" value="+ allocate / deallocate" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-fac">
+          <mxGeometry y="130" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-yad" value="«interface» IFacilityAdapter" style="swimlane;fontStyle=2;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="980" y="50" width="260" height="156" as="geometry"/>
+        </mxCell>
+        <mxCell id="y1" value="+ asset() / totalAssets() / maxWithdraw()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-yad">
+          <mxGeometry y="26" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="y2" value="+ deposit(assets)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-yad">
+          <mxGeometry y="52" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="y3" value="+ withdraw(assets, receiver)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-yad">
+          <mxGeometry y="78" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-lad" value="«interface» ILiquidationAdapter" style="swimlane;fontStyle=2;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="980" y="240" width="260" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="l1" value="Request { market, borrower, assets, min, recipient }" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-lad">
+          <mxGeometry y="26" width="260" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="l2" value="+ liquidate(Request)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-lad">
+          <mxGeometry y="62" width="260" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-og" value="IOracleGuard" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="50" width="240" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="g1" value="+ requireFresh(asset)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-og">
+          <mxGeometry y="26" width="240" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-b20" value="IB20Guard" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="170" width="240" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="b1" value="+ requireTransferAndSeizeLive(token)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-b20">
+          <mxGeometry y="26" width="240" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="b2" value="+ requireTransferAuthorized(token, sender, recipient)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-b20">
+          <mxGeometry y="52" width="240" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="b3" value="+ multiplierWad(token)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="c-b20">
+          <mxGeometry y="78" width="240" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="c-router" target="c-plan" style="endArrow=diamond;endFill=0;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="c-set" target="c-ord" style="endArrow=diamond;endFill=0;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="c-router" target="c-set" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="c-router" target="c-agg" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="c-agg" target="c-fac" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="c-fac" target="c-yad" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="c-router" target="c-lad" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="c-router" target="c-og" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="c-router" target="c-b20" style="endArrow=open;html=1;fontSize=10;fontFamily=Helvetica;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note" value="No user-supplied calldata. Adapter bytecode is pinned. Ranker lives in packages/base-core (compareLiquidationBids), not on-chain." style="text;html=1;align=left;fontSize=11;fontFamily=Helvetica;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="480" width="1100" height="24" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
