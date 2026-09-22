@@ -65,7 +65,10 @@ try {
   children.push(spawnLogged('npm', ['run', 'dev:base-api'], childEnv));
   await Promise.all([
     waitForHttp(config.dappUrl),
-    waitForHttp(new URL('/v1/liquidations', config.apiUrl).toString()),
+    // Sepolia deliberately keeps liquidation controls disabled for the
+    // LP-only M5 scope, so GET /v1/liquidations returns 403 even when the API
+    // is healthy. Use the public nonce endpoint as the readiness probe.
+    waitForHttp(new URL('/v1/auth/nonce', config.apiUrl).toString()),
   ]);
   console.log(`base-qa-stack=READY target=${target} dapp=${config.dappUrl} api=${config.apiUrl}`);
   await new Promise((resolve) => {

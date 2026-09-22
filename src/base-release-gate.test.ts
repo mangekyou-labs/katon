@@ -331,6 +331,68 @@ describe('Base Sepolia release gate', () => {
       .toThrow('BASE_QA_SWAP_PROOF_BALANCES');
   });
 
+  it('accepts receipt-backed approve evidence for the deployed nonstandard QA B20', () => {
+    const candidate = manifest();
+    const digest = sha256Manifest(candidate);
+    const proof = swapEvidence(digest);
+    const callData = `0x095ea7b3${addresses.settlement.slice(2).padStart(64, '0')}${BigInt(proof.stockAmount).toString(16).padStart(64, '0')}`;
+    const approval = {
+      eventName: 'ApprovalCall',
+      evidence: 'receipt-input',
+      logAddress: addresses.mockB20,
+      transactionHash: proof.approvalReceipt.transactionHash,
+      blockNumber: proof.approvalReceipt.blockNumber,
+      owner: accounts.depositor,
+      spender: addresses.settlement,
+      value: proof.stockAmount,
+      transactionFrom: accounts.depositor,
+      transactionTo: addresses.mockB20,
+      functionName: 'approve',
+      callData,
+    };
+    expect(validateStockSaleEvidence({ ...proof, approval }, candidate, digest, accounts)).toMatchObject({ approval });
+    expect(() => validateStockSaleEvidence({ ...proof, approval: { ...approval, callData: `${callData.slice(0, -1)}0` } }, candidate, digest, accounts))
+      .toThrow('BASE_QA_SWAP_PROOF_APPROVAL');
+  });
+
+  it('rejects forged receipt-backed approval identities, amounts, hashes, padding, and blocks', () => {
+    const candidate = manifest();
+    const digest = sha256Manifest(candidate);
+    const proof = swapEvidence(digest);
+    const callData = `0x095ea7b3${addresses.settlement.slice(2).padStart(64, '0')}${BigInt(proof.stockAmount).toString(16).padStart(64, '0')}`;
+    const approval = {
+      eventName: 'ApprovalCall',
+      evidence: 'receipt-input',
+      logAddress: addresses.mockB20,
+      transactionHash: proof.approvalReceipt.transactionHash,
+      blockNumber: proof.approvalReceipt.blockNumber,
+      owner: accounts.depositor,
+      spender: addresses.settlement,
+      value: proof.stockAmount,
+      transactionFrom: accounts.depositor,
+      transactionTo: addresses.mockB20,
+      functionName: 'approve',
+      callData,
+    };
+    const valid = { ...proof, approval };
+    expect(() => validateStockSaleEvidence({ ...valid, approval: { ...approval, transactionFrom: accounts.operator } }, candidate, digest, accounts))
+      .toThrow('BASE_QA_SWAP_PROOF_APPROVAL');
+    expect(() => validateStockSaleEvidence({ ...valid, approval: { ...approval, value: '101' } }, candidate, digest, accounts))
+      .toThrow('BASE_QA_SWAP_PROOF_APPROVAL');
+    expect(() => validateStockSaleEvidence({ ...valid, approval: { ...approval, transactionHash: `0x${'6'.repeat(64)}` } }, candidate, digest, accounts))
+      .toThrow('BASE_QA_SWAP_PROOF_APPROVAL');
+    expect(() => validateStockSaleEvidence({
+      ...valid,
+      approval: { ...approval, callData: `0x095ea7b3${'1'.repeat(24)}${addresses.settlement.slice(2)}${BigInt(proof.stockAmount).toString(16).padStart(64, '0')}` },
+    }, candidate, digest, accounts)).toThrow('BASE_QA_SWAP_PROOF_APPROVAL');
+    expect(() => validateStockSaleEvidence({ ...valid, approval: { ...approval, blockNumber: '103' } }, candidate, digest, accounts))
+      .toThrow('BASE_QA_SWAP_PROOF_APPROVAL');
+    expect(() => validateStockSaleEvidence({
+      ...valid,
+      route: { ...proof.route, blockNumber: '103' },
+    }, candidate, digest, accounts)).toThrow('BASE_QA_SWAP_PROOF_ROUTE');
+  });
+
   it('accepts a successful relayed receipt when candidate-bound logs identify the depositor', () => {
     const candidate = manifest();
     const relayer = '0x0000000000000000000000000000000000000042';

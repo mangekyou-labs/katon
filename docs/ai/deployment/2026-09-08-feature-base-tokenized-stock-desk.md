@@ -3,12 +3,14 @@ phase: deployment
 title: Katon Base Tokenized Stock Desk Deployment Strategy
 description: Environment boundaries, Sepolia-first release gates, and rollback
 feature: base-tokenized-stock-desk
-status: m5-gate-blocked
+status: m5-candidate-promoted
 ---
 
 # Deployment Strategy
 
-No production deploy in the requirements phase. This file records the intended boundary so implementation does not skip gates.
+The LP-only M5 candidate is promoted for non-production Base Sepolia QA. This
+file records the environment boundary and remaining release gates; no Base
+mainnet deployment is authorized.
 
 ## Infrastructure
 
@@ -72,31 +74,38 @@ No production deploy in the requirements phase. This file records the intended b
 only in ignored `.env.base-qa.local`, and use the target-specific stack and
 profile paths. The operator tools never forward the mnemonic, password, seed,
 or a private key to the keyless API/web stack. T6.1 validation is 12/12
-targeted Vitest checks plus both fixed-target cleanup commands. No Sepolia
-deployment receipt or M-6 claim exists at this stage.
+targeted Vitest checks plus both fixed-target cleanup commands. The promoted
+Sepolia deployment receipt, deposit, stock-sale, and promotion evidence are
+recorded in the testing document; they authorize non-production QA only.
 
 The M5 continuation keeps the hard safety gate before RPC/client creation and
 before deployment: `assertNonstandardQaWallet` rejects the three standard Anvil
-mnemonic addresses with `BASE_QA_STANDARD_WALLET_FORBIDDEN`. The configured
-Sepolia wallet passes the nonstandard-address check and the RPC/chain preflight,
-but all three derived QA accounts currently report zero native Sepolia USDC
-with a 1,000,000-unit funding deficit. The candidate deployment and existing
-smoke/deposit evidence remain candidate-only; no stock-sale transaction was
-submitted. Fund the disposable accounts, configure the normal LP bot
-credential, then run the stock-sale canary and headed wallet flow before
-promotion. Base mainnet remains prohibited.
+mnemonic addresses with `BASE_QA_STANDARD_WALLET_FORBIDDEN`. The promoted
+candidate is deployed at Base Sepolia block `47107393`, has candidate digest
+`8faef844630df3dd4f70435bbe7d5b9f61cfa74e08de2757e03eb4d376c36a56`, and
+remains `productionEligible: false`. The LP-only QA stack uses
+`GET /v1/auth/nonce` as its readiness probe because liquidation controls remain
+disabled and `/v1/liquidations` is expected to return 403 in this scope.
 
-## M5 rollout checkpoint — 2026-09-18
+## M5 candidate promotion — 2026-09-21 (current non-production state)
 
-The candidate digest and deployed bytecode still match, so no redeployment was
-needed. `qa:base:validate -- --target=sepolia` passes the chain and wallet
-shape checks, while the funding report shows zero native Sepolia USDC for the
-disposable depositor and LP accounts. `qa:base:swap` fails closed at
-`BASE_QA_LP_BOT_CREDENTIALS` and the promotion command fails closed at
-`BASE_QA_SWAP_PROOF_REQUIRED`. The required proof is intentionally absent
-rather than synthesized. The extension setup reached the MetaMask 13.17.0
-download step but could not complete in this environment, so there is no
-headed MetaMask transaction/UI evidence to claim.
+The candidate-bound smoke, deposit, and stock-sale proofs passed, including
+receipt-backed approval evidence for the deployed nonstandard QA B20 and
+block-pinned settlement balances. The public manifest was promoted with
+`productionEligible: false`; the exact transaction hashes and independent
+validation record are in the testing document.
+
+Remaining gates are intentionally separate: Base mainnet deployment, funded
+facilities, external provider/canonical venue evidence, and additional headed
+wallet extension evidence. None is implied by this Sepolia candidate.
+
+## Historical M5 rollout checkpoint — 2026-09-18 (superseded)
+
+This checkpoint recorded zero native Sepolia USDC for the disposable accounts,
+missing LP credentials, no stock-sale proof, and incomplete headed MetaMask
+setup. Those were pre-promotion blockers at that time; the candidate-bound
+stock-sale and promotion gates passed on 2026-09-21. Headed extension evidence
+is still separately incomplete and is not claimed by the current candidate.
 
 ## Database Migrations
 

@@ -263,13 +263,28 @@ export function validateStockSaleEvidence(
     throw new Error('BASE_QA_SWAP_PROOF_RECEIPT');
   }
 
-  const validApproval = approval.eventName === 'Approval'
+  const validApprovalEvent = approval.eventName === 'Approval'
     && sameAddress(approval.logAddress ?? approval.address, candidate.addresses.mockB20)
     && sameAddress(approval.owner, seller)
     && sameAddress(approval.spender, candidate.addresses.settlement)
     && positiveInteger(approval.value) === stockAmount
     && validTransactionHash(approval.transactionHash)
-    && sameHash(approval.transactionHash, approvalReceipt.transactionHash);
+    && sameHash(approval.transactionHash, approvalReceipt.transactionHash)
+    && positiveInteger(approval.blockNumber) === positiveInteger(approvalReceipt.blockNumber);
+  const validApprovalCall = approval.eventName === 'ApprovalCall'
+    && approval.evidence === 'receipt-input'
+    && approval.functionName === 'approve'
+    && sameAddress(approval.logAddress ?? approval.address, candidate.addresses.mockB20)
+    && sameAddress(approval.transactionFrom, seller)
+    && sameAddress(approval.transactionTo, candidate.addresses.mockB20)
+    && sameAddress(approval.owner, seller)
+    && sameAddress(approval.spender, candidate.addresses.settlement)
+    && positiveInteger(approval.value) === stockAmount
+    && validApprovalCallData(approval.callData, candidate.addresses.settlement, stockAmount)
+    && validTransactionHash(approval.transactionHash)
+    && sameHash(approval.transactionHash, approvalReceipt.transactionHash)
+    && positiveInteger(approval.blockNumber) === positiveInteger(approvalReceipt.blockNumber);
+  const validApproval = validApprovalEvent || validApprovalCall;
   if (!validApproval) throw new Error('BASE_QA_SWAP_PROOF_APPROVAL');
 
   const settlementStock = positiveInteger(swapFilled.stockAmount ?? swapFilled.totalStock);
@@ -284,7 +299,8 @@ export function validateStockSaleEvidence(
     && settlementStock === stockAmount
     && settlementUsdc === usdcAmount
     && validTransactionHash(swapFilled.transactionHash)
-    && sameHash(swapFilled.transactionHash, settlementReceipt.transactionHash);
+    && sameHash(swapFilled.transactionHash, settlementReceipt.transactionHash)
+    && positiveInteger(swapFilled.blockNumber) === positiveInteger(settlementReceipt.blockNumber);
   if (!validSettlement) throw new Error('BASE_QA_SWAP_PROOF_SETTLEMENT');
 
   const routeStock = positiveInteger(routeFilled.totalStock ?? routeFilled.stockAmount);
@@ -299,7 +315,8 @@ export function validateStockSaleEvidence(
     && routeStock === stockAmount
     && routeUsdc === usdcAmount
     && validTransactionHash(routeFilled.transactionHash)
-    && sameHash(routeFilled.transactionHash, settlementReceipt.transactionHash);
+    && sameHash(routeFilled.transactionHash, settlementReceipt.transactionHash)
+    && positiveInteger(routeFilled.blockNumber) === positiveInteger(settlementReceipt.blockNumber);
   if (!validRoute) throw new Error('BASE_QA_SWAP_PROOF_ROUTE');
 
   const approvalBlock = positiveInteger(approval.blockNumber ?? approvalReceipt.blockNumber);
@@ -478,6 +495,18 @@ function sameHash(left, right) {
   return typeof left === 'string' && typeof right === 'string'
     && validTransactionHash(left) && validTransactionHash(right)
     && left.toLowerCase() === right.toLowerCase();
+}
+
+function validApprovalCallData(value, spender, amount) {
+  if (typeof value !== 'string' || !/^0x095ea7b3[0-9a-fA-F]{128}$/u.test(value)) return false;
+  const encodedSpender = value.slice(10, 74);
+  const encodedAmount = `0x${value.slice(74)}`;
+  // ABI address arguments are left-padded to a full word. Checking only the
+  // low 20 bytes would accept calldata that is not a canonical approve call.
+  if (!/^0{24}[0-9a-fA-F]{40}$/u.test(encodedSpender)) return false;
+  let decodedAmount;
+  try { decodedAmount = BigInt(encodedAmount); } catch { return false; }
+  return encodedSpender.slice(-40).toLowerCase() === spender.slice(2).toLowerCase() && decodedAmount === amount;
 }
 
 function validateStockSaleBalances(proof, seller, maker, stockAmount, usdcAmount) {

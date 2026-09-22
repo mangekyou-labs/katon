@@ -2,7 +2,7 @@
 phase: testing
 title: Katon Base B20 Stock-to-USDC RFQ Test Plan
 feature: base-tokenized-stock-desk
-status: m5-gate-blocked
+status: m5-candidate-promoted
 ---
 
 # Verification matrix
@@ -70,34 +70,123 @@ Mainnet enablement additionally requires fresh provider quote measurements,
 canonical-address verification, compliance approval, multisig ownership,
 monitoring alerts, and small-value canary fills.
 
-## M5 fresh validation record — 2026-09-18
+## Historical M5 fresh validation record — 2026-09-18 (superseded)
 
 The implementation checks completed in this worktree are:
 
 - `npm run test:base`: 27 files, 182 tests passed.
 - Base API and indexer typechecks, and `npm run build:base-web`: passed.
 - `npm run test:solidity:base`: 76 passed, 8 intentionally skipped.
-- `npm run test:base:venues:fork`: pinned matrix passed for I-FORK-1,
-  I-FORK-2, I-FORK-3, I-FORK-4A, I-FORK-5, I-FORK-6, I-FORK-7, and I-FORK-8.
-- `npm run bench:base:rank`: p95 0.143 ms (max 1.234 ms), excluding RPC,
-  below the 200 ms gate.
+- `npm run test:base:venues:fork`: one configured pinned run passed for
+  I-FORK-1, I-FORK-2, I-FORK-3, I-FORK-4A, I-FORK-5, I-FORK-6, I-FORK-7,
+  and I-FORK-8; the latest retry failed before execution because the upstream
+  Infura endpoint returned `-32603` internal errors and HTTP 429 responses for
+  all eight cases.
+- `npm run bench:base:rank`: warmup 25, measured 100, p95 0.087 ms (max
+  0.672 ms), excluding RPC, below the 200 ms gate.
 - `npm run test:e2e:base`: injected-provider evidence passed, including exact
   approval, quote review, stale-route handling, and router-only submission.
   It is explicitly non-extension evidence.
-- `BASE_API_SOAK_DURATION_SECONDS=600 BASE_API_SOAK_CONCURRENCY=4 npm run
-  soak:base:api`: qualified managed run passed with 197,668 authenticated
-  quote requests, zero request/schema failures, quote p95 3.28 ms, retained
-  growth -304,336 bytes, and heap slope -97,615.78 bytes/minute. The default
-  deterministic quote deadline is duration-aware so it remains valid for the
-  complete run.
+- `npm run soak:base:api`: qualified managed run passed with 600 seconds,
+  concurrency 4, request interval 10 ms, 197,306 authenticated quote
+  requests, zero request/schema failures, quote p95 2.94 ms, retained growth
+  -357,408 bytes, heap slope -28,142.96 bytes/minute, and 21 post-GC samples.
+  The deterministic quote deadline is duration-aware so it remains valid for
+  the complete run.
 - `node tools/check-base-secrets.mjs` and `git diff --check`: passed.
 
-The Sepolia stock-sale canary is not a passing test: `qa:base:validate` reports
-zero native Sepolia USDC for the depositor and LP, and the normal LP bot
-credential is not configured. `npm run qa:base:swap` therefore fails closed
-with `BASE_QA_LP_BOT_CREDENTIALS`; no `swap-proof.json` exists and promotion
-correctly fails closed with `BASE_QA_SWAP_PROOF_REQUIRED`.
+At that checkpoint, the Sepolia stock-sale canary remained incomplete: the
+facility deposit proof was materialized below, but the `qa:base:swap` gate had
+not passed and no `swap-proof.json` existed. Promotion was correctly closed
+with `BASE_QA_SWAP_PROOF_REQUIRED` until the candidate-bound swap proof and the
+remaining operational evidence became available.
 
 The required managed soak completed with its qualifying defaults (600 seconds,
-concurrency 4, authenticated SIWE, stored signed FOK order), and the pinned
-venue-fork matrix also completed successfully at block 51068301.
+concurrency 4, authenticated SIWE, stored signed FOK order). The pinned
+venue-fork matrix has one successful run at block 51068301, but the latest
+fresh retry was blocked before execution by upstream `-32603`/HTTP 429 errors;
+release sign-off still requires a non-rate-limited confirmation.
+
+## M5 deposit proof — 2026-09-21 (completed before final release gates)
+
+`npm run qa:base:deposit --
+--deposit-tx=0x5ea2a0ffb53e95b3b7c5adf5f4b64dfe29724a5e95d45520b04a5dff94a6bf8b`
+passed with live Base Sepolia RPC access and wrote the ignored
+`output/base-qa/sepolia/deposit-proof.json`. The proof is candidate-bound to
+`8faef844630df3dd4f70435bbe7d5b9f61cfa74e08de2757e03eb4d376c36a56`, identifies
+the configured facility and disposable depositor, records positive `1,000,000`
+asset/share amounts, and proves the share balance increased from `0` to
+`1,000,000`. At that checkpoint, the swap proof, fresh venue-fork confirmation,
+and promotion were the remaining release gates.
+
+## M5 release-gate completion — 2026-09-21
+
+- `npm run qa:base:swap` passed and wrote
+  `output/base-qa/sepolia/swap-proof.json`, bound to candidate digest
+  `8faef844630df3dd4f70435bbe7d5b9f61cfa74e08de2757e03eb4d376c36a56`.
+  The approval and settlement receipts are
+  `0xeb44ef8c925717217417044cd3f282336e421feeb5d867838b3f6a575b634c4b` and
+  `0x156c607aeaf8a6201cbbe4bddd616331e15c9ced5333bec405b3d6491b8ffa28`.
+- Independent release-gate validation passed for the smoke, deposit, and swap
+  proofs. The swap proof records positive `1e18` stock and `1,000,000` USDC,
+  seller allowance `0`, and zero router/settlement dust. Its receipt-backed
+  `ApprovalCall` evidence is required because the deployed QA B20 omits the
+  standard `Approval` log; the validator checks the exact mined calldata and
+  allowance rather than synthesizing an event.
+- A fresh pinned `npm run test:base:venues:fork` passed
+  `I-FORK-1`, `I-FORK-2`, `I-FORK-3`, `I-FORK-4A`, `I-FORK-5`, `I-FORK-6`,
+  `I-FORK-7`, and `I-FORK-8` at Base block `51068301`.
+- `npm run promote:base:sepolia` passed. The promoted public manifest has the
+  same candidate digest and remains `productionEligible: false`.
+
+## Phase 8 fresh verification — 2026-09-22
+
+### Local deterministic verification
+
+The complete fresh command set passed in the feature worktree:
+
+- `npm run test:base`: 27 test files, 184 tests passed.
+- `npm run typecheck:base`: passed.
+- `npx tsc -p tsconfig.base-api.json --noEmit`: passed.
+- `npx tsc -p tsconfig.base-indexer.json --noEmit`: passed.
+- `npm run build:base-web`: passed; Vite production build completed.
+- `FOUNDRY_OFFLINE=true forge test --root contracts/base --offline`: 76
+  passed, 0 failed, 8 intentionally skipped.
+- `npx vitest run src/base-release-gate.test.ts`: 11 tests passed. This covers
+  receipt-backed `ApprovalCall` validation, canonical ABI padding, exact
+  calldata, candidate binding, receipt/event block ordering, conservation, and
+  zero-dust release-gate behavior.
+- `npx ai-devkit@latest lint` and the feature-scoped lint: passed.
+- `git diff --check`: passed.
+- `node tools/check-base-secrets.mjs`: `secret-scan=PASS files=93`.
+- Read-only candidate validation passed for
+  `output/base-qa/sepolia/candidate-manifest.json`: digest
+  `8faef844630df3dd4f70435bbe7d5b9f61cfa74e08de2757e03eb4d376c36a56`, chain
+  84532, block `47107393`, `releaseCandidate: true`, `stockSaleGate: true`,
+  and `productionEligible: false`.
+- A direct canonical-digest comparison passed between that candidate and the
+  tracked `contracts/base/deployments/sepolia.json` manifest; both hash to
+  `8faef844630df3dd4f70435bbe7d5b9f61cfa74e08de2757e03eb4d376c36a56` and
+  the promoted manifest remains `productionEligible: false`.
+
+The executable QA-stack readiness probe reached
+`base-qa-stack=READY target=sepolia dapp=http://127.0.0.1:5174
+api=http://127.0.0.1:4010` using the nonce endpoint. The first attempt was
+blocked by the sandbox local-listen policy (`EPERM`); the elevated retry
+reached readiness and was intentionally stopped after the assertion because
+the stack is a long-running process.
+
+### Previously captured live Sepolia evidence
+
+Phase 8 did not rerun the completed live swap or promotion. The authoritative
+2026-09-21 records remain the candidate-bound deposit proof, stock-sale proof
+(approval `0xeb44ef8c925717217044cd3f282336e421feeb5d867838b3f6a575b634c4b`,
+settlement `0x156c607aeaf8a6201cbbe4bddd616331e15c9ced5333bec405b3d6491b8ffa28`),
+fresh pinned venue-fork pass at block `51068301`, and promotion with the same
+candidate digest. The stock-sale proof records positive `1e18` stock and
+`1,000,000` USDC, seller allowance `0`, and zero router/settlement dust.
+
+Phase 8 is green for the promoted non-production QA candidate. Base mainnet,
+funded facilities, external provider/canonical venue evidence, and additional
+headed-wallet extension evidence remain separately gated; `productionEligible`
+must remain `false`.

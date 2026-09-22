@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createPublicClient,
   createWalletClient,
+  decodeFunctionData,
   encodeFunctionData,
   getAddress,
   hashTypedData,
@@ -147,12 +148,11 @@ async function main() {
     expiry: now + 600n,
     salt: BigInt(Date.now()),
     feeCapBps: 0,
-    allowedTaker: getAddress(seller.address),
-    // The order is seller-bound through allowedTaker, but it is not bound to
-    // an API-generated request id.  The quote service creates that id only
-    // after the order is registered, so a non-zero rfqId here would be
-    // guaranteed to be filtered out of the auction.  Zero means a reusable
-    // standing order; fillMode=0 still requires the full signed capacity.
+    // The quote service creates the request id only after the order is
+    // registered, so this canary uses a reusable standing order. Standing
+    // orders must leave allowedTaker unset (zero); fillMode=0 still requires
+    // the full signed capacity.
+    allowedTaker: ZERO_ADDRESS,
     rfqId: ZERO_HASH,
   };
   const domain = { name: 'KatonRFQSettlement', version: '2', chainId: BASE_SEPOLIA_CHAIN_ID, verifyingContract: settlement };
@@ -177,6 +177,10 @@ async function main() {
   const sellerApprovalHash = await sellerWallet.writeContract({ address: stockToken, abi: ERC20_ABI, functionName: 'approve', args: [settlement, STOCK_AMOUNT] });
   const sellerApprovalReceipt = await client.waitForTransactionReceipt({ hash: sellerApprovalHash });
   assertSuccess(sellerApprovalReceipt, 'BASE_QA_SWAP_SELLER_APPROVAL');
+  // The proof binds the approval to a block no later than the API decision
+  // block (latest - 1). Wait for one subsequent block so a same-block quote
+  // cannot produce an otherwise valid route with unverifiable block order.
+  await waitForBlockAfter(client, sellerApprovalReceipt.blockNumber);
 
   const sessionToken = await establishSiwe(apiUrl, seller);
   const quoteBody = {
@@ -200,8 +204,14 @@ async function main() {
   if (route.decisionBlock === undefined || !quote.simulationBlock || !quote.simulationBlockHash || !quote.decisionBlockHash) {
     throw new Error('BASE_QA_SWAP_PREFLIGHT_REQUIRED');
   }
+  // The API owns the decision snapshot and may be one public-RPC response
+  // behind the wallet client. Refuse to spend the settlement transaction if
+  // its decision block predates the already-mined seller approval; the proof
+  // validator applies the same ordering rule after settlement.
+  let decisionBlock;
+  try { decisionBlock = BigInt(route.decisionBlock); } catch { throw new Error('BASE_QA_SWAP_PREFLIGHT_BLOCK_ORDER'); }
+  if (decisionBlock < sellerApprovalReceipt.blockNumber) throw new Error('BASE_QA_SWAP_PREFLIGHT_BLOCK_ORDER');
 
-  const balancesBefore = await readBalances(client, [seller.address, maker.address, router, settlement], stockToken, usdcToken);
   const routeHash = await sellerWallet.sendTransaction({
     account: seller,
     to: route.transaction.to,
@@ -210,8 +220,30 @@ async function main() {
   });
   const settlementReceipt = await client.waitForTransactionReceipt({ hash: routeHash });
   assertSuccess(settlementReceipt, 'BASE_QA_SWAP_SETTLEMENT');
-  const balancesAfter = await readBalances(client, [seller.address, maker.address, router, settlement], stockToken, usdcToken);
-  const remainingAllowance = await client.readContract({ address: stockToken, abi: ERC20_ABI, functionName: 'allowance', args: [seller.address, settlement] });
+  // Pin both sides of the conservation proof to mined blocks. Public Base
+  // Sepolia RPCs are load-balanced and a latest read can briefly observe a
+  // node that has not indexed the just-mined settlement receipt yet.
+  const balancesBefore = await readBalances(
+    client,
+    [seller.address, maker.address, router, settlement],
+    stockToken,
+    usdcToken,
+    settlementReceipt.blockNumber - 1n,
+  );
+  const balancesAfter = await readBalances(
+    client,
+    [seller.address, maker.address, router, settlement],
+    stockToken,
+    usdcToken,
+    settlementReceipt.blockNumber,
+  );
+  const remainingAllowance = await client.readContract({
+    address: stockToken,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: [seller.address, settlement],
+    blockNumber: settlementReceipt.blockNumber,
+  });
   if (remainingAllowance !== 0n) throw new Error('BASE_QA_SWAP_ALLOWANCE_REMAINS');
   const dust = {
     routerStock: balancesAfter.router.stock,
@@ -221,7 +253,15 @@ async function main() {
   };
   if (Object.values(dust).some((value) => value !== '0')) throw new Error('BASE_QA_SWAP_DUST');
 
-  const approvalEvent = decodeApproval(sellerApprovalReceipt.logs, stockToken, seller.address, settlement);
+  const approvalEvent = await decodeApproval(
+    sellerApprovalReceipt.logs,
+    client,
+    sellerApprovalReceipt,
+    stockToken,
+    seller.address,
+    settlement,
+    STOCK_AMOUNT,
+  );
   const swapEvent = decodeSwapFilled(settlementReceipt.logs, settlement);
   const routeEvent = decodeRouteFilled(settlementReceipt.logs, router);
   const proof = {
@@ -281,6 +321,20 @@ async function establishSiwe(apiUrl, account) {
   return verified.sessionToken;
 }
 
+async function waitForBlockAfter(client, blockNumber) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    try {
+      const latest = await client.getBlock({ blockTag: 'latest' });
+      if (latest.number !== undefined && latest.number > blockNumber) return;
+    } catch {
+      // A public RPC may briefly lag while the next block is indexed.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error('BASE_QA_SWAP_APPROVAL_BLOCK_WAIT');
+}
+
 function botCredential(environment, makerAddress) {
   const id = environment.BASE_QA_LP_BOT_ID || environment.BASE_QA_BOT_ID || environment.KATON_BASE_LP_BOT_ID;
   const secret = environment.BASE_QA_LP_BOT_SECRET || environment.BASE_QA_BOT_SECRET || environment.KATON_BASE_LP_BOT_SECRET;
@@ -302,16 +356,22 @@ function botHeaders(bot, method, requestPath, body) {
   };
 }
 
-async function tokenBalance(client, token, account) {
-  return client.readContract({ address: token, abi: ERC20_ABI, functionName: 'balanceOf', args: [account] });
+async function tokenBalance(client, token, account, blockNumber) {
+  return client.readContract({
+    address: token,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [account],
+    ...(blockNumber === undefined ? {} : { blockNumber }),
+  });
 }
 
-async function readBalances(client, accounts, stockToken, usdcToken) {
+async function readBalances(client, accounts, stockToken, usdcToken, blockNumber) {
   const result = {};
   for (const account of accounts) {
     result[account.toLowerCase()] = {
-      stock: (await tokenBalance(client, stockToken, account)).toString(10),
-      usdc: (await tokenBalance(client, usdcToken, account)).toString(10),
+      stock: (await tokenBalance(client, stockToken, account, blockNumber)).toString(10),
+      usdc: (await tokenBalance(client, usdcToken, account, blockNumber)).toString(10),
     };
   }
   const byAddress = (address) => result[address.toLowerCase()];
@@ -323,17 +383,68 @@ async function readBalances(client, accounts, stockToken, usdcToken) {
   };
 }
 
-function decodeApproval(logs, token, owner, spender) {
-  const parsed = parseEventLogs({ abi: [APPROVAL_EVENT], logs, eventName: 'Approval' }).find((entry) => (
-    entry.address.toLowerCase() === token.toLowerCase()
-      && entry.args.owner.toLowerCase() === owner.toLowerCase()
-      && entry.args.spender.toLowerCase() === spender.toLowerCase()
-  ));
-  if (!parsed) throw new Error('BASE_QA_SWAP_APPROVAL_EVENT');
+async function decodeApproval(logs, client, receipt, token, owner, spender, amount) {
+  let parsed;
+  try {
+    parsed = parseEventLogs({ abi: [APPROVAL_EVENT], logs, eventName: 'Approval' }).find((entry) => (
+      entry.address.toLowerCase() === token.toLowerCase()
+        && entry.args.owner.toLowerCase() === owner.toLowerCase()
+        && entry.args.spender.toLowerCase() === spender.toLowerCase()
+    ));
+  } catch {
+    parsed = undefined;
+  }
+  if (parsed) {
+    return {
+      eventName: 'Approval', logAddress: getAddress(parsed.address), transactionHash: parsed.transactionHash,
+      blockNumber: String(parsed.blockNumber), logIndex: String(parsed.logIndex),
+      owner: getAddress(parsed.args.owner), spender: getAddress(parsed.args.spender), value: parsed.args.value.toString(10),
+    };
+  }
+
+  // The deployed BaseQaB20 candidate predates the standard ERC-20 Approval
+  // event. Preserve truthful evidence by proving the mined approve call and
+  // its resulting allowance instead of fabricating an event record.
+  let transaction;
+  try {
+    transaction = await client.getTransaction({ hash: receipt.transactionHash });
+  } catch {
+    throw new Error('BASE_QA_SWAP_APPROVAL_RECEIPT');
+  }
+  if (!transaction || !transaction.to || typeof transaction.from !== 'string'
+    || transaction.to.toLowerCase() !== token.toLowerCase()
+    || transaction.from.toLowerCase() !== owner.toLowerCase()
+    || transaction.blockNumber !== receipt.blockNumber
+    || typeof transaction.input !== 'string') {
+    throw new Error('BASE_QA_SWAP_APPROVAL_CALL');
+  }
+  let decoded;
+  try {
+    decoded = decodeFunctionData({ abi: ERC20_ABI, data: transaction.input });
+  } catch {
+    throw new Error('BASE_QA_SWAP_APPROVAL_CALL');
+  }
+  const [decodedSpender, decodedAmount] = decoded.functionName === 'approve' ? decoded.args : [];
+  const allowanceAtReceipt = await client.readContract({
+    address: token,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: [owner, spender],
+    blockNumber: receipt.blockNumber,
+  });
+  if (decoded.functionName !== 'approve'
+    || typeof decodedSpender !== 'string'
+    || decodedSpender.toLowerCase() !== spender.toLowerCase()
+    || decodedAmount !== amount
+    || allowanceAtReceipt !== amount) {
+    throw new Error('BASE_QA_SWAP_APPROVAL_CALL');
+  }
   return {
-    eventName: 'Approval', logAddress: getAddress(parsed.address), transactionHash: parsed.transactionHash,
-    blockNumber: String(parsed.blockNumber), logIndex: String(parsed.logIndex),
-    owner: getAddress(parsed.args.owner), spender: getAddress(parsed.args.spender), value: parsed.args.value.toString(10),
+    eventName: 'ApprovalCall', evidence: 'receipt-input', logAddress: getAddress(token),
+    transactionHash: receipt.transactionHash, blockNumber: String(receipt.blockNumber),
+    owner: getAddress(owner), spender: getAddress(spender), value: amount.toString(10),
+    transactionFrom: getAddress(transaction.from), transactionTo: getAddress(transaction.to),
+    functionName: 'approve', callData: transaction.input,
   };
 }
 
@@ -375,7 +486,14 @@ async function apiJson(url, init = {}) {
   const text = await response.text();
   let body;
   try { body = JSON.parse(text); } catch { body = undefined; }
-  if (!response.ok) throw new Error(typeof body?.message === 'string' ? body.message : `BASE_QA_SWAP_API_${response.status}`);
+  if (!response.ok) {
+    const reason = typeof body?.message === 'string'
+      ? body.message
+      : typeof body?.code === 'string'
+        ? body.code
+        : `BASE_QA_SWAP_API_${response.status}`;
+    throw new Error(reason);
+  }
   return body;
 }
 
@@ -402,7 +520,7 @@ async function writeProof(filePath, value) {
 
 function stableReason(error) {
   const message = error instanceof Error ? error.message : String(error);
-  if (/^BASE_[A-Z0-9_:-]+$/u.test(message)) return message;
+  if (/^[A-Z][A-Z0-9_:-]+$/u.test(message)) return message;
   if (message.startsWith('BASE_QA_')) return message.split(':', 1)[0];
   return 'BASE_QA_SWAP';
 }

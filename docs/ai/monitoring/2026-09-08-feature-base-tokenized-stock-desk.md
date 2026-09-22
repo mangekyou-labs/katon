@@ -3,12 +3,26 @@ phase: monitoring
 title: Katon Base Tokenized Stock Desk Monitoring
 description: Metrics, alerts, and incident response for the private B20 stock-sale desk
 feature: base-tokenized-stock-desk
-status: draft
+status: m5-candidate-promoted
 ---
 
 # Monitoring & Observability
 
 Labels use RFQ ids, route hashes, and stable fail-closed strings. Never log losing LP prices, signatures, seeds, or raw oracle registry credentials.
+
+## Release status — 2026-09-22
+
+The LP-only M5 candidate is promoted for non-production Base Sepolia QA. Its
+candidate digest is
+`8faef844630df3dd4f70435bbe7d5b9f61cfa74e08de2757e03eb4d376c36a56`, deployed
+at block `47107393`, with `productionEligible: false`. The 2026-09-21 live
+Sepolia smoke, deposit, stock-sale, pinned venue-fork, and promotion evidence
+is captured in the testing document and was not rerun during Phase 8.
+
+This status does not authorize Base mainnet, funded facilities, external
+provider/canonical venue claims, or additional headed-wallet extension
+evidence. Production monitoring and alert sign-off remain gated on those
+separate approvals.
 
 ## Key Metrics
 
@@ -27,6 +41,12 @@ The API soak qualifies only a managed child run at exactly 600 seconds and
 concurrency 4, with zero request/schema failures, retained growth no greater
 than 32 MiB, and heap slope no greater than 1 MiB/minute. Short or externally
 hosted runs remain useful diagnostics but must report `qualified=false`.
+
+The fresh managed evidence on 2026-09-18 qualified at 600 seconds/concurrency
+4 with 197,306 authenticated quote requests, zero request/schema failures,
+quote p95 2.94 ms, retained growth -357,408 bytes, heap slope -28,142.96
+bytes/minute, and 21 post-GC samples. The report URL was loopback and carried
+no credentials.
 
 ### Business Metrics
 
@@ -102,4 +122,7 @@ hosted runs remain useful diagnostics but must report `qualified=false`.
 - API `/healthz` process liveness; `/readyz` needs Mongo, RPC chain ID, and manifest load
 - Readiness must not imply that oracle feeds are fresh; the UI shows oracle/sequencer/B20 status separately
 - Keepers expose last-successful detection timestamp
-- Automated Sepolia smoke after deploy (planning T6.3)
+- Automated Sepolia smoke remains required after each new deployment; the
+  current candidate smoke and release proofs passed on 2026-09-21
+- LP-only QA stack readiness probes `GET /v1/auth/nonce`; liquidation endpoints
+  remain deliberately disabled for this candidate scope
