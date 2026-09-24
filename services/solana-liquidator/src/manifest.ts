@@ -1,21 +1,48 @@
 import { createPublicKey, verify as verifySignature } from 'node:crypto';
 
-export interface ProgramManifestEntry {
-  readonly name: 'kamino' | 'jupiter-lend' | 'jupiter-flashloan';
+/** Immutable identity of a reviewed on-chain deployment. */
+export interface DeploymentIdentity {
   readonly programId: string;
   readonly idlSha256: string;
   readonly bytecodeSha256: string;
   readonly upgradeAuthority: string;
 }
 
+export type DeploymentIdentityField = keyof DeploymentIdentity;
+
+/** Returns the first identity field that differs, or undefined when equal. */
+export function compareDeploymentIdentity(expected: DeploymentIdentity, actual: DeploymentIdentity): DeploymentIdentityField | undefined {
+  for (const field of ['programId', 'idlSha256', 'bytecodeSha256', 'upgradeAuthority'] as const) {
+    if (expected[field] !== actual[field]) return field;
+  }
+  return undefined;
+}
+
+export function deploymentIdentityMatches(expected: DeploymentIdentity, actual: DeploymentIdentity): boolean {
+  return compareDeploymentIdentity(expected, actual) === undefined;
+}
+
+export interface ProgramManifestEntry extends DeploymentIdentity {
+  readonly name: 'kamino' | 'jupiter-lend' | 'jupiter-flashloan';
+}
+
+/** Optional identities used by the read-only Seller Desk operator evidence reader. */
+export interface SellerDeskManifest {
+  readonly rfqProgram: DeploymentIdentity;
+  readonly squadsProgram: DeploymentIdentity;
+  readonly governance: {
+    readonly squadsProgramId: string;
+    readonly multisigAddress: string;
+    readonly createKey: string;
+    readonly vaultIndex: number;
+    readonly vaultAddress: string;
+  };
+}
+
 export type ManifestLenderName = Extract<ProgramManifestEntry['name'], 'kamino' | 'jupiter-lend'>;
 
-export interface ManifestMarketIdentity {
+export interface ManifestMarketIdentity extends DeploymentIdentity {
   readonly lender: ManifestLenderName;
-  readonly programId: string;
-  readonly idlSha256: string;
-  readonly bytecodeSha256: string;
-  readonly upgradeAuthority: string;
 }
 
 export interface DeploymentManifest {
@@ -23,6 +50,8 @@ export interface DeploymentManifest {
   readonly generatedAt: string;
   readonly programs: readonly ProgramManifestEntry[];
   readonly enabledStockMints: readonly string[];
+  /** Signed identity data for the read-only Seller Desk operator panel. */
+  readonly sellerDesk?: SellerDeskManifest;
   readonly signatureAlgorithm: 'ed25519';
   /** Raw Ed25519 public key, encoded as base64. */
   readonly signerPublicKey: string;
@@ -30,17 +59,13 @@ export interface DeploymentManifest {
   readonly signature: string;
 }
 
-export interface RuntimeProgramState {
+export interface RuntimeProgramState extends DeploymentIdentity {
   readonly name: ProgramManifestEntry['name'];
-  readonly programId: string;
-  readonly idlSha256: string;
-  readonly bytecodeSha256: string;
-  readonly upgradeAuthority: string;
 }
 
 export interface ManifestCheck {
   readonly ok: boolean;
-  readonly reason?: 'cluster_mismatch' | 'manifest_unsigned' | 'manifest_signer_untrusted' | 'manifest_signature_invalid' | 'program_missing' | 'program_id_mismatch' | 'idl_mismatch' | 'bytecode_mismatch' | 'upgrade_authority_mismatch' | 'program_unreviewed' | 'stock_mint_unreviewed' | 'market_discovery_invalid' | 'market_discovery_unavailable' | 'market_manifest_mismatch';
+  readonly reason?: 'cluster_mismatch' | 'manifest_unsigned' | 'manifest_signer_untrusted' | 'manifest_signature_invalid' | 'program_missing' | 'program_id_mismatch' | 'idl_mismatch' | 'bytecode_mismatch' | 'upgrade_authority_mismatch' | 'program_unreviewed' | 'stock_mint_unreviewed' | 'market_discovery_invalid' | 'market_discovery_unavailable' | 'market_manifest_mismatch' | 'safety_state_unavailable' | 'liquidation_enablement_unavailable' | 'liquidation_enablement_invalid';
   readonly message: string;
 }
 
@@ -55,8 +80,8 @@ function isPlaceholder(value: string | undefined): boolean {
   return value === undefined || !value.trim() || value.startsWith('REPLACE_WITH_');
 }
 
-export function deploymentManifestPayload(manifest: Pick<DeploymentManifest, 'cluster' | 'generatedAt' | 'programs' | 'enabledStockMints'>): string {
-  return JSON.stringify({
+export function deploymentManifestPayload(manifest: Pick<DeploymentManifest, 'cluster' | 'generatedAt' | 'programs' | 'enabledStockMints' | 'sellerDesk'>): string {
+  const payload = {
     cluster: manifest.cluster,
     generatedAt: manifest.generatedAt,
     programs: manifest.programs.map((entry) => ({
@@ -67,7 +92,31 @@ export function deploymentManifestPayload(manifest: Pick<DeploymentManifest, 'cl
       upgradeAuthority: entry.upgradeAuthority,
     })),
     enabledStockMints: [...manifest.enabledStockMints],
-  });
+    ...(manifest.sellerDesk === undefined ? {} : {
+      sellerDesk: {
+        rfqProgram: {
+          programId: manifest.sellerDesk.rfqProgram.programId,
+          idlSha256: manifest.sellerDesk.rfqProgram.idlSha256,
+          bytecodeSha256: manifest.sellerDesk.rfqProgram.bytecodeSha256,
+          upgradeAuthority: manifest.sellerDesk.rfqProgram.upgradeAuthority,
+        },
+        squadsProgram: {
+          programId: manifest.sellerDesk.squadsProgram.programId,
+          idlSha256: manifest.sellerDesk.squadsProgram.idlSha256,
+          bytecodeSha256: manifest.sellerDesk.squadsProgram.bytecodeSha256,
+          upgradeAuthority: manifest.sellerDesk.squadsProgram.upgradeAuthority,
+        },
+        governance: {
+          squadsProgramId: manifest.sellerDesk.governance.squadsProgramId,
+          multisigAddress: manifest.sellerDesk.governance.multisigAddress,
+          createKey: manifest.sellerDesk.governance.createKey,
+          vaultIndex: manifest.sellerDesk.governance.vaultIndex,
+          vaultAddress: manifest.sellerDesk.governance.vaultAddress,
+        },
+      },
+    }),
+  };
+  return JSON.stringify(payload);
 }
 
 function decodeBase64(value: string, expectedLength: number): Buffer | undefined {
@@ -96,6 +145,15 @@ function verifyManifestSignature(manifest: DeploymentManifest, trustedSignerPubl
   return undefined;
 }
 
+/** Verifies that a manifest payload is signed by one of the trusted Ed25519 keys. */
+export function verifyDeploymentManifestSignature(
+  manifest: DeploymentManifest,
+  trustedSignerPublicKeys: readonly string[],
+): ManifestCheck {
+  const error = verifyManifestSignature(manifest, trustedSignerPublicKeys);
+  return error ?? { ok: true, message: 'deployment manifest signature is valid and trusted' };
+}
+
 export function verifyDeploymentManifest(
   manifest: DeploymentManifest,
   runtime: readonly RuntimeProgramState[],
@@ -115,10 +173,11 @@ export function verifyDeploymentManifest(
     if (isPlaceholder(expected.idlSha256) || isPlaceholder(expected.bytecodeSha256) || isPlaceholder(expected.upgradeAuthority)) return { ok: false, reason: 'manifest_unsigned', message: `${expected.name} does not have signed runtime hashes and authority` };
     const actual = runtime.find((entry) => entry.name === expected.name);
     if (!actual) return { ok: false, reason: 'program_missing', message: `${expected.name} program was not discovered` };
-    if (actual.programId !== expected.programId) return { ok: false, reason: 'program_id_mismatch', message: `${expected.name} program address changed` };
-    if (actual.idlSha256 !== expected.idlSha256) return { ok: false, reason: 'idl_mismatch', message: `${expected.name} IDL hash changed` };
-    if (actual.bytecodeSha256 !== expected.bytecodeSha256) return { ok: false, reason: 'bytecode_mismatch', message: `${expected.name} bytecode hash changed` };
-    if (actual.upgradeAuthority !== expected.upgradeAuthority) return { ok: false, reason: 'upgrade_authority_mismatch', message: `${expected.name} upgrade authority changed` };
+    const mismatch = compareDeploymentIdentity(expected, actual);
+    if (mismatch === 'programId') return { ok: false, reason: 'program_id_mismatch', message: `${expected.name} program address changed` };
+    if (mismatch === 'idlSha256') return { ok: false, reason: 'idl_mismatch', message: `${expected.name} IDL hash changed` };
+    if (mismatch === 'bytecodeSha256') return { ok: false, reason: 'bytecode_mismatch', message: `${expected.name} bytecode hash changed` };
+    if (mismatch === 'upgradeAuthority') return { ok: false, reason: 'upgrade_authority_mismatch', message: `${expected.name} upgrade authority changed` };
   }
   if (runtime.some((entry) => !manifest.programs.some((expected) => expected.name === entry.name && expected.programId === entry.programId))) {
     return { ok: false, reason: 'program_unreviewed', message: 'runtime discovered an unreviewed lender or flashloan program' };
@@ -156,7 +215,7 @@ export class DeploymentManifestGate {
   verifyMarket(market: ManifestMarketIdentity): ManifestCheck {
     if (!this.result.ok) return this.result;
     const expected = this.manifest.programs.find((entry) => entry.name === market.lender);
-    if (!expected || expected.programId !== market.programId || expected.idlSha256 !== market.idlSha256 || expected.bytecodeSha256 !== market.bytecodeSha256 || expected.upgradeAuthority !== market.upgradeAuthority) {
+    if (!expected || !deploymentIdentityMatches(expected, market)) {
       return { ok: false, reason: 'market_manifest_mismatch', message: `${market.lender} market does not match the signed deployment manifest` };
     }
     return { ok: true, message: `${market.lender} market matches the signed deployment manifest` };

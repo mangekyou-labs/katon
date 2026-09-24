@@ -3,9 +3,11 @@ phase: requirements
 title: Katon Solana Tokenized-Stock Exit Desk Requirements
 description: Seller-first, non-custodial RFQ requirements for verified xStocks and Ondo assets on Solana
 feature: solana-tokenized-stock-desk
-status: approved
+status: historical_non_canonical
 date: 2026-09-15
 ---
+
+> **Non-canonical.** Historical evidence only. The sole behavioral and acceptance contract is [Canonical Seller Desk full specification](https://github.com/mangekyou-labs/katon/issues/16).
 
 # Requirements & Problem Understanding
 
@@ -133,3 +135,34 @@ This requirement set is informed by the Solana Foundation's xStocks case study (
 - Native USDC/USDT only; native USDC only for liquidation repayment.
 - Katon private fee 10 bps (25 bps protocol maximum); zero on Jupiter winners.
 - No DBC, public auctions, partial fills, custody, unsupported-route fallback, or automatic cap escalation.
+
+## Ticket 14 governance evidence reconciliation (2026-09-23)
+
+This dossier is historical evidence. Canonical behavioral acceptance remains
+Seller Desk specification issue #16; the local governance exercise is scoped
+to its AC-047 through AC-051 and does not add or replace product requirements.
+
+| Canonical criterion | Local evidence |
+| --- | --- |
+| AC-047: queue hash, target, expected version and 24-hour delay; reject early apply; apply only at the expected active version | The Surfnet run observed the queue fields and verified the payload hash, rejected early apply with GovernanceDelayActive, applied after the delay, and rejected stale queue/apply attempts. |
+| AC-048: bootstrap by the vault without the delay | A 2-of-3 Squads proposal executed RFQ governance bootstrap; the resulting GovernanceConfig retained the 24-hour delay for later changes. |
+| AC-049: reject a member key or unrelated PDA as the governance signer | Direct member-key and unrelated-vault attempts failed with ConstraintAddress; no queue account was created for the rejected actions. |
+| AC-050: Guardian non-pause actions fail | Guardian queue, apply, and cancel attempts failed with ConstraintAddress. The separate pause instruction succeeded and changed programPaused from false to true. |
+| AC-051: Squads can immediately cancel a queued change | A 2-of-3 Squads vault proposal canceled a queued action before its apply time; the queued account was removed. |
+
+Detailed transaction signatures, rejection logs, and account snapshots are in
+the [machine-readable testing evidence](../testing/evidence/2026-09-23-ticket14-squads-local.json).
+The run used the source-built official Squads v4 executable in local Surfnet.
+It provides direct program-execution evidence for this governance subset; it
+does not replace the broader EVD-002 settlement, hook, fee, memo, and replay
+coverage or other fork, operational, and runtime obligations in issue #16.
+AC-052 and AC-053 were not evaluated by this run; no evidence-to-enablement or
+loader-upgrade-delay claim is made.
+
+The local executable hash differs from the live Devnet executable hash. The
+untouched official current-source checkout was clean at revision
+af94153ff77a28b6effe46b9c94baaa93742b48c, but its documented build did not
+produce an executable in the pinned image because its Cargo.lock uses version
+4 and the image rejected it during Cargo metadata processing. The README
+documents a version-3 lockfile workaround. There is no current-source
+executable to compare, so the Devnet mismatch cause remains unproven.

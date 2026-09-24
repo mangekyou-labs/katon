@@ -3,9 +3,11 @@ phase: design
 title: Katon Solana Tokenized-Stock Exit Desk Design Dossier
 description: Architecture, settlement invariants, UI flow, solver boundaries, and verification design
 feature: solana-tokenized-stock-desk
-status: approved
+status: historical_non_canonical
 date: 2026-09-15
 ---
+
+> **Non-canonical.** Historical evidence only. The sole behavioral and acceptance contract is [Canonical Seller Desk full specification](https://github.com/mangekyou-labs/katon/issues/16).
 
 # Design Dossier
 
@@ -73,6 +75,14 @@ flowchart LR
 ```
 
 The browser never receives losing-maker payloads. The API retains a transaction payload only until its quote expires, and stores only hashes, terms, signatures, audit metadata, and receipts beyond that point. The settlement program never owns inventory.
+
+Transaction bytes cross one canonical strict legacy/v0 parser shared by venue
+payload validation and SDK signature binding. Execution adapters return sender
+and RPC commitment evidence (submission, confirmation, and finalization times);
+the API records those values verbatim and never synthesizes chain timestamps.
+Liquidation workers restore breaker history from a durable safety store before
+starting and acquire cross-worker opportunity leases through the same boundary;
+missing or unreadable safety state keeps the worker dormant.
 
 ## Repository shape
 
@@ -202,8 +212,8 @@ Wallet UI uses Wallet Standard discovery with disconnected/connecting/locked/con
 
 ## Verification architecture
 
-- Core Vitest tests pin integer rounding, ranking, fee cap, extension fingerprints, stale policy, audit redaction, and hash binding.
-- Anchor tests cover classic Token and Token-2022 happy paths, hooks/fees/pauses/delegates/memos, wrong signers/mints/programs, expiry, replay, duplicate accounts, overflow, CPI attempts, and balance deltas.
+- Core Vitest tests pin integer rounding, ranking, fee cap, extension fingerprints, stale policy, audit redaction, message-hash binding, and cryptographic wallet-signature validation.
+- Anchor tests cover classic Token and Token-2022 happy paths, hooks/fees/pauses/delegates/memos, wrong signers/mints/programs, expiry, replay, duplicate accounts, overflow, CPI attempts, and balance deltas. Settlement, governance/registry, transfer-hook validation, state/events, errors, and tests are separate modules without changing the public ABI.
 - Surfpool tests fork real xStocks/Ondo, Jupiter/Raydium routes, Kamino obligations, Jupiter Lend vaults, ALTs, and paused/stale scenarios. Every agent-run command is prefixed `NO_DNA=1`.
 - Adapter contract tests use official fixtures and malformed/expired/managed-signing responses.
 - Browser tests cover Wallet Standard states, keyboard/reduced motion, audit drawer, exact formatting, 375/768/1280 layouts, and all quote/transaction states.

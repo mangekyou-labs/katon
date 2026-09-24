@@ -1,7 +1,7 @@
 import type { AssetRegistryEntry } from '@katon/solana-core';
 import { verifyDiscoveredMarkets, type DiscoveredMarket, type LenderAdapter } from './adapters';
-import type { DeploymentManifestGate, ManifestCheck } from './manifest';
-import { LiquidationCircuitBreaker, LiquidationSolver, type SolverConfig } from './solver';
+import { deploymentIdentityMatches, type DeploymentManifestGate, type ManifestCheck } from './manifest';
+import { createLiquidationSolver, LiquidationCircuitBreaker, LiquidationSolver, type LiquidationSafetyStateStore, type SolverConfig } from './solver';
 
 const STARTUP_GATE_TOKEN = Symbol('liquidation startup gate');
 const STARTUP_GATE_BRAND: unique symbol = Symbol('validated liquidation startup gate');
@@ -11,6 +11,17 @@ export interface LiquidationStartupGate {
   readonly [STARTUP_GATE_BRAND]: true;
   check(): ManifestCheck;
   matchesMarket(market: DiscoveredMarket | undefined): boolean;
+}
+
+/** A chain-backed verifier must prove the separate, delayed Squads enablement action. */
+export interface LiquidationEnablementVerifier {
+  verifyAppliedEnablement(): Promise<{
+    readonly vaultAuthorized: boolean;
+    readonly solverIdentity: string;
+    readonly evidenceHash: string;
+    readonly applyAfterMs: number;
+    readonly appliedAtMs: number;
+  }>;
 }
 
 class ValidatedLiquidationStartupGate implements LiquidationStartupGate {
@@ -46,9 +57,7 @@ class ValidatedLiquidationStartupGate implements LiquidationStartupGate {
       && candidate.collateralMint === market.collateralMint
       && candidate.debtMint === market.debtMint
       && candidate.oracleAddress === market.oracleAddress
-      && candidate.idlSha256 === market.idlSha256
-      && candidate.bytecodeSha256 === market.bytecodeSha256
-      && candidate.upgradeAuthority === market.upgradeAuthority
+      && deploymentIdentityMatches(candidate, market)
     ));
   }
 }
@@ -103,9 +112,45 @@ export async function startLiquidationSolver(
   assets: readonly AssetRegistryEntry[],
   nowMs: number,
   config: SolverConfig,
-  breaker = new LiquidationCircuitBreaker(),
+  breaker?: LiquidationCircuitBreaker,
+  safetyStore?: LiquidationSafetyStateStore,
+  enablement?: LiquidationEnablementVerifier,
 ): Promise<{ readonly startupGate: LiquidationStartupGate; readonly solver?: LiquidationSolver }> {
   const startupGate = await initializeLiquidationStartup(manifestGate, lenders, assets, nowMs);
   if (!startupGate.check().ok) return { startupGate };
-  return { startupGate, solver: new LiquidationSolver(breaker, config, startupGate) };
+  if (!enablement || !config.solverIdentity) {
+    return { startupGate: createLiquidationStartupGate({ ok: false, reason: 'liquidation_enablement_unavailable', message: 'Liquidation Execution requires its own delayed Squads enablement and constrained solver identity' }) };
+  }
+  let enablementEvidence: Awaited<ReturnType<LiquidationEnablementVerifier['verifyAppliedEnablement']>>;
+  try { enablementEvidence = await enablement.verifyAppliedEnablement(); }
+  catch {
+    return { startupGate: createLiquidationStartupGate({ ok: false, reason: 'liquidation_enablement_unavailable', message: 'delayed Squads Liquidation Execution evidence could not be verified' }) };
+  }
+  if (!enablementEvidence.vaultAuthorized
+    || enablementEvidence.solverIdentity !== config.solverIdentity
+    || !/^[0-9a-f]{64}$/i.test(enablementEvidence.evidenceHash)
+    || !Number.isSafeInteger(enablementEvidence.applyAfterMs)
+    || !Number.isSafeInteger(enablementEvidence.appliedAtMs)
+    || enablementEvidence.appliedAtMs < enablementEvidence.applyAfterMs
+    || nowMs < enablementEvidence.applyAfterMs
+    || enablementEvidence.appliedAtMs > nowMs) {
+    return { startupGate: createLiquidationStartupGate({ ok: false, reason: 'liquidation_enablement_invalid', message: 'delayed Squads enablement, evidence hash, or constrained solver identity is invalid' }) };
+  }
+  if (!safetyStore) {
+    return {
+      startupGate: createLiquidationStartupGate({ ok: false, reason: 'safety_state_unavailable', message: 'durable liquidation safety state is required before worker startup' }),
+    };
+  }
+  let restoredBreaker: LiquidationCircuitBreaker;
+  try {
+    restoredBreaker = await LiquidationCircuitBreaker.restore(safetyStore);
+  } catch {
+    return {
+      startupGate: createLiquidationStartupGate({ ok: false, reason: 'safety_state_unavailable', message: 'durable liquidation safety state could not be restored' }),
+    };
+  }
+  // The argument remains for source compatibility, but a persisted snapshot is
+  // authoritative at startup; a stale process-local breaker is never trusted.
+  void breaker;
+  return { startupGate, solver: createLiquidationSolver(restoredBreaker, config, startupGate, safetyStore) };
 }

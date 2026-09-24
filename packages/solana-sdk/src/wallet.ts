@@ -45,8 +45,11 @@ export function walletStateFromError(error: unknown): WalletConnectionState {
 export class WalletStandardAdapter implements WalletAdapter {
   private connectionState: WalletConnectionState = 'disconnected';
   private selectedAccount?: WalletAccount;
+  private readonly expectedChain: string;
 
-  constructor(public readonly wallet: WalletStandardLike, private readonly expectedChain = 'solana:mainnet') {}
+  constructor(public readonly wallet: WalletStandardLike, expectedChain = 'solana:localnet') {
+    this.expectedChain = expectedChain;
+  }
 
   get state(): WalletConnectionState { return this.connectionState; }
   get account(): WalletAccount | undefined { return this.selectedAccount; }
@@ -80,7 +83,9 @@ export class WalletStandardAdapter implements WalletAdapter {
   }
 
   async sign(transactionBase64: string): Promise<string> {
-    if (this.connectionState !== 'connected' || !this.selectedAccount) throw new Error('wallet is not connected to Solana mainnet');
+    if (this.connectionState !== 'connected' || !this.selectedAccount) {
+      throw new Error(`wallet is not connected to ${this.expectedChain}`);
+    }
     if (!this.wallet.signTransaction) throw new Error('wallet does not expose signTransaction; managed signing is not supported');
     try {
       const signed = await this.wallet.signTransaction(bytesFromBase64(transactionBase64));

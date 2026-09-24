@@ -3,7 +3,7 @@
  * is pinned to the deployed IDL during release; keeping the addresses and
  * instruction names typed here prevents an accidental web3.js v1 dependency.
  */
-export const SOLANA_RFQ_PROGRAM_ID = '59MVYbUATHzCgYtD7uio4RvCkZhdwrRh6c38ZefycwMX';
+export const SOLANA_RFQ_PROGRAM_ID = 'J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib';
 
 export interface SettlePrivateQuoteArgs {
   readonly quoteId: Uint8Array;

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Non-custodial exact-term settlement for the Katon Solana exit desk"
 edition = "2021"
 license = "MIT"
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -13,6 +14,7 @@ name = "solana_rfq"
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 cpi = ["no-entrypoint"]
 default = []
 
@@ -20,14 +22,20 @@ default = []
 # Production target is Anchor 1.1.2 / Solana CLI 3.1.10. The local toolchain
 # may be older; release CI must resolve and lock these exact versions.
 anchor-lang = "=1.1.2"
-anchor-spl = { version = "=1.1.2", features = ["token", "token_2022"] }
+anchor-spl = { version = "=1.1.2", features = ["token", "token_2022", "token_2022_extensions"] }
 bytemuck = { version = "=1.25.2", features = ["derive"] }
 spl-discriminator = "=0.5.2"
 spl-pod = "=0.7.4"
 spl-type-length-value = "=0.9.1"
 solana-sha256-hasher = "=3.1.0"
 
-[profile.release]
-overflow-checks = true
-lto = "fat"
-codegen-units = 1
+[dev-dependencies]
+litesvm = "=0.12.0"
+solana-account = "3.2"
+solana-address = "2.6"
+solana-instruction = "3.4"
+solana-keypair = "3.1"
+solana-message = "3.1"
+solana-program-runtime = "=3.1.14"
+solana-signer = "3.0"
+solana-transaction = "3.0"

@@ -28,7 +28,8 @@ export function evaluateEligibility(input: EligibilityInput): EligibilityResult 
     return { status: 'ineligible', code: 'unsupported_output', message: error instanceof Error ? error.message : 'unsupported output', asset: input.entry, checkedAtMs };
   }
   if (!input.entry.enabled) {
-    return { status: 'ineligible', code: 'policy_failure', message: 'asset is not enabled by policy', asset: input.entry, checkedAtMs };
+    const message = input.entry.issuer === 'ondo' ? 'Managed Route not enabled' : 'asset is not enabled by policy';
+    return { status: 'ineligible', code: 'policy_failure', message, asset: input.entry, checkedAtMs };
   }
   if (input.entry.referenceState === 'closed') {
     return { status: 'action_required', code: 'stale_reference', message: 'issuer market session is closed', asset: input.entry, checkedAtMs };

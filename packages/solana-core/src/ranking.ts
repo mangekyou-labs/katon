@@ -1,6 +1,6 @@
-import { compareAtomic, parseAtomic } from './amounts';
+import { compareAtomic, floorFee, parseAtomic } from './amounts';
 import { routeAllowedForIssuer } from './issuers';
-import { MAX_QUOTE_LIFETIME_MS, QUOTE_SPRINT_MS } from './quote';
+import { DEFAULT_KATON_FEE_BPS, MAX_KATON_FEE_BPS, MAX_QUOTE_LIFETIME_MS, QUOTE_SPRINT_MS } from './quote';
 import { isNativeStableMint } from './registry';
 import type { AssetRegistryEntry, QuoteCandidate, SanitizedAuditRow, StructuredRejectionCode, VerifiedSourceBalance } from './types';
 
@@ -100,6 +100,13 @@ function rejectionFor(candidate: QuoteCandidate, input: RankInput): CandidateChe
     const venueFee = parseAtomic(candidate.venueFeeAtomic, 'venue fee');
     const net = parseAtomic(candidate.netOutputAtomic, 'net output');
     if (gross < 0n || katonFee < 0n || venueFee < 0n || net < 0n || gross - katonFee - venueFee !== net) return { rejectionCode: 'malformed_quote' };
+    if (candidate.sourceKind === 'private-maker') {
+      const feeBps = candidate.katonFeeBps ?? DEFAULT_KATON_FEE_BPS;
+      if (!Number.isSafeInteger(feeBps) || feeBps < 0 || feeBps > MAX_KATON_FEE_BPS) return { rejectionCode: 'policy_failure' };
+      if (floorFee(candidate.grossOutputAtomic, feeBps) !== katonFee) return { rejectionCode: 'malformed_quote' };
+    } else if (candidate.katonFeeBps !== undefined && candidate.katonFeeBps !== 0) {
+      return { rejectionCode: 'policy_failure' };
+    }
     let deviationBps: number | undefined;
     if (maxDeviationBps !== undefined) {
       deviationBps = verifiedDeviationBps(candidate, input);
@@ -129,9 +136,12 @@ export function rankExecutableCandidates(input: RankInput): RankResult {
       const check = rejectionFor(candidate, input);
       rejectionCode = check.rejectionCode;
       if (!rejectionCode) {
+        const feeNormalized = candidate.sourceKind === 'private-maker' && candidate.katonFeeBps === undefined
+          ? { ...candidate, katonFeeBps: DEFAULT_KATON_FEE_BPS }
+          : candidate;
         const normalized = check.deviationBps === undefined
-          ? candidate
-          : { ...candidate, deviationBps: check.deviationBps, referencePriceAtomic: input.referencePriceAtomic, referencePriceDecimals: input.referencePriceDecimals };
+          ? feeNormalized
+          : { ...feeNormalized, deviationBps: check.deviationBps, referencePriceAtomic: input.referencePriceAtomic, referencePriceDecimals: input.referencePriceDecimals };
         executable.push(normalized);
         audit.push({ sourceClass, netOutputAtomic: normalized.netOutputAtomic, receivedAtMs, status: 'executable' });
         continue;

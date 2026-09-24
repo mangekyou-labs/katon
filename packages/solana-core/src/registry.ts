@@ -36,7 +36,7 @@ export function fingerprintSnapshot(snapshot: MintAccountSnapshot): string {
 
 export interface RegistryCheck {
   readonly ok: boolean;
-  readonly code?: 'unknown_extension' | 'mint_mismatch' | 'program_mismatch' | 'decimals_mismatch' | 'fingerprint_mismatch' | 'hook_mismatch' | 'paused' | 'permanent_delegate' | 'confidential_transfer' | 'issuer_authority_mismatch' | 'issuer_program_mismatch' | 'jit_capability_mismatch';
+  readonly code?: 'unknown_extension' | 'mint_mismatch' | 'program_mismatch' | 'decimals_mismatch' | 'fingerprint_mismatch' | 'hook_mismatch' | 'paused' | 'permanent_delegate' | 'confidential_transfer' | 'issuer_authority_mismatch' | 'issuer_program_mismatch' | 'jit_capability_mismatch' | 'nonzero_transfer_fee';
   readonly message: string;
 }
 
@@ -93,6 +93,10 @@ export function checkMintAgainstRegistry(entry: AssetRegistryEntry, snapshot: Mi
   }
   if (entry.capabilities.transferFee && snapshot.transferFeeBps === undefined) {
     return { ok: false, code: 'fingerprint_mismatch', message: 'transfer fee configuration is missing' };
+  }
+  // Exact Input forbids gross-up or reduced maker receipt (ADR-0003 / AC-010).
+  if (snapshot.transferFeeBps !== undefined && snapshot.transferFeeBps !== 0) {
+    return { ok: false, code: 'nonzero_transfer_fee', message: 'nonzero Token-2022 transfer fee is not eligible for Exact Input' };
   }
   if (snapshot.permanentDelegate || entry.capabilities.permanentDelegate) return { ok: false, code: 'permanent_delegate', message: 'permanent delegate is not supported' };
   if (snapshot.extensions.includes('confidential-transfer') || entry.capabilities.confidentialTransfer) {

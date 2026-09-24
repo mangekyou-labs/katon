@@ -2,7 +2,7 @@ import { floorFee, parseAtomic } from './amounts';
 import type { QuoteCandidate, QuoteSession, QuoteSessionRequest } from './types';
 
 export const QUOTE_SPRINT_MS = 3_000;
-export const DEFAULT_PRIVATE_QUOTE_LIFETIME_MS = 15_000;
+export const DEFAULT_PRIVATE_QUOTE_LIFETIME_MS = 30_000;
 export const MAX_QUOTE_LIFETIME_MS = 30_000;
 export const MIN_REVIEW_REMAINING_MS = 2_000;
 export const DEFAULT_KATON_FEE_BPS = 10;
@@ -14,13 +14,14 @@ export function quoteLifetimeMs(sourceKind: QuoteCandidate['sourceKind'], reques
   return Math.min(MAX_QUOTE_LIFETIME_MS, Math.max(1_000, requestedMs ?? fallback));
 }
 
-export function withComputedPrivateFee(candidate: Omit<QuoteCandidate, 'katonFeeAtomic' | 'netOutputAtomic'> & { readonly feeBps?: number }): QuoteCandidate {
+export function withComputedPrivateFee(candidate: Omit<QuoteCandidate, 'katonFeeAtomic' | 'netOutputAtomic' | 'katonFeeBps'> & { readonly feeBps?: number }): QuoteCandidate {
   const feeBps = candidate.feeBps ?? DEFAULT_KATON_FEE_BPS;
+  if (!Number.isSafeInteger(feeBps) || feeBps < 0 || feeBps > MAX_KATON_FEE_BPS) throw new Error('private-maker fee exceeds policy');
   const fee = floorFee(candidate.grossOutputAtomic, feeBps);
   const net = parseAtomic(candidate.grossOutputAtomic) - fee - parseAtomic(candidate.venueFeeAtomic);
   if (net < 0n) throw new Error('route fees exceed gross output');
   const { feeBps: _feeBps, ...base } = candidate;
-  return { ...base, katonFeeAtomic: fee.toString(), netOutputAtomic: net.toString() };
+  return { ...base, katonFeeBps: feeBps, katonFeeAtomic: fee.toString(), netOutputAtomic: net.toString() };
 }
 
 /** Return the net output per input unit as an integer at a fixed price scale. */

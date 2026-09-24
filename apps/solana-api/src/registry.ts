@@ -23,7 +23,9 @@ const ondoCapabilities: TokenCapabilities = {
 
 export const demoAssets: readonly AssetRegistryEntry[] = [
   {
-    mint: 'xstk-demo-AAPL-mint',
+    // Syntactically valid local fixture address so transaction binding and
+    // PDA/ATA validation exercise the same web3 code paths as real mints.
+    mint: '2gamkL7f7ikNbPAvchzyjFtVVWhLaVTPtjskiCv5i3gW',
     issuer: 'xstocks',
     ticker: 'AAPLx',
     underlyingTicker: 'AAPL',
@@ -62,7 +64,7 @@ export const demoAssets: readonly AssetRegistryEntry[] = [
     referencePriceDecimals: 6,
     referenceTimestampMs: Date.now(),
     maxDeviationBps: 150,
-    enabled: true,
+    enabled: false,
     registryVersion: 1,
   },
 ];

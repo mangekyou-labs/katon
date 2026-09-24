@@ -5,16 +5,28 @@ export type ReferenceState = 'open' | 'closed' | 'stale' | 'unknown';
 export type QuoteSourceKind = 'jupiter' | 'private-maker';
 /** Route semantics are part of the signed quote, not inferred from a router label. */
 export type SettlementRoute = 'generic-spl' | 'ondo-managed';
+export type ExecutionCommitment = 'confirmed' | 'finalized';
+export type AssetCapability = 'executable' | 'informational' | 'unavailable';
+export type ExecutionAttemptState = 'accepted' | 'submitting' | 'confirmed' | 'finalized' | 'failed';
+
+/** Evidence returned by the RPC/sender boundary for a submitted transaction. */
+export interface ExecutionEvidence {
+  readonly signature: string;
+  readonly submittedAtMs: number;
+  readonly confirmedAtMs?: number;
+  readonly finalizedAtMs?: number;
+  readonly commitment: ExecutionCommitment;
+}
 export type QuoteSessionState =
   | 'validating'
   | 'action_required'
   | 'ineligible'
   | 'unknown'
   | 'collecting'
-  | 'ready'
+  | 'winner_ready'
   | 'no_quote'
   | 'expired'
-  | 'reviewing'
+  | 'authorized'
   | 'signing'
   | 'submitting'
   | 'confirmed'
@@ -34,6 +46,7 @@ export type StructuredRejectionCode =
   | 'changed_extension'
   | 'paused_asset'
   | 'stale_reference'
+  | 'capability_unavailable'
   | 'price_band'
   | 'malformed_quote'
   | 'source_error'
@@ -124,6 +137,8 @@ export interface QuoteCandidate {
   readonly inputAmountAtomic: string;
   readonly grossOutputAtomic: string;
   readonly katonFeeAtomic: string;
+  /** The charged protocol fee rate; present for private-maker quotes. */
+  readonly katonFeeBps?: number;
   readonly venueFeeAtomic: string;
   readonly netOutputAtomic: string;
   readonly referencePriceAtomic?: string;
@@ -179,6 +194,25 @@ export interface QuoteSession {
   readonly failureMessage?: string;
 }
 
+/** External contract name for QuoteSession. */
+export type QuoteSprint = QuoteSession;
+export type QuoteSprintRequest = QuoteSessionRequest;
+export type QuoteSprintState = QuoteSessionState;
+
+export interface ExecutionAttempt {
+  readonly id: string;
+  readonly quoteSprintId: string;
+  readonly idempotencyKey: string;
+  readonly state: ExecutionAttemptState;
+  readonly signature?: string;
+  readonly tradeId?: string;
+  readonly failureMessage?: string;
+  readonly createdAtMs: number;
+  readonly submittedAtMs?: number;
+  readonly confirmedAtMs?: number;
+  readonly finalizedAtMs?: number;
+}
+
 export interface TradeReceipt {
   readonly tradeId: string;
   readonly quoteId: string;
@@ -192,12 +226,15 @@ export interface TradeReceipt {
   readonly grossOutputAtomic: string;
   readonly netOutputAtomic: string;
   readonly katonFeeAtomic: string;
+  readonly katonFeeBps?: number;
   readonly venueFeeAtomic: string;
   readonly deviationBps?: number;
   readonly priceImpactBps?: number;
   readonly effectivePriceAtomic?: string;
   readonly effectivePriceDecimals?: number;
   readonly createdAtMs: number;
+  readonly submittedAtMs: number;
   readonly confirmedAtMs: number;
   readonly finalizedAtMs?: number;
+  readonly commitment: ExecutionCommitment;
 }

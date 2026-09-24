@@ -12,13 +12,24 @@ date: 2026-09-16
 
 Target versions are Node 22, Solana CLI 3.1.10, Anchor CLI/framework 1.1.2,
 v0 transactions, Codama-generated clients, `@solana/kit` 7+, Wallet Standard,
-and pinned audited lender IDLs. This local scaffold does not download
-dependencies or touch a wallet. Its deterministic local program address is
-`59MVYbUATHzCgYtD7uio4RvCkZhdwrRh6c38ZefycwMX`; a deployment key and audited
-build must replace it before devnet or mainnet. Devnet receives mocks only.
+and pinned audited lender IDLs. Devnet QA uses program address
+`J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib`, matched to the ignored local
+deploy keypair. It is a mock-only test deployment; this identity and build are
+not approved for mainnet. Devnet receives mocks only.
 The web surface labels every local route `LOCAL MOCK MODE`; wallet, RPC,
 liquidity, settlement, and receipts shown there are simulated and are not
 mainnet/finalized transaction evidence.
+
+The checked-in local vault authority is a test fixture. A fresh read-only
+Devnet `solana program show` on 2026-09-23 resolved the deployed program's
+upgrade authority to `8LmRZFAUJxxXpDXKUPH9B5J3dzDvePQJDPHDP1FNLJgf`, matching
+the existing Squads vault reported in the deployment handoff. `build.rs` pins
+that authority for deployment builds and rejects a different configured value;
+the local fixture remains the default for tests. This confirms the current
+upgrade-authority account identity only; it does not certify the program binary
+or grant approval for another Devnet transaction.
+The Solana loader upgrade authority is separate from the RFQ governance queue.
+The RFQ 24-hour delay does not bind program upgrades (canonical AC-053).
 
 ## Preflight gates
 
@@ -32,9 +43,9 @@ mainnet/finalized transaction evidence.
   discover at least one fresh, registry-enabled native-USDC lender market with
   complete reserve, vault, oracle, IDL, and upgrade-authority metadata; an
   unavailable or empty discovery leaves the solver dormant.
-- Anchor registry bootstrap must run through the audited compile-time authority;
-  later asset and maker registry creation requires two distinct configured
-  quorum members. Transfer-hook validation PDAs, flags, account order, and
+- Anchor registry bootstrap must run through the compile-time pinned Squads
+  vault PDA. Squads enforces its member approvals; the RFQ program does not
+  store member keys or quorum. Transfer-hook validation PDAs, flags, account order, and
   live TLV data hashes must match the initialized registry.
 - Quote adapters must provide source-bound independent simulation and verified,
   fresh maker balance evidence within one three-second collection deadline.
@@ -42,6 +53,14 @@ mainnet/finalized transaction evidence.
   oracle/session state.
 - Production RPC/SWQoS/Jito, maker health, receipt indexing, alerts, and
   guardian/multisig runbooks.
+- Operator read-only evidence configuration: `SOLANA_RPC_URL`,
+  `SOLANA_CLUSTER`, `SOLANA_DEPLOYMENT_MANIFEST`, and
+  `SOLANA_MANIFEST_TRUSTED_SIGNERS`. The reader verifies the signed manifest
+  and compares live lender, RFQ, and Squads v4 bytecode hashes and upgrade
+  authorities through RPC, then validates RFQ and Squads account identities.
+  Production evidence remains unavailable until trusted manifest, signer, and
+  RPC configuration are supplied. The confirmed Devnet RFQ upgrade authority
+  is not a bytecode hash or proof of a deployed RFQ binary/governance action.
 - Legal/compliance approval for eligible non-US access.
 
 ## Rollout

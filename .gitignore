@@ -59,6 +59,9 @@ services/fcc-matcher/dist/
 # Testnet demo funding secrets — NEVER commit
 demo-keys.json
 
+# Local Surfpool / Seller Desk harness keys + config (ticket 13)
+.local/
+
 # Local guidance for Claude Code sessions (do not commit)
 CLAUDE.md
 

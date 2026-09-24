@@ -1,0 +1,1312 @@
+{
+  "scenario": "verified Squads v4 2-of-3 local Surfnet governance",
+  "recordedAt": "2026-09-23T15:30:42.126Z",
+  "provenance": {
+    "sourceOrigin": "https://github.com/Squads-Protocol/v4.git",
+    "sourceRevision": "64af7330413d5c85cbbccfd8c27a05d45b6e666f",
+    "sdkVersion": "2.1.4",
+    "sdkIntegrity": "sha512-5w+NmwHOzl96nI50R/fjSD6uFydRLNUquhoEmmWbGepS4D9DnQyF2TKcUBfTyxV3sgJt00ypBt7SXB3y8WOzUQ==",
+    "executable": "/private/tmp/ticket14-squads/source-pinned/target/deploy/squads_multisig_program.so",
+    "executableHash": "d48660833989ecea3145ff726164fe640bd90696f03ce00dfd0cda258cbf2fac",
+    "rawSha256": "ae9587376b1d5febf83f558b87ed876cdd4bdcc9ad877f257992287fb09d0b11",
+    "programIdentity": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+    "build": {
+      "procedure": "anchor build; solana-verify build -b solanafoundation/solana-verifiable-build:1.18.16",
+      "image": "solanafoundation/solana-verifiable-build:1.18.16",
+      "imageDigest": "sha256:1388b6e423013b0a4a1b67b3481b1c35f5a13034af97d9059439d923c19f1c87",
+      "verifierVersion": "solana-verify 0.5.2"
+    },
+    "devnetIdentity": {
+      "status": "observed",
+      "rpc": "https://api.devnet.solana.com",
+      "executableHash": "57a8d2d7ef5409df250415135f29f83da876e5adf5a2e5b5752e323cfb4f2f74",
+      "matchesLocal": false,
+      "deploymentIdentityOnly": true
+    }
+  },
+  "squadsProgramId": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+  "rfqProgramId": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+  "multisig": "7DEUUz4WPfWGhhFe5y5j9Ag5Cny4kaJ5vCzR9pipPzZZ",
+  "vault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+  "accountObservations": [
+    {
+      "account": "SquadsProgramConfig",
+      "label": "surfnet-genesis-fixture-for-existing-global-config",
+      "address": "BSTq9w3kZwNwpBXJEvTZz2G9ZTNyKBvoSeXMvwb4cNZr",
+      "owner": "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      "accountDataLength": 144,
+      "authority": "CATayQ5mnMF6Q6VYqSmomknjNR9e5LBsBEUdQF1SLqg8",
+      "multisigCreationFee": 0,
+      "treasury": "9pzC5rFZnnrUzwmimE1QX4foaStHoBjYiekyhEbA7Tho",
+      "fixtureReason": "Squads source restricts ProgramConfigInit to its hard-coded one-time team key; governance proposals still execute through the official local program binary."
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "bootstrap-after-one-approval",
+      "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+      "transactionIndex": "1",
+      "status": "Active",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2"
+      ]
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "bootstrap-after-one-approval-rejection",
+      "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+      "transactionIndex": "1",
+      "status": "Active",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2"
+      ]
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "bootstrap-after-two-approvals",
+      "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+      "transactionIndex": "1",
+      "status": "Approved",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "bootstrap-after-nonmember-rejection",
+      "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+      "transactionIndex": "1",
+      "status": "Approved",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "bootstrap-after-vault-execution",
+      "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+      "transactionIndex": "1",
+      "status": "Executed",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-after-squads-vault-bootstrap",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 1,
+      "feeBps": 10,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-before-stale-queue-rejection",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 1,
+      "feeBps": 10,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "stale-queue-after-rejection",
+      "address": "5XZBfBayHff9y8xFKRx19yb7HdkF8rb9RYyRSMo5uai6",
+      "transactionIndex": "6",
+      "status": "Approved",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "stale-queue-account-after-rejection",
+      "address": "GoHqJgTbL6mhFXxRVQYXjdji6GcByCPJsKRtxHBJYZ7W",
+      "exists": false
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "economics-action-before-delay",
+      "address": "ExnnRiiHM5pzBgkUpau83CjSjKH5DJGFEimQLCmpnSar",
+      "exists": true,
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "proposalId": "0101010101010101010101010101010101010101010101010101010101010101",
+      "payloadHash": "c720b2d294638279ca5dbdf8338db0ab47965909a46c38dd8809656b1e76b57e",
+      "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "expectedVersion": 1,
+      "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "createdAt": 1790177441,
+      "applyAfter": 1790263841
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-before-early-apply-rejection",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 1,
+      "feeBps": 10,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "early-apply-after-delay-rejection",
+      "address": "2bg4PU7Yzb4GrhZy9BCcrFeBRWw8CFDUkGGi6jqa32AZ",
+      "transactionIndex": "7",
+      "status": "Approved",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "queued-action-after-early-apply-rejection",
+      "address": "ExnnRiiHM5pzBgkUpau83CjSjKH5DJGFEimQLCmpnSar",
+      "exists": true,
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "proposalId": "0101010101010101010101010101010101010101010101010101010101010101",
+      "payloadHash": "c720b2d294638279ca5dbdf8338db0ab47965909a46c38dd8809656b1e76b57e",
+      "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "expectedVersion": 1,
+      "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "createdAt": 1790177441,
+      "applyAfter": 1790263841
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-after-delayed-economics-apply",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 2,
+      "feeBps": 12,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "MakerRegistry",
+      "label": "maker-registry-after-delayed-apply",
+      "address": "3BN1JorBwmcpGk8XHgHsvWUkZgXt6iMAj3wDzeMoFxYL",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "allowlisted": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2"
+      ],
+      "paused": false,
+      "registryVersion": 2
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "stale-action-before-stale-apply",
+      "address": "8XxcPceSmwy9gFqQRCRdsaniTifsdK2m26hEAPA4PXsA",
+      "exists": true,
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "proposalId": "0202020202020202020202020202020202020202020202020202020202020202",
+      "payloadHash": "395717fba3b9915752b4f22547fa631239da752cd68fa2f5724a074b2e797e5e",
+      "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "expectedVersion": 1,
+      "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "createdAt": 1790177441,
+      "applyAfter": 1790263841
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-before-stale-apply-rejection",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 2,
+      "feeBps": 12,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "stale-apply-after-rejection",
+      "address": "H3ZRg3sWSaeGJTyrDnhjiqhsfz25TorRcUCCGiSrCfDu",
+      "transactionIndex": "9",
+      "status": "Approved",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-before-direct-member-attempt",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 2,
+      "feeBps": 12,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "member-direct-queue-account-after-rejection",
+      "address": "39oHiyKQZtNx4FLtZSU7doyJXsXwPvdg3yqFAPF2stPT",
+      "exists": false
+    },
+    {
+      "account": "SquadsProposal",
+      "label": "unrelated-vault-proposal-after-rfq-rejection",
+      "address": "B3oKEZNtd3xSf6xcvVtVruGuBfn7GHrcVUtpX2fQvqCt",
+      "transactionIndex": "1",
+      "status": "Approved",
+      "approvedMembers": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+      ]
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "unrelated-vault-queue-after-rejection",
+      "address": "5nckPZAs5pT93YC9KgfU7peBwhgeXaCGUuaL6Bpzf6SF",
+      "exists": false
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "stale-action-after-squads-cancel",
+      "address": "8XxcPceSmwy9gFqQRCRdsaniTifsdK2m26hEAPA4PXsA",
+      "exists": false
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "action-before-immediate-squads-cancel",
+      "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+      "exists": true,
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+      "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+      "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "expectedVersion": 2,
+      "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "createdAt": 1790263842,
+      "applyAfter": 1790350242
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-before-guardian-admin-attempts",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 2,
+      "feeBps": 12,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "guardian-queue-after-rejection",
+      "address": "FqiRwTPEg4ED9nVgA147FJhoyX835HCeX1ZRqACyyGhK",
+      "exists": false
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "queued-action-after-guardian-attempts",
+      "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+      "exists": true,
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+      "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+      "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "expectedVersion": 2,
+      "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "createdAt": 1790263842,
+      "applyAfter": 1790350242
+    },
+    {
+      "account": "QueuedGovernanceAction",
+      "label": "queued-action-after-squads-cancel",
+      "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+      "exists": false
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-before-guardian-pause",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": false,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 2,
+      "feeBps": 12,
+      "maxFeeBps": 25
+    },
+    {
+      "account": "GovernanceConfig",
+      "label": "governance-after-guardian-pause",
+      "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+      "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+      "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+      "programPaused": true,
+      "changeDelaySeconds": 86400,
+      "governanceVersion": 2,
+      "feeBps": 12,
+      "maxFeeBps": 25
+    }
+  ],
+  "assertions": [
+    {
+      "label": "real-squads-multisig-is-2-of-3",
+      "passed": true,
+      "multisig": "7DEUUz4WPfWGhhFe5y5j9Ag5Cny4kaJ5vCzR9pipPzZZ",
+      "threshold": 2,
+      "members": [
+        "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+        "DzmaPMXZPJFdT2EXGbCDacsD4tu9tcYQaVpzn6VaZmMx"
+      ],
+      "vault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "bootstrapTransactionIndex": "1"
+    },
+    {
+      "label": "squads-vault-pda-signed-bootstrap-without-delay",
+      "passed": true,
+      "proposal": {
+        "label": "bootstrap-after-vault-execution",
+        "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+        "transactionIndex": "1",
+        "status": "Executed",
+        "approvedMembers": [
+          "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+          "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+        ]
+      },
+      "governance": {
+        "label": "governance-after-squads-vault-bootstrap",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 1,
+        "feeBps": 10,
+        "maxFeeBps": 25
+      }
+    },
+    {
+      "label": "stale-expected-version-cannot-be-queued",
+      "passed": true,
+      "expectedError": "Program log: AnchorError thrown in programs/solana-rfq/src/governance.rs:131. Error Code: RegistryVersionNotIncreasing. Error Number: 6043. Error Message: registry version must increase.",
+      "rejectionSignature": "4vSqMVetFNR7EXSSpEWxpJssrsJX2rA9hBvSnfXYMwWwoZm2NStRJiGcYeuzBf8wYXt3Yk4YFPV7V8svxXsPPDFZ",
+      "proposal": {
+        "label": "stale-queue-after-rejection",
+        "address": "5XZBfBayHff9y8xFKRx19yb7HdkF8rb9RYyRSMo5uai6",
+        "transactionIndex": "6",
+        "status": "Approved",
+        "approvedMembers": [
+          "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+          "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+        ]
+      },
+      "queuedAction": {
+        "label": "stale-queue-account-after-rejection",
+        "address": "GoHqJgTbL6mhFXxRVQYXjdji6GcByCPJsKRtxHBJYZ7W",
+        "exists": false
+      },
+      "governance": {
+        "label": "governance-before-stale-queue-rejection",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 1,
+        "feeBps": 10,
+        "maxFeeBps": 25
+      }
+    },
+    {
+      "label": "queued-change-hash-target-version-and-delay",
+      "passed": true,
+      "queuedAction": {
+        "label": "economics-action-before-delay",
+        "address": "ExnnRiiHM5pzBgkUpau83CjSjKH5DJGFEimQLCmpnSar",
+        "exists": true,
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "proposalId": "0101010101010101010101010101010101010101010101010101010101010101",
+        "payloadHash": "c720b2d294638279ca5dbdf8338db0ab47965909a46c38dd8809656b1e76b57e",
+        "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "expectedVersion": 1,
+        "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "createdAt": 1790177441,
+        "applyAfter": 1790263841
+      },
+      "payloadHashVerified": true
+    },
+    {
+      "label": "early-apply-rejected-and-delayed-apply-succeeded",
+      "passed": true,
+      "queuedAction": {
+        "label": "economics-action-before-delay",
+        "address": "ExnnRiiHM5pzBgkUpau83CjSjKH5DJGFEimQLCmpnSar",
+        "exists": true,
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "proposalId": "0101010101010101010101010101010101010101010101010101010101010101",
+        "payloadHash": "c720b2d294638279ca5dbdf8338db0ab47965909a46c38dd8809656b1e76b57e",
+        "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "expectedVersion": 1,
+        "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "createdAt": 1790177441,
+        "applyAfter": 1790263841
+      },
+      "earlyApplyRejection": {
+        "label": "RFQ rejects a Squads-approved apply before the 24-hour delay",
+        "signature": "5kBDzCaL64gEkD6KAsTCsS7fdAJUnVGbLpJotQZRzPsfwoM1GNv9uRPfqSdQpiTaoFPL5J82GhchauTJqRvfuqMb",
+        "error": "Program log: AnchorError thrown in programs/solana-rfq/src/governance.rs:184. Error Code: GovernanceDelayActive. Error Number: 6042. Error Message: governance delay has not elapsed.",
+        "evidence": {
+          "queuedAction": {
+            "label": "economics-action-before-delay",
+            "address": "ExnnRiiHM5pzBgkUpau83CjSjKH5DJGFEimQLCmpnSar",
+            "exists": true,
+            "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+            "proposalId": "0101010101010101010101010101010101010101010101010101010101010101",
+            "payloadHash": "c720b2d294638279ca5dbdf8338db0ab47965909a46c38dd8809656b1e76b57e",
+            "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+            "expectedVersion": 1,
+            "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+            "createdAt": 1790177441,
+            "applyAfter": 1790263841
+          },
+          "governance": {
+            "label": "governance-before-early-apply-rejection",
+            "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+            "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+            "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+            "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+            "programPaused": false,
+            "changeDelaySeconds": 86400,
+            "governanceVersion": 1,
+            "feeBps": 10,
+            "maxFeeBps": 25
+          }
+        },
+        "signatureStatus": "not-landed-or-pruned"
+      },
+      "earlyApplyProposal": {
+        "label": "early-apply-after-delay-rejection",
+        "address": "2bg4PU7Yzb4GrhZy9BCcrFeBRWw8CFDUkGGi6jqa32AZ",
+        "transactionIndex": "7",
+        "status": "Approved",
+        "approvedMembers": [
+          "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+          "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+        ]
+      },
+      "clockAtSuccessfulApply": {
+        "unixTimestamp": 1790263842,
+        "slot": 86400138
+      },
+      "applyAfter": 1790263841,
+      "successSignature": "4d4ruEkTwiJB3s9BNfiwUAJ8mzo9rXqTVLXaKyNGQBSxip67EVoy3P1vGiCUNQgj9YAPjRF5ocGRJXSHDd6PhC8a",
+      "governanceAfterApply": {
+        "label": "governance-after-delayed-economics-apply",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 2,
+        "feeBps": 12,
+        "maxFeeBps": 25
+      }
+    },
+    {
+      "label": "delayed-maker-policy-apply-succeeded",
+      "passed": true,
+      "makerRegistry": {
+        "label": "maker-registry-after-delayed-apply",
+        "address": "3BN1JorBwmcpGk8XHgHsvWUkZgXt6iMAj3wDzeMoFxYL",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "allowlisted": [
+          "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2"
+        ],
+        "paused": false,
+        "registryVersion": 2
+      },
+      "successSignature": "3t5PwqrUohwe7cUx8oWWKdRFAKJ5EJ6AcLfX2aJ1SqzikCRAoJKBsSsuGeKZArXjmdK8yJmZbxTEHF3XJmiFBvTd"
+    },
+    {
+      "label": "stale-queued-action-cannot-apply",
+      "passed": true,
+      "expectedError": "Program log: AnchorError thrown in programs/solana-rfq/src/governance.rs:193. Error Code: RegistryVersionNotIncreasing. Error Number: 6043. Error Message: registry version must increase.",
+      "rejectionSignature": "3dfufP56B2KikUcqkq4WfP9JcE6iGUB7XCXEoURvgPL2rmKYRjANcHFViWSQkesN7J58uPgCpTV9xak1pyFtrQpE",
+      "queuedAction": {
+        "label": "stale-action-before-stale-apply",
+        "address": "8XxcPceSmwy9gFqQRCRdsaniTifsdK2m26hEAPA4PXsA",
+        "exists": true,
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "proposalId": "0202020202020202020202020202020202020202020202020202020202020202",
+        "payloadHash": "395717fba3b9915752b4f22547fa631239da752cd68fa2f5724a074b2e797e5e",
+        "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "expectedVersion": 1,
+        "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "createdAt": 1790177441,
+        "applyAfter": 1790263841
+      },
+      "governance": {
+        "label": "governance-before-stale-apply-rejection",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 2,
+        "feeBps": 12,
+        "maxFeeBps": 25
+      },
+      "proposal": {
+        "label": "stale-apply-after-rejection",
+        "address": "H3ZRg3sWSaeGJTyrDnhjiqhsfz25TorRcUCCGiSrCfDu",
+        "transactionIndex": "9",
+        "status": "Approved",
+        "approvedMembers": [
+          "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+          "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+        ]
+      }
+    },
+    {
+      "label": "individual-squads-member-key-rejected-as-governance-signer",
+      "passed": true,
+      "expectedError": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "rejectionSignature": "4m41YMmt4iKdGRiEX21Kjr2W2Geigi1n9fc7qSLBMrS1sgFThRXcC3QM1RqPUC7Lh8oJ7dHkZA6MavxE73y4sdBr",
+      "queuedAction": {
+        "label": "member-direct-queue-account-after-rejection",
+        "address": "39oHiyKQZtNx4FLtZSU7doyJXsXwPvdg3yqFAPF2stPT",
+        "exists": false
+      },
+      "governance": {
+        "label": "governance-before-direct-member-attempt",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 2,
+        "feeBps": 12,
+        "maxFeeBps": 25
+      }
+    },
+    {
+      "label": "unrelated-pda-cannot-act-as-governance-signer",
+      "passed": true,
+      "expectedError": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "rejectionSignature": "4cmxGA2fkAquE56n9PfSEqgsptJdbYw6MhymxKYLQPcwDEn1V8WMB9nyGhfmVQ9xsMe5LjSLw3icLebvAeYebLop",
+      "unrelatedVault": "5TrwjX9HjnyG4MpjnWXsYtzMqw1yp4bG5xLguaXT8N6W",
+      "configuredVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+      "proposal": {
+        "label": "unrelated-vault-proposal-after-rfq-rejection",
+        "address": "B3oKEZNtd3xSf6xcvVtVruGuBfn7GHrcVUtpX2fQvqCt",
+        "transactionIndex": "1",
+        "status": "Approved",
+        "approvedMembers": [
+          "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+          "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+        ]
+      },
+      "queuedAction": {
+        "label": "unrelated-vault-queue-after-rejection",
+        "address": "5nckPZAs5pT93YC9KgfU7peBwhgeXaCGUuaL6Bpzf6SF",
+        "exists": false
+      }
+    },
+    {
+      "label": "stale-queued-action-cancelled-by-squads",
+      "passed": true,
+      "cancellationSignature": "45AmukNEKJE1EgALVtJX8rGbeLmzRWeuSuQtaD9F7FCar5T4EeKKcWr2VLCZSC6RFgpFeK7ot2CUK9rJn3vj1qGT",
+      "queuedAction": {
+        "label": "stale-action-after-squads-cancel",
+        "address": "8XxcPceSmwy9gFqQRCRdsaniTifsdK2m26hEAPA4PXsA",
+        "exists": false
+      }
+    },
+    {
+      "label": "guardian-cannot-queue-apply-or-cancel-governance",
+      "passed": true,
+      "rejectionSignatures": [
+        "nh6ye2sg4BnuadJg385pWqxD4kjBeXCggv3vFMpvExC6Bfj4ubcFLMkdjsoZWbYWVTRagtjXYL1exkVWC9UEny6",
+        "5LfusiGhMVHoCRZEdieYhfTqcfeGaiGjcuuW7UppBHiFWhPbottzwWx9ocwpJHJSuJWn3DJpnnQ6jCNzuJPkS1sP",
+        "55bDeYPRzr2cz2XqfLs6Qo4zRQbCyVzMPXMc3JhK6HB5KzRsNJm7QzZTZ2UzREsqxCJDdS8v3mxymEWrFwDLcRmG"
+      ],
+      "expectedErrors": [
+        "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+        "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+        "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated."
+      ],
+      "queuedActionBefore": {
+        "label": "action-before-immediate-squads-cancel",
+        "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+        "exists": true,
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+        "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+        "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "expectedVersion": 2,
+        "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "createdAt": 1790263842,
+        "applyAfter": 1790350242
+      },
+      "queuedActionAfter": {
+        "label": "queued-action-after-guardian-attempts",
+        "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+        "exists": true,
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+        "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+        "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "expectedVersion": 2,
+        "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "createdAt": 1790263842,
+        "applyAfter": 1790350242
+      },
+      "governance": {
+        "label": "governance-before-guardian-admin-attempts",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 2,
+        "feeBps": 12,
+        "maxFeeBps": 25
+      }
+    },
+    {
+      "label": "squads-can-cancel-before-24-hour-apply-time",
+      "passed": true,
+      "queuedAction": {
+        "label": "action-before-immediate-squads-cancel",
+        "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+        "exists": true,
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+        "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+        "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "expectedVersion": 2,
+        "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "createdAt": 1790263842,
+        "applyAfter": 1790350242
+      },
+      "clockBeforeCancellation": 1790263842,
+      "cancellationSignature": "5eAjPpUfnXoniDM6kmdWXGStD1b4CMwzJNjPCKS1NbDVLbHbjpLEugTZGwz3pg6K8AmaK6iAVXXC4LG8TGh4Gsjo",
+      "resultingAccount": {
+        "label": "queued-action-after-squads-cancel",
+        "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+        "exists": false
+      }
+    },
+    {
+      "label": "guardian-has-pause-only-authority",
+      "passed": true,
+      "pauseSignature": "3an3AbToqf6LbJWczNpqJdSEAj9WVQyPgAAqxbWaUpqWGWUkc6gh9rnEDas9Eev53M11yT9UQRpnhCFFBazUjvoD",
+      "governanceBefore": {
+        "label": "governance-before-guardian-pause",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": false,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 2,
+        "feeBps": 12,
+        "maxFeeBps": 25
+      },
+      "governanceAfter": {
+        "label": "governance-after-guardian-pause",
+        "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+        "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+        "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "programPaused": true,
+        "changeDelaySeconds": 86400,
+        "governanceVersion": 2,
+        "feeBps": 12,
+        "maxFeeBps": 25
+      },
+      "prohibitedActions": [
+        {
+          "label": "the Guardian cannot queue a non-pause governance action",
+          "signature": "nh6ye2sg4BnuadJg385pWqxD4kjBeXCggv3vFMpvExC6Bfj4ubcFLMkdjsoZWbYWVTRagtjXYL1exkVWC9UEny6",
+          "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+          "evidence": {
+            "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+            "governance": {
+              "label": "governance-before-guardian-admin-attempts",
+              "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+              "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+              "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+              "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+              "programPaused": false,
+              "changeDelaySeconds": 86400,
+              "governanceVersion": 2,
+              "feeBps": 12,
+              "maxFeeBps": 25
+            }
+          },
+          "signatureStatus": "not-landed-or-pruned"
+        },
+        {
+          "label": "the Guardian cannot apply a queued non-pause governance action",
+          "signature": "5LfusiGhMVHoCRZEdieYhfTqcfeGaiGjcuuW7UppBHiFWhPbottzwWx9ocwpJHJSuJWn3DJpnnQ6jCNzuJPkS1sP",
+          "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+          "evidence": {
+            "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+            "queuedAction": {
+              "label": "action-before-immediate-squads-cancel",
+              "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+              "exists": true,
+              "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+              "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+              "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+              "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+              "expectedVersion": 2,
+              "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+              "createdAt": 1790263842,
+              "applyAfter": 1790350242
+            }
+          },
+          "signatureStatus": "not-landed-or-pruned"
+        },
+        {
+          "label": "the Guardian cannot cancel a queued governance action",
+          "signature": "55bDeYPRzr2cz2XqfLs6Qo4zRQbCyVzMPXMc3JhK6HB5KzRsNJm7QzZTZ2UzREsqxCJDdS8v3mxymEWrFwDLcRmG",
+          "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+          "evidence": {
+            "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+            "queuedAction": {
+              "label": "action-before-immediate-squads-cancel",
+              "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+              "exists": true,
+              "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+              "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+              "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+              "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+              "expectedVersion": 2,
+              "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+              "createdAt": 1790263842,
+              "applyAfter": 1790350242
+            }
+          },
+          "signatureStatus": "not-landed-or-pruned"
+        }
+      ]
+    }
+  ],
+  "localTransactions": [
+    {
+      "label": "squads-create-2-of-3",
+      "signature": "4ggiBhZxZMNAYS9fyVtmrP8Hd1ndanivHjnnRsH9SAKxE2ymiro7qAMMwdDeWedBaScSJV4nndbj9DVHxo8a4m9g"
+    },
+    {
+      "label": "bootstrap-vault-transaction-create",
+      "signature": "LH142UgYJNH8cBL51MSSZznhhDxmiSbTMmyQ1Mn5VAoUhzs89gh7hTLi5JT2kPeQFXCd6Z9bjHo9aTzc7H7KfGN"
+    },
+    {
+      "label": "bootstrap-proposal-create",
+      "signature": "59pWNftyQLLvC71dV2NBT45tRbxUPu1kLbtvB33S9YejT495DDB7tq5AXAdT8WrdTuhLAwgduavhztR3ESPwkX1q"
+    },
+    {
+      "label": "bootstrap-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "5i67ypeEEVuTEseiJwahuG6NTELz2gDrsZoDhV5tjztoS8szDZnMTr5B7TJbn9PELKpsaNmxGffGxei7UkcfMZNg"
+    },
+    {
+      "label": "bootstrap-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "4CyxBryXPYmCfBJ2nWbLCdGQovdwPA8roEVsg8HaRsBA2XPhkEb3S6Q8mBPRFYFqPhuJgmsn59dyBkZGaDJy9Q57"
+    },
+    {
+      "label": "bootstrap-two-approvals-execute",
+      "signature": "fiy5KLW1zbiqQJJPqzN5gGkC6u2mxKdrYvLvLYQKgqbRx5gUzYkMybDS9VMzPvKajADNByXhSUT21j3djs8WV74"
+    },
+    {
+      "label": "initialize-maker-registry-vault-transaction-create",
+      "signature": "MLioFL9HiduYUjNh9JjkUhDEpa6SdUezSkdPxN1MPeSh7RR5Ahvoivckvbt2or5eh6nZRMzfWkKmxZup9A4Atmp"
+    },
+    {
+      "label": "initialize-maker-registry-proposal-create",
+      "signature": "4wkxwj1ygmQBtokwGisxZABxBk6NHb3gHdkZBLxHrN6W2qGtHuRsResMGJT1YqsNkuRzTz2BTz4RZ6tLXXRnvvTU"
+    },
+    {
+      "label": "initialize-maker-registry-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "5cRLDptfV3wV1waHkFSJp9eTTmXmE6EAxnhBbxN6khJbaG2iMWKguf99pyA9fa2B7tAKUf9cxgW8KBFePZTwdvs2"
+    },
+    {
+      "label": "initialize-maker-registry-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "3wqfJ88ijxCAah6pB1oU1Y6nHZtVnCUE36DwRLVrNaCrskDp2vCJxpRhoyA6oodDRNJwPBnwtHBMrByyMiYiZNyx"
+    },
+    {
+      "label": "initialize-maker-registry-execute",
+      "signature": "3gDaV96bma6nzD9Qucy1WWdGPiocUDfBn1M3Dy3FTR9LGCThDAqroiAFy5VFTKPcMEA3iVYovMqBuA1KBHWGkvpm"
+    },
+    {
+      "label": "queue-economics-vault-transaction-create",
+      "signature": "4bQHmgvx7pKRyfnoWAeop4ETAVto1yu3eKWsDEwqnoEYWr2BkihAsCDNgFX73WPxZ2ge2XMoztgzCkbAAaJxvBeX"
+    },
+    {
+      "label": "queue-economics-proposal-create",
+      "signature": "eciLnQs8B8dUikSMY3BcXpTTY5qnCGov9HMnKamUcmw5Va5SmsaGR6GcSSdpxNVeLAMbdvseLcWxwcieC1oGN3h"
+    },
+    {
+      "label": "queue-economics-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "CbA7vnpMSWS4LGiWecPvgs7VvCMaTMC1LvSV9DcJ3UEaAzdF6mPrdmwtouUwHL1phwYMZhmCa2ZNiqYoG95Copm"
+    },
+    {
+      "label": "queue-economics-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "53BA46udv48CKLm8HraqVgTJ3HUG5j765PPLGXLn2wM9tjqiivvaUNEwxT7gmYKVTe9Gkmd1XdJj2S3DXgpNufcu"
+    },
+    {
+      "label": "queue-economics-execute",
+      "signature": "39knzABCmMY2ccL1AtsZfdxrYtX4qtgpxtckn5voMBAD2KAc9R65LRHozpvSS81NNEk6EZZHjQfhtUvBvGDc9AxP"
+    },
+    {
+      "label": "queue-stale-economics-vault-transaction-create",
+      "signature": "5eQPayNqB9DsMEBF5pXrhfGCSi9KqNFuCpB4UGC4HxWAEQ1RDxyTGgjMNMy8j8xFu7LLWPwgK55UdRf12xmGgJ4h"
+    },
+    {
+      "label": "queue-stale-economics-proposal-create",
+      "signature": "46EiBAfWPFJbncD2SDFinKntVB7YrCvoYQCJiLddVMLfcru374bszWh7NYZ84gXCJe4Gk95PMyu2HXAMPmTkDWvV"
+    },
+    {
+      "label": "queue-stale-economics-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "5VrxwfveVM6WcwUxzoCLXGaYbRFV6NVNCA2ktVEHHgWqsnRtbWN86ftyDu6FpS3a4QUKaLQqcDaBXqEGFtYZ1AMM"
+    },
+    {
+      "label": "queue-stale-economics-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "8MaAoRzh78Fj6g46WxmFq9uQmu8fETXjXd1JM37MnNHS8PLGYjBcbsYUU6agKAw4JD4cd6JFLrc81VqWS4Gt9V1"
+    },
+    {
+      "label": "queue-stale-economics-execute",
+      "signature": "3kkZQuGrHkoZuM6tKGbvjbcs533z9r5Y3awSEapFEmwxnazspJxDUuHKyWYNa5H1RnJbEJwupDfnpHeGa5GfYejr"
+    },
+    {
+      "label": "queue-maker-policy-vault-transaction-create",
+      "signature": "4UVfngwQAa8DiNh1RJ7hPbsC7LjrgUtNGj2r7XTxiorGdv6AmsXtipLqPSe7rU56P5VfqhPXTfMurvkAHQcU1Ccy"
+    },
+    {
+      "label": "queue-maker-policy-proposal-create",
+      "signature": "4Rkd44393GCJGahJfmiEBvobh9qJrGGaDfmvXcibGFuXTSGpbTq3jMvz4sEDb1LarhvWRbsYpShnfWurEKqfsUJj"
+    },
+    {
+      "label": "queue-maker-policy-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "3H2ZCzw4dDpn5PzPxg6GaaGFMFkL6iFWjDUmAJEddEeNVDeamVupQmJ9SERYSA88GYSakyeVhVsHRz2bK1zWZ7bH"
+    },
+    {
+      "label": "queue-maker-policy-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "3fNW3LzUrngzYbG7y17r4SjKzPYtSsptbNdqaqcCuzkZPEPweZYyS7ckfQV5aC9XP5un1yDfRwDaDr22VLiPJPeh"
+    },
+    {
+      "label": "queue-maker-policy-execute",
+      "signature": "4rf4sgyJccGiMZ4Am4VwSqr1njDTkQ4Gs832GKzVm6impLbtcjgY9HsYYKMQotQrTt1fB2MQRwG6NY1SdHfFacBD"
+    },
+    {
+      "label": "queue-stale-version-vault-transaction-create",
+      "signature": "4bCTFXpKN4zxbKt3m5PnH3mcEfxHdPz3yf8F2EiGNXbVU16ZVGGt276gKEUWrELTNEMhYWmJVxCQt85sPC21CJVv"
+    },
+    {
+      "label": "queue-stale-version-proposal-create",
+      "signature": "613V4dw5hNdSqweLjtvHekQosH9idn2r9SAxRRqv3eZDgfx5QfgJbacBvJrgfvU8Suery9aY6nRsbCCDggmyksP5"
+    },
+    {
+      "label": "queue-stale-version-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "4oEi7cj54kYPqMmdE9e1RZGf2zRSvLYB8CvXPPPKEZGpu4wrXNpATKy3CJWLtYSLj2tjUocJbxKrhm3pj19JWpNG"
+    },
+    {
+      "label": "queue-stale-version-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "snF3ZaxaCoAZwiLjUV27BcHfpjPQWoqMsYVJybNGUnhufMXEoqo94QPimbuzETFX4sx15wK36GWYHaaT2NbVjAs"
+    },
+    {
+      "label": "apply-economics-before-delay-vault-transaction-create",
+      "signature": "58h2Wof41A2WSbvBgydV8zZBoajuGrKrcf8VYiLbwhieoMUTKwygWJRCdXWZJrEREkxKC8pqBFjkx5Hme9HrphGX"
+    },
+    {
+      "label": "apply-economics-before-delay-proposal-create",
+      "signature": "57ZfBjLTzLNecMrHsdPKwwtSrhn6wHax7RhKLY46H5H52iZD6MPXuzKp5Boibrz2ZB4Nd21UUETYnQt6erXPg7As"
+    },
+    {
+      "label": "apply-economics-before-delay-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "65Pw1YXLEj4gP7EdanMUinbthh8vf5mkttZTwpVfjQbhX6AA44CPBLnFWFqZ8fzbYjvQ2PYBT4ywJfFRdoxB2AYT"
+    },
+    {
+      "label": "apply-economics-before-delay-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "oQdtTB1MLqhBLsRV58JrLqJ5bvgzpXfbD9MyW9hTNkZyJH2RM7UxzadfKuqYvFmB1WSPfUDoGLVLFM764LEJEou"
+    },
+    {
+      "label": "apply-economics-after-delay-execute",
+      "signature": "4d4ruEkTwiJB3s9BNfiwUAJ8mzo9rXqTVLXaKyNGQBSxip67EVoy3P1vGiCUNQgj9YAPjRF5ocGRJXSHDd6PhC8a"
+    },
+    {
+      "label": "apply-maker-policy-after-delay-vault-transaction-create",
+      "signature": "8bGjY3xtYqGX1QADi12JasRiM6gucnG1Ass7dCQrkHzGPcH4y1AcrX3AD5ArC1S43EU5Bjq2yfUNgXmVyW1VPo9"
+    },
+    {
+      "label": "apply-maker-policy-after-delay-proposal-create",
+      "signature": "59eE3bQrurWUKpZ4rWZoX7RpzbUj2D1DKETSaWn3pqXozhsvwhmttceU2rtjaJkAzcY5sJhTATp3uSMV9jWmiemP"
+    },
+    {
+      "label": "apply-maker-policy-after-delay-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "29nW9tyHwMb6YYuTa3ZKKcpBBdFUkV9k5TqGASRUDqWHq3kjLwsbo6aUJ2Ru2Bz92BWiJ34egpNGNY5uo731omNh"
+    },
+    {
+      "label": "apply-maker-policy-after-delay-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "5WBsR8pcqv7Vo6sYqfu67VRZTRiWBJokor5FiR3w6BmL4vFtvo8DJNWqeABisjt1PJZDQrqokAXTM9V9ELueYGEE"
+    },
+    {
+      "label": "apply-maker-policy-after-delay-execute",
+      "signature": "3t5PwqrUohwe7cUx8oWWKdRFAKJ5EJ6AcLfX2aJ1SqzikCRAoJKBsSsuGeKZArXjmdK8yJmZbxTEHF3XJmiFBvTd"
+    },
+    {
+      "label": "apply-stale-version-vault-transaction-create",
+      "signature": "55yBsoG5JTw6J2Xr84GDu8rB5Y3n2ktiB9w5cJdavmbTb4B8AFLCgmJ8zu4DPWAWRNwmLjCT8SM8xqTDEtRjWHnv"
+    },
+    {
+      "label": "apply-stale-version-proposal-create",
+      "signature": "3NoQsZsiqHzbyxgYYjRwKVgPgmEEDjDhLQUxzGaZbeyMahuysVmac9QUazCtHestZ7FhPpR6PR7syMfz499Soq1D"
+    },
+    {
+      "label": "apply-stale-version-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "5sx2dH9iZbffSGWrYyna3Y3o4FBmTrBHXRpUdVCvrAB2wJnHqrpdcfRJQHqbsCcRP7kivHbzieXiBUs8GKTsscud"
+    },
+    {
+      "label": "apply-stale-version-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "2J3zp76E7Q3soTimKKTCZb7gcKy6b7RLkBc4bPGBVRqQisiX4m84ExXGZEr2hWdxGMVCVdUhp5Sho1Q4WjDdP8XD"
+    },
+    {
+      "label": "create-unrelated-squads-multisig",
+      "signature": "3oPiHg4JcJj7gpydiexPcEYCd8fnFmSLuuxXysXrbagHS4Yu731B8MiaQr9Lni4eTfw4JGNrM67V7Mf1x8DgR1qs"
+    },
+    {
+      "label": "unrelated-vault-direct-governance-attempt-vault-transaction-create",
+      "signature": "wy7rYjdsM14CzNcCQwzT29JikN7Cv414u7mxaf79ArSzbwCAcohDVHnJmGsgchSwykcJUqhmF3HXmg7d6DKj8CT"
+    },
+    {
+      "label": "unrelated-vault-direct-governance-attempt-proposal-create",
+      "signature": "x2dpQd9mApto2XgvpoL2UhbNbjBg95xd1sW7FXUx1gQVCp5odvLPC3nan3td3dde4G1dvyszS23TYxfXDgzRcZh"
+    },
+    {
+      "label": "unrelated-vault-direct-governance-attempt-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "3Mf3xeNvfSmB22TbYk6fhyq1VoTkSbMbvSTHivr6PV7XWcwFCAxaWDnZc3GxURe1WuXCyK2R3MG9N35GVT5zmLDn"
+    },
+    {
+      "label": "unrelated-vault-direct-governance-attempt-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "3uUy184KHVu9B9YJQkrfE9WLNzfbQy6LuYqJHgJ3JY7h3oGq1X8sGmic9HEnsXRkXgFPZsBNjbedvM3U51KQQizN"
+    },
+    {
+      "label": "cancel-stale-version-vault-transaction-create",
+      "signature": "43Xxb3ptgDB3xtYmHydTpUNU42RqLwSvNKU8qDkm889NgCA57ZX7nwQir2ybjf6aKBWBvaRCVy7E4TG7VS4hqtbE"
+    },
+    {
+      "label": "cancel-stale-version-proposal-create",
+      "signature": "3aAk6STeVA4qSZwRECWYLUbdTSt4p7B21qmQuitmRL7LPVdhxdz4rKHCkWktdfNPJzPvYLpizRCrz1sZJFtZYwyE"
+    },
+    {
+      "label": "cancel-stale-version-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "67PyyguzfAuuVCNPpdhHRnaUyic2UepXbfjaGCW7WRbck4wHMiraPorFS22hty2rNaxFAAPE1uggMoEb8N423jvT"
+    },
+    {
+      "label": "cancel-stale-version-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "4qiYsBJjjZCH9WTe6GdBjJ5aijvFHHmw9jryC6PTTQHhhJFNq1znCR1PkFaN5EV19aLALMJCuZj2irnmRgZk7cq"
+    },
+    {
+      "label": "cancel-stale-version-execute",
+      "signature": "45AmukNEKJE1EgALVtJX8rGbeLmzRWeuSuQtaD9F7FCar5T4EeKKcWr2VLCZSC6RFgpFeK7ot2CUK9rJn3vj1qGT"
+    },
+    {
+      "label": "queue-to-cancel-vault-transaction-create",
+      "signature": "RL3jYgEnLVb1rwsGNuaJxpB1ZurNmMMC5vPbJCwTWWZZa9URwSSrmCxZ53jebJhhvieQjEsX4b8vxgch8V3p8iE"
+    },
+    {
+      "label": "queue-to-cancel-proposal-create",
+      "signature": "37a3hKJfb23nnPcB5ta79McxPSTRWw8aNjUgv5HEjnRGzdAHQgKMFnoFJLPwSTyxFCuAjqk9bWny4CxMV2dMVfhz"
+    },
+    {
+      "label": "queue-to-cancel-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "4HMpyWWyEXQxiu9Ua5tEBThf5fWAt3e7bwUAGzypk95uc1rpijshsgggdkYvHdXfEP32fb4Te2CzhAZwhoGpCjxc"
+    },
+    {
+      "label": "queue-to-cancel-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "2UWLhB93nnmdy4CiVaTMXiArfhM7E2YiT2F4q6hvSZLqv1cu5USjFM474Z1cZwaoWepdEM9rbjfxGpuhNew2EMRx"
+    },
+    {
+      "label": "queue-to-cancel-execute",
+      "signature": "5sFhhx6iyxrcuH7MsqohahVCbFB82bsRGJWpxykcueQYcPEULHPaSG6B5n4mTiceASp9HPcN4B6x9L29zxskU8f4"
+    },
+    {
+      "label": "cancel-queued-action-vault-transaction-create",
+      "signature": "FMua3QfRHXHsrT26qMJBSM8zhfRe4zdNev2SQSUU9mjB3u4ZwEuL1YUwhsAtPfh46WYeYWVBcUsikbRWeRbkGBF"
+    },
+    {
+      "label": "cancel-queued-action-proposal-create",
+      "signature": "41BLsSaW1m6cS76SZojukKNVvA5qH9ziTAbxw7zoAjdUxmgmivfSQnyzxXig1q2MvhkkUcUsSUvfhU6uwexWVT7t"
+    },
+    {
+      "label": "cancel-queued-action-approve-6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+      "signature": "63tQUJ55aJ14UZrF62EtBukeukkHSzquzpcu1FWTYdd51NqBi9afEnydeDGtg2quCw8Giam99yjsmojMbYGxoTad"
+    },
+    {
+      "label": "cancel-queued-action-approve-BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte",
+      "signature": "5A1sCKA2234TW64nznbKXQf5BR7U2ccxB9MUsPQqahQER5MswxAApKo4LS9RjEwZZvtHGRZwb2S4tm4sCwuNehSY"
+    },
+    {
+      "label": "cancel-queued-action-execute",
+      "signature": "5eAjPpUfnXoniDM6kmdWXGStD1b4CMwzJNjPCKS1NbDVLbHbjpLEugTZGwz3pg6K8AmaK6iAVXXC4LG8TGh4Gsjo"
+    },
+    {
+      "label": "guardian-pause-program",
+      "signature": "3an3AbToqf6LbJWczNpqJdSEAj9WVQyPgAAqxbWaUpqWGWUkc6gh9rnEDas9Eev53M11yT9UQRpnhCFFBazUjvoD"
+    }
+  ],
+  "expectedRejections": [
+    {
+      "label": "one member approval cannot execute the bootstrap proposal",
+      "signature": "Pmz3LwJinikMp9WzPWfCLHnK2B61bXEnX2KnLvhXtXCPt4u18gqLDUUatkg7r31gH2c8GZgfUfi1NyJjPqdb8Xm",
+      "error": "Program log: AnchorError thrown in programs/squads_multisig_program/src/instructions/vault_transaction_execute.rs:75. Error Code: InvalidProposalStatus. Error Number: 6008. Error Message: Invalid proposal status.",
+      "evidence": {
+        "proposal": {
+          "label": "bootstrap-after-one-approval",
+          "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+          "transactionIndex": "1",
+          "status": "Active",
+          "approvedMembers": [
+            "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2"
+          ]
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "a nonmember cannot execute an approved bootstrap proposal",
+      "signature": "3R51MArBrwU54P21itCVEzc4Dxef1N7rkP3Vxik8CZg8PK9tPruiNDpQ8cJgxNuAHGPbyXwsY8Ri1KmWetVbSHEN",
+      "error": "Program log: AnchorError thrown in programs/squads_multisig_program/src/instructions/vault_transaction_execute.rs:58. Error Code: NotAMember. Error Number: 6005. Error Message: Provided pubkey is not a member of multisig.",
+      "evidence": {
+        "proposal": {
+          "label": "bootstrap-after-two-approvals",
+          "address": "HhWgU3JBXrzDU6CC6HNH63W8AZW9HG8ctQTXuZTzDKgR",
+          "transactionIndex": "1",
+          "status": "Approved",
+          "approvedMembers": [
+            "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+            "BQUtfdK1th6HEdSR9cQhPVYSYwscLJpcUSCZBvo3JCte"
+          ]
+        },
+        "attemptedMember": "Eze5cWzFCPrFYcppzZaRCeAzsRu9FX1pV4XaaeWLgKXR"
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "a queue instruction with a stale expected version is rejected",
+      "signature": "4vSqMVetFNR7EXSSpEWxpJssrsJX2rA9hBvSnfXYMwWwoZm2NStRJiGcYeuzBf8wYXt3Yk4YFPV7V8svxXsPPDFZ",
+      "error": "Program log: AnchorError thrown in programs/solana-rfq/src/governance.rs:131. Error Code: RegistryVersionNotIncreasing. Error Number: 6043. Error Message: registry version must increase.",
+      "evidence": {
+        "governance": {
+          "label": "governance-before-stale-queue-rejection",
+          "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+          "programPaused": false,
+          "changeDelaySeconds": 86400,
+          "governanceVersion": 1,
+          "feeBps": 10,
+          "maxFeeBps": 25
+        },
+        "proposalId": "0404040404040404040404040404040404040404040404040404040404040404"
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "RFQ rejects a Squads-approved apply before the 24-hour delay",
+      "signature": "5kBDzCaL64gEkD6KAsTCsS7fdAJUnVGbLpJotQZRzPsfwoM1GNv9uRPfqSdQpiTaoFPL5J82GhchauTJqRvfuqMb",
+      "error": "Program log: AnchorError thrown in programs/solana-rfq/src/governance.rs:184. Error Code: GovernanceDelayActive. Error Number: 6042. Error Message: governance delay has not elapsed.",
+      "evidence": {
+        "queuedAction": {
+          "label": "economics-action-before-delay",
+          "address": "ExnnRiiHM5pzBgkUpau83CjSjKH5DJGFEimQLCmpnSar",
+          "exists": true,
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "proposalId": "0101010101010101010101010101010101010101010101010101010101010101",
+          "payloadHash": "c720b2d294638279ca5dbdf8338db0ab47965909a46c38dd8809656b1e76b57e",
+          "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "expectedVersion": 1,
+          "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "createdAt": 1790177441,
+          "applyAfter": 1790263841
+        },
+        "governance": {
+          "label": "governance-before-early-apply-rejection",
+          "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+          "programPaused": false,
+          "changeDelaySeconds": 86400,
+          "governanceVersion": 1,
+          "feeBps": 10,
+          "maxFeeBps": 25
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "a queued action becomes stale after the previous governance apply",
+      "signature": "3dfufP56B2KikUcqkq4WfP9JcE6iGUB7XCXEoURvgPL2rmKYRjANcHFViWSQkesN7J58uPgCpTV9xak1pyFtrQpE",
+      "error": "Program log: AnchorError thrown in programs/solana-rfq/src/governance.rs:193. Error Code: RegistryVersionNotIncreasing. Error Number: 6043. Error Message: registry version must increase.",
+      "evidence": {
+        "queuedAction": {
+          "label": "stale-action-before-stale-apply",
+          "address": "8XxcPceSmwy9gFqQRCRdsaniTifsdK2m26hEAPA4PXsA",
+          "exists": true,
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "proposalId": "0202020202020202020202020202020202020202020202020202020202020202",
+          "payloadHash": "395717fba3b9915752b4f22547fa631239da752cd68fa2f5724a074b2e797e5e",
+          "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "expectedVersion": 1,
+          "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "createdAt": 1790177441,
+          "applyAfter": 1790263841
+        },
+        "governance": {
+          "label": "governance-before-stale-apply-rejection",
+          "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+          "programPaused": false,
+          "changeDelaySeconds": 86400,
+          "governanceVersion": 2,
+          "feeBps": 12,
+          "maxFeeBps": 25
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "a Squads member key cannot directly act as the RFQ governance signer",
+      "signature": "4m41YMmt4iKdGRiEX21Kjr2W2Geigi1n9fc7qSLBMrS1sgFThRXcC3QM1RqPUC7Lh8oJ7dHkZA6MavxE73y4sdBr",
+      "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "evidence": {
+        "caller": "6Uqg2uK5T4NvsS7P295cnharerLbsR2Fy5CYYPTuXca2",
+        "governance": {
+          "label": "governance-before-direct-member-attempt",
+          "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+          "programPaused": false,
+          "changeDelaySeconds": 86400,
+          "governanceVersion": 2,
+          "feeBps": 12,
+          "maxFeeBps": 25
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "an unrelated Squads vault PDA cannot act as the configured RFQ governance signer",
+      "signature": "4cmxGA2fkAquE56n9PfSEqgsptJdbYw6MhymxKYLQPcwDEn1V8WMB9nyGhfmVQ9xsMe5LjSLw3icLebvAeYebLop",
+      "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "evidence": {
+        "attemptedVault": "5TrwjX9HjnyG4MpjnWXsYtzMqw1yp4bG5xLguaXT8N6W",
+        "configuredVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM"
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "the Guardian cannot queue a non-pause governance action",
+      "signature": "nh6ye2sg4BnuadJg385pWqxD4kjBeXCggv3vFMpvExC6Bfj4ubcFLMkdjsoZWbYWVTRagtjXYL1exkVWC9UEny6",
+      "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "evidence": {
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "governance": {
+          "label": "governance-before-guardian-admin-attempts",
+          "address": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "squadsVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+          "programPaused": false,
+          "changeDelaySeconds": 86400,
+          "governanceVersion": 2,
+          "feeBps": 12,
+          "maxFeeBps": 25
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "the Guardian cannot apply a queued non-pause governance action",
+      "signature": "5LfusiGhMVHoCRZEdieYhfTqcfeGaiGjcuuW7UppBHiFWhPbottzwWx9ocwpJHJSuJWn3DJpnnQ6jCNzuJPkS1sP",
+      "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "evidence": {
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "queuedAction": {
+          "label": "action-before-immediate-squads-cancel",
+          "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+          "exists": true,
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+          "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+          "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "expectedVersion": 2,
+          "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "createdAt": 1790263842,
+          "applyAfter": 1790350242
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    },
+    {
+      "label": "the Guardian cannot cancel a queued governance action",
+      "signature": "55bDeYPRzr2cz2XqfLs6Qo4zRQbCyVzMPXMc3JhK6HB5KzRsNJm7QzZTZ2UzREsqxCJDdS8v3mxymEWrFwDLcRmG",
+      "error": "Program log: AnchorError caused by account: squads_vault. Error Code: ConstraintAddress. Error Number: 2012. Error Message: An address constraint was violated.",
+      "evidence": {
+        "guardian": "HaRR5Jpe8vHiiLyAqwZ8eogBaVjnKDNUMnBagx937oQ1",
+        "queuedAction": {
+          "label": "action-before-immediate-squads-cancel",
+          "address": "HpeRtgCMF7SBHP2x8adgfCfX1q7y4soMkCtRdwn1Nu6T",
+          "exists": true,
+          "owner": "J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib",
+          "proposalId": "0707070707070707070707070707070707070707070707070707070707070707",
+          "payloadHash": "022dbb201c42e445363b75fa3be7f37bab2720f973da94d847dd9805ce6f3245",
+          "target": "EzXW2sNUnbnzzNWk6HeyKxWSgVb1juwM2D8G1tsGPzBf",
+          "expectedVersion": 2,
+          "proposingVault": "BiPF9Uy5tvqRReojw9un7azYPVEURsjoEKeEsQpyYZsM",
+          "createdAt": 1790263842,
+          "applyAfter": 1790350242
+        }
+      },
+      "signatureStatus": "not-landed-or-pruned"
+    }
+  ]
+}

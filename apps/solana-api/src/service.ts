@@ -1,9 +1,36 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { EFFECTIVE_PRICE_DECIMALS, QUOTE_SPRINT_MS, adapterForIssuer, assertAtomicString, assertJupiterPayloadUnchanged, buildSession, effectivePriceAtomic, rankExecutableCandidates, routeAllowedForIssuer, sanitizeAudit } from '@katon/solana-core';
+import {
+  EFFECTIVE_PRICE_DECIMALS,
+  QUOTE_SPRINT_MS,
+  adapterForIssuer,
+  assertAtomicString,
+  assertJupiterPayloadUnchanged,
+  buildSession,
+  effectivePriceAtomic,
+  encodeBase58,
+  rankExecutableCandidates,
+  routeAllowedForIssuer,
+  sanitizeAudit,
+} from '@katon/solana-core';
 import { transactionHash, validateSignedTransaction } from '@katon/solana-sdk';
-import type { AssetRegistryEntry, EligibilityResult, MintAccountSnapshot, QuoteCandidate, QuoteSession, QuoteSessionRequest, SanitizedAuditRow, SimulationResult, TradeReceipt, VerifiedSourceBalance } from '@katon/solana-core';
+import type {
+  AssetCapability,
+  AssetRegistryEntry,
+  EligibilityResult,
+  ExecutionAttempt,
+  ExecutionEvidence,
+  MintAccountSnapshot,
+  QuoteCandidate,
+  QuoteSession,
+  QuoteSessionRequest,
+  SanitizedAuditRow,
+  SimulationResult,
+  TradeReceipt,
+  VerifiedSourceBalance,
+} from '@katon/solana-core';
 import { RejectingSourceBalanceProvider, type JupiterExecutor, type PrivateSender, type QuoteSource, type SourceBalanceProvider } from './sources';
+import { localReferencePolicySnapshot, type ReferencePolicySnapshot } from './reference-policy';
 
 export interface StoredSession {
   session: QuoteSession;
@@ -15,6 +42,8 @@ export interface StoredSession {
   liveClock?: boolean;
   collectionPromise?: Promise<void>;
   finalizationPromise?: Promise<void>;
+  authorizedSignedTransactionBase64?: string;
+  executionAttempts: Map<string, { attempt: ExecutionAttempt; receipt?: TradeReceipt }>;
 }
 
 export interface AssetProvider {
@@ -141,28 +170,119 @@ function normalizeSimulationResult(value: unknown, nowMs: number): SimulationRes
   };
 }
 
+type NormalizedExecutionEvidence = Omit<ExecutionEvidence, 'submittedAtMs' | 'confirmedAtMs'> & {
+  readonly submittedAtMs: number;
+  readonly confirmedAtMs: number;
+};
+
+function normalizeExecutionEvidence(value: unknown): NormalizedExecutionEvidence {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('sender returned malformed commitment evidence');
+  const evidence = value as Partial<ExecutionEvidence>;
+  if (typeof evidence.signature !== 'string' || evidence.signature.length === 0) throw new Error('sender returned no transaction signature');
+  if (evidence.signature.startsWith('mock-')) throw new Error('sender returned a mock signature');
+  if (evidence.commitment !== 'confirmed' && evidence.commitment !== 'finalized') throw new Error('sender returned an unsupported commitment');
+  const timestamps = [evidence.submittedAtMs, evidence.confirmedAtMs, evidence.finalizedAtMs];
+  if (timestamps.some((timestamp) => timestamp !== undefined && (!Number.isSafeInteger(timestamp) || timestamp < 0))) throw new Error('sender returned malformed commitment timestamps');
+  if (evidence.submittedAtMs === undefined || evidence.confirmedAtMs === undefined || evidence.confirmedAtMs < evidence.submittedAtMs) throw new Error('sender omitted confirmation evidence');
+  const submittedAtMs = evidence.submittedAtMs;
+  const confirmedAtMs = evidence.confirmedAtMs;
+  if (evidence.finalizedAtMs !== undefined && evidence.finalizedAtMs < confirmedAtMs) throw new Error('sender returned non-monotonic commitment evidence');
+  if (evidence.commitment === 'confirmed' && evidence.finalizedAtMs !== undefined) throw new Error('sender returned finalization evidence with confirmed commitment');
+  if (evidence.commitment === 'finalized' && (evidence.finalizedAtMs === undefined || evidence.finalizedAtMs < evidence.confirmedAtMs)) throw new Error('sender omitted finalization evidence');
+  return {
+    signature: evidence.signature,
+    submittedAtMs,
+    confirmedAtMs,
+    ...(evidence.finalizedAtMs === undefined ? {} : { finalizedAtMs: evidence.finalizedAtMs }),
+    commitment: evidence.commitment,
+  };
+}
+
+function projectCapability(asset: AssetRegistryEntry, eligibility: EligibilityResult): AssetCapability {
+  if (asset.issuer === 'ondo' && !asset.enabled) return 'informational';
+  if (!asset.enabled) return 'unavailable';
+  if (eligibility.status === 'eligible') return 'executable';
+  if (eligibility.status === 'action_required' || eligibility.status === 'ineligible') return 'informational';
+  return 'unavailable';
+}
+
+function notFoundError(): Error {
+  return new Error('quote sprint not found');
+}
+
+function makerPublicKeysFromSources(sources: readonly QuoteSource[]): Record<string, string> {
+  const keys: Record<string, string> = {};
+  for (const source of sources) {
+    const maybe = source as QuoteSource & { readonly makerPublicKey?: Uint8Array };
+    if (maybe.makerPublicKey instanceof Uint8Array && maybe.makerPublicKey.length === 32) {
+      keys[source.id] = encodeBase58(maybe.makerPublicKey);
+    }
+  }
+  return keys;
+}
+
 export class QuoteDeskService {
   private readonly sessions = new Map<string, StoredSession>();
   private readonly trades: TradeReceipt[] = [];
   private readonly listeners = new Map<string, Set<(session: QuoteSession) => void>>();
+  private readonly expiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly makerPublicKeys: Record<string, string>;
+  private readonly sources: QuoteSource[];
+  private readonly disabledSourceIds = new Set<string>();
+  private readonly operatorDisabledSourceIds = new Set<string>();
+  private readonly governedMakerSourceIds = new Set<string>();
+  private newQuoteSprintsEnabled = true;
 
   constructor(
     private readonly assets: AssetProvider,
-    private readonly sources: readonly QuoteSource[],
+    sources: readonly QuoteSource[],
     private readonly jupiterExecutor: JupiterExecutor,
     private readonly privateSender: PrivateSender,
     private readonly clock: () => number = Date.now,
     private readonly simulator: QuoteSimulationProvider = new RejectingQuoteSimulationProvider(),
     private readonly sourceBalances: SourceBalanceProvider = new RejectingSourceBalanceProvider(),
     private readonly monotonicClock: () => number = () => performance.now(),
-  ) {}
+  ) {
+    this.sources = [...sources];
+    this.makerPublicKeys = makerPublicKeysFromSources(sources);
+  }
 
-  listAssets(wallet: string, outputMint: string): readonly (AssetRegistryEntry & { readonly balanceAtomic: string; readonly eligibility: EligibilityResult })[] {
-    return this.assets.list().map((asset) => ({
-      ...asset,
-      balanceAtomic: this.assets.balance(wallet, asset),
-      eligibility: this.preflight(asset, wallet, outputMint),
-    }));
+  registerMakerSource(source: QuoteSource, makerPublicKey: string): void {
+    if (source.kind !== 'private-maker' || !makerPublicKey || this.sources.some((entry) => entry.id === source.id)) throw new Error('maker source is invalid or already registered');
+    this.sources.push(source);
+    this.makerPublicKeys[source.id] = makerPublicKey;
+  }
+
+  /** Applies read-only, exact-key governance evidence. It cannot clear an immediate disable. */
+  observeGovernedMaker(sourceId: string, makerPublicKey: string, enabled: boolean): void {
+    const source = this.sources.find((entry) => entry.id === sourceId);
+    if (!source || source.kind !== 'private-maker' || this.makerPublicKeys[sourceId] !== makerPublicKey) {
+      throw new Error('governance observation does not match the configured Private Maker identity');
+    }
+    if (enabled) this.governedMakerSourceIds.add(sourceId);
+    else this.governedMakerSourceIds.delete(sourceId);
+  }
+
+  listAssets(wallet: string, outputMint: string): readonly (AssetRegistryEntry & { readonly balanceAtomic: string; readonly eligibility: EligibilityResult; readonly capability: AssetCapability; readonly referencePolicy: ReferencePolicySnapshot })[] {
+    return this.assets.list().map((asset) => {
+      const eligibility = asset.issuer === 'ondo' && !asset.enabled
+        ? {
+            status: 'ineligible' as const,
+            code: 'policy_failure' as const,
+            message: 'Managed Route not enabled',
+            asset,
+            balanceAtomic: this.assets.balance(wallet, asset),
+            checkedAtMs: this.clock(),
+          }
+        : this.preflight(asset, wallet, outputMint);
+      return {
+        ...asset,
+        balanceAtomic: this.assets.balance(wallet, asset),
+        eligibility,
+        capability: projectCapability(asset, eligibility),
+        referencePolicy: this.referencePolicyStatus(),
+      };
+    });
   }
 
   async createSession(request: QuoteSessionRequest, nowMs?: number): Promise<QuoteSession> {
@@ -170,19 +290,35 @@ export class QuoteDeskService {
     const eligibility = this.checkRequest(request, createdAtMs);
     const id = randomUUID();
     const session = buildSession(id, request, createdAtMs, eligibility);
-    const stored: StoredSession = { session, candidates: [], sourceErrors: [], verifiedSourceBalances: {}, collectionComplete: false, liveClock: nowMs === undefined };
+    const stored: StoredSession = {
+      session,
+      candidates: [],
+      sourceErrors: [],
+      verifiedSourceBalances: {},
+      collectionComplete: false,
+      liveClock: nowMs === undefined,
+      executionAttempts: new Map(),
+    };
     this.sessions.set(id, stored);
     this.emit(stored);
     if (session.state === 'collecting') this.startCollect(stored, createdAtMs);
     return publicSession(stored);
   }
 
+  /** External Quote Sprint create alias. */
+  createQuoteSprint(request: QuoteSessionRequest, nowMs?: number): Promise<QuoteSession> {
+    return this.createSession(request, nowMs);
+  }
+
   getSession(id: string, nowMs = this.clock()): QuoteSession {
-    const stored = this.sessions.get(id);
-    if (!stored) throw new Error('quote session not found');
+    const stored = this.requireSession(id);
     if (stored.collectionComplete && stored.session.state === 'collecting') this.startFinalize(stored, nowMs);
     this.expireIfNeeded(stored, nowMs);
     return publicSession(stored);
+  }
+
+  getQuoteSprint(id: string, nowMs = this.clock()): QuoteSession {
+    return this.getSession(id, nowMs);
   }
 
   subscribe(id: string, listener: (session: QuoteSession) => void): () => void {
@@ -201,8 +337,7 @@ export class QuoteDeskService {
   }
 
   async collectNow(id: string, nowMs?: number): Promise<QuoteSession> {
-    const stored = this.sessions.get(id);
-    if (!stored) throw new Error('quote session not found');
+    const stored = this.requireSession(id);
     this.startCollect(stored, nowMs ?? this.clock());
     await stored.collectionPromise;
     const finalizedAtMs = nowMs ?? this.clock();
@@ -212,12 +347,11 @@ export class QuoteDeskService {
   }
 
   async review(id: string, wallet: string, nowMs = this.clock()): Promise<QuoteSession> {
-    const stored = this.sessions.get(id);
-    if (!stored) throw new Error('quote session not found');
+    const stored = this.requireSession(id);
     const reviewNowMs = stored.liveClock ? this.clock() : nowMs;
     this.expireIfNeeded(stored, reviewNowMs);
     const winner = stored.session.winner;
-    if (!winner || stored.session.state !== 'ready') throw new Error('quote is not ready for review');
+    if (!winner || stored.session.state !== 'winner_ready') throw new Error('quote is not ready for review');
     if (stored.session.request.wallet !== wallet || winner.wallet !== wallet) throw new Error('wallet does not match quoted seller');
     const remaining = winner.expiresAtMs - reviewNowMs;
     if (remaining <= 2_000) {
@@ -243,7 +377,13 @@ export class QuoteDeskService {
         this.expireIfNeeded(stored, finalReviewNowMs);
         throw new Error('quote expired; request a fresh quote');
       }
-      stored.session = { ...stored.session, winner: { ...winner, simulation }, state: simulation.ok ? 'reviewing' : 'failed', failureMessage: simulation.ok ? undefined : simulation.errorCode ?? 'final simulation failed' };
+      // Review is audit-only / final sim. Lifecycle stays winner_ready.
+      stored.session = {
+        ...stored.session,
+        winner: { ...winner, simulation },
+        state: simulation.ok ? 'winner_ready' : 'failed',
+        failureMessage: simulation.ok ? undefined : simulation.errorCode ?? 'final simulation failed',
+      };
       if (!simulation.ok) this.clearTransaction(stored);
       this.emit(stored);
       if (!simulation.ok) throw new Error(stored.session.failureMessage);
@@ -258,44 +398,92 @@ export class QuoteDeskService {
     }
   }
 
-  async execute(id: string, wallet: string, signedTransactionBase64: string, nowMs = this.clock()): Promise<TradeReceipt> {
-    const stored = this.sessions.get(id);
-    if (!stored) throw new Error('quote session not found');
-    const executeNowMs = stored.liveClock ? this.clock() : nowMs;
-    this.expireIfNeeded(stored, executeNowMs);
+  async authorize(
+    id: string,
+    wallet: string,
+    reviewHash: string,
+    signedTransactionBase64: string,
+    nowMs = this.clock(),
+  ): Promise<QuoteSession> {
+    const stored = this.requireSession(id);
+    const authorizeNowMs = stored.liveClock ? this.clock() : nowMs;
+    this.expireIfNeeded(stored, authorizeNowMs);
     const winner = stored.session.winner;
-    if (!winner || stored.session.state !== 'reviewing') throw new Error('quote requires final review before execution');
+    if (stored.session.state === 'expired') throw new Error('quote expired; request a fresh quote');
+    if (!winner || stored.session.state !== 'winner_ready') throw new Error('quote is not ready for authorization');
+    this.assertSourceActive(winner.sourceId, 'authorization');
     if (winner.wallet !== wallet || stored.session.request.wallet !== wallet) throw new Error('wallet does not match quoted seller');
     if (!winner.transactionBase64 || !winner.transactionHash) throw new Error('winner transaction is unavailable');
+    if (reviewHash !== winner.transactionHash) throw new Error('review hash does not match issued winner transaction');
+    const makerPublicKey = winner.sourceKind === 'private-maker' ? this.makerPublicKeys[winner.sourceId] : undefined;
     const validation = await validateSignedTransaction(signedTransactionBase64, {
       wallet,
       issuedQuoteId: winner.quoteId,
       issuedTransactionHash: winner.transactionHash,
       expiresAtMs: winner.expiresAtMs,
-    }, stored.liveClock ? this.clock() : nowMs);
+      ...(makerPublicKey === undefined ? {} : { makerPublicKey }),
+    }, authorizeNowMs);
     if (!validation.ok) throw new Error(validation.message);
-    const sendNowMs = stored.liveClock ? this.clock() : nowMs;
-    if (winner.expiresAtMs - sendNowMs <= 2_000) {
-      this.expireIfNeeded(stored, sendNowMs);
+    if (winner.sourceKind === 'jupiter') assertJupiterPayloadUnchanged(winner.transactionBase64, signedTransactionBase64);
+    const postValidateNowMs = stored.liveClock ? this.clock() : nowMs;
+    if (winner.expiresAtMs - postValidateNowMs <= 2_000) {
+      this.expireIfNeeded(stored, postValidateNowMs);
       throw new Error('quote expired; request a fresh quote');
     }
+    stored.authorizedSignedTransactionBase64 = signedTransactionBase64;
+    stored.session = { ...stored.session, state: 'authorized' };
+    this.emit(stored);
+    return publicSession(stored);
+  }
+
+  async createExecutionAttempt(
+    input: { readonly quoteSprintId: string; readonly idempotencyKey: string },
+    nowMs = this.clock(),
+  ): Promise<{ attempt: ExecutionAttempt; receipt?: TradeReceipt }> {
+    const stored = this.requireSession(input.quoteSprintId);
+    const existing = stored.executionAttempts.get(input.idempotencyKey);
+    if (existing) return { attempt: existing.attempt, ...(existing.receipt === undefined ? {} : { receipt: existing.receipt }) };
+
+    const executeNowMs = stored.liveClock ? this.clock() : nowMs;
+    this.expireIfNeeded(stored, executeNowMs);
+    const winner = stored.session.winner;
+    if (!winner || stored.session.state !== 'authorized') throw new Error('quote requires authorization before execution');
+    this.assertSourceActive(winner.sourceId, 'execution');
+    if (!winner.transactionBase64 || !winner.transactionHash) throw new Error('winner transaction is unavailable');
+    const signedTransactionBase64 = stored.authorizedSignedTransactionBase64;
+    if (!signedTransactionBase64) throw new Error('authorized transaction is unavailable');
+    if (winner.expiresAtMs - executeNowMs <= 2_000) {
+      this.expireIfNeeded(stored, executeNowMs);
+      throw new Error('quote expired; request a fresh quote');
+    }
+
+    const attemptId = randomUUID();
+    let attempt: ExecutionAttempt = {
+      id: attemptId,
+      quoteSprintId: input.quoteSprintId,
+      idempotencyKey: input.idempotencyKey,
+      state: 'submitting',
+      createdAtMs: executeNowMs,
+    };
+    stored.executionAttempts.set(input.idempotencyKey, { attempt });
     stored.session = { ...stored.session, state: 'signing' };
     this.emit(stored);
     stored.session = { ...stored.session, state: 'submitting' };
     this.emit(stored);
+
     try {
       if (winner.sourceKind === 'jupiter') assertJupiterPayloadUnchanged(winner.transactionBase64, signedTransactionBase64);
       const senderResult = winner.sourceKind === 'jupiter'
         ? await this.jupiterExecutor.execute(winner, signedTransactionBase64)
         : await this.privateSender.send(winner, signedTransactionBase64);
-      const confirmedAtMs = sendNowMs + 250;
+      const evidence = normalizeExecutionEvidence(senderResult);
       stored.session = { ...stored.session, state: 'confirmed' };
       this.emit(stored);
       const receipt: TradeReceipt = {
         tradeId: randomUUID(),
         quoteId: winner.quoteId,
-        wallet,
-        signature: senderResult.signature,
+        wallet: winner.wallet,
+        signature: evidence.signature,
         sourceKind: winner.sourceKind,
         sourceId: winner.sourceId,
         inputMint: winner.inputMint,
@@ -304,25 +492,43 @@ export class QuoteDeskService {
         grossOutputAtomic: winner.grossOutputAtomic,
         netOutputAtomic: winner.netOutputAtomic,
         katonFeeAtomic: winner.katonFeeAtomic,
+        katonFeeBps: winner.katonFeeBps,
         venueFeeAtomic: winner.venueFeeAtomic,
         deviationBps: winner.deviationBps,
         priceImpactBps: winner.priceImpactBps,
         effectivePriceAtomic: winner.effectivePriceAtomic,
         effectivePriceDecimals: winner.effectivePriceDecimals,
         createdAtMs: stored.session.createdAtMs,
-        confirmedAtMs,
-        finalizedAtMs: confirmedAtMs + 400,
+        submittedAtMs: evidence.submittedAtMs,
+        confirmedAtMs: evidence.confirmedAtMs,
+        commitment: evidence.commitment,
+        ...(evidence.finalizedAtMs === undefined ? {} : { finalizedAtMs: evidence.finalizedAtMs }),
       };
       this.trades.unshift(receipt);
-      // Once a fill is submitted, no raw transaction payload is retained in
-      // the session. Hashes and terms remain available for audit/receipt use.
       this.clearTransaction(stored);
-      stored.session = { ...stored.session, state: 'finalized' };
-      this.emit(stored);
-      return receipt;
+      stored.authorizedSignedTransactionBase64 = undefined;
+      attempt = {
+        ...attempt,
+        state: evidence.commitment === 'finalized' ? 'finalized' : 'confirmed',
+        signature: evidence.signature,
+        tradeId: receipt.tradeId,
+        submittedAtMs: evidence.submittedAtMs,
+        confirmedAtMs: evidence.confirmedAtMs,
+        ...(evidence.finalizedAtMs === undefined ? {} : { finalizedAtMs: evidence.finalizedAtMs }),
+      };
+      stored.executionAttempts.set(input.idempotencyKey, { attempt, receipt });
+      if (evidence.commitment === 'finalized') {
+        stored.session = { ...stored.session, state: 'finalized' };
+        this.emit(stored);
+      }
+      return { attempt, receipt };
     } catch (error) {
-      stored.session = { ...stored.session, state: 'failed', failureMessage: error instanceof Error ? error.message : 'transaction submission failed' };
+      const failureMessage = error instanceof Error ? error.message : 'transaction submission failed';
+      attempt = { ...attempt, state: 'failed', failureMessage };
+      stored.executionAttempts.set(input.idempotencyKey, { attempt });
+      stored.session = { ...stored.session, state: 'failed', failureMessage };
       this.clearTransaction(stored);
+      stored.authorizedSignedTransactionBase64 = undefined;
       this.emit(stored);
       throw error;
     }
@@ -332,7 +538,75 @@ export class QuoteDeskService {
     return this.trades.filter((trade) => trade.wallet === wallet);
   }
 
+  listMakerTrades(sourceId: string): readonly TradeReceipt[] {
+    return this.trades.filter((trade) => trade.sourceId === sourceId);
+  }
+
+  disableSource(sourceId: string, by: 'maker' | 'operator' = 'operator'): void {
+    if (!this.sources.some((source) => source.id === sourceId)) throw new Error('source is not configured');
+    this.disabledSourceIds.add(sourceId);
+    if (by === 'operator') this.operatorDisabledSourceIds.add(sourceId);
+  }
+
+  stopNewQuoteSprints(): void { this.newQuoteSprintsEnabled = false; }
+  quoteSprintsEnabled(): boolean { return this.newQuoteSprintsEnabled; }
+
+  operatorSourceStatus(): readonly {
+    readonly sourceId: string;
+    readonly sourceKind: string;
+    readonly enabled: boolean;
+    readonly governanceEnabled: boolean;
+    readonly operatorDisabled: boolean;
+  }[] {
+    const configured = this.sources.map((source) => ({
+      sourceId: source.id,
+      sourceKind: source.kind,
+      enabled: this.isSourceActive(source.id),
+      governanceEnabled: source.kind === 'private-maker' ? this.governedMakerSourceIds.has(source.id) : true,
+      operatorDisabled: this.operatorDisabledSourceIds.has(source.id),
+    }));
+    const known = new Set(configured.map((source) => source.sourceId));
+    return [...configured, ...[...this.operatorDisabledSourceIds].filter((sourceId) => !known.has(sourceId)).map((sourceId) => ({
+      sourceId,
+      sourceKind: 'private-maker',
+      enabled: false,
+      governanceEnabled: false,
+      operatorDisabled: true,
+    }))];
+  }
+
+  referencePolicyStatus(nowMs = this.clock()): ReferencePolicySnapshot {
+    // No production vendor adapters are wired in this release. An environment
+    // flag alone cannot turn the local fixture into licensed market evidence.
+    if (process.env.NODE_ENV === 'production') {
+      return { status: 'unavailable', checkedAtMs: nowMs, reason: 'production reference policy providers are not configured' };
+    }
+    return localReferencePolicySnapshot(nowMs);
+  }
+
+  private requireSession(id: string): StoredSession {
+    const stored = this.sessions.get(id);
+    if (!stored) throw notFoundError();
+    return stored;
+  }
+
+  private isSourceActive(sourceId: string): boolean {
+    if (this.disabledSourceIds.has(sourceId)) return false;
+    const source = this.sources.find((entry) => entry.id === sourceId);
+    return source?.kind !== 'private-maker' || this.governedMakerSourceIds.has(sourceId);
+  }
+
+  private assertSourceActive(sourceId: string, action: 'authorization' | 'execution'): void {
+    if (this.disabledSourceIds.has(sourceId)) throw new Error(`source was disabled before ${action}`);
+    const source = this.sources.find((entry) => entry.id === sourceId);
+    if (!source || (source.kind === 'private-maker' && !this.governedMakerSourceIds.has(sourceId))) {
+      throw new Error('Private Maker source is not enabled by observed governance');
+    }
+  }
+
   private preflight(asset: AssetRegistryEntry, wallet: string, outputMint: string, requestedAmountAtomic?: string, nowMs = this.clock()): EligibilityResult {
+    const reference = this.referencePolicyStatus(nowMs);
+    if (reference.status !== 'ready') return { status: 'unknown', code: 'capability_unavailable', message: `reference policy ${reference.status}: ${reference.reason ?? 'observations unavailable'}`, asset, checkedAtMs: nowMs };
     return adapterForIssuer(asset.issuer).preflight(asset, this.assets.mintSnapshot(asset), {
       wallet,
       walletBalanceAtomic: this.assets.balance(wallet, asset),
@@ -345,6 +619,7 @@ export class QuoteDeskService {
   private checkRequest(request: QuoteSessionRequest, nowMs: number): EligibilityResult {
     const asset = this.assets.list().find((entry) => entry.mint === request.inputMint);
     if (!asset) return { status: 'unknown', code: 'policy_failure', message: 'asset is not present in the signed registry', checkedAtMs: nowMs };
+    if (!this.newQuoteSprintsEnabled) return { status: 'unknown', code: 'capability_unavailable', message: 'operator has stopped new Quote Sprints', asset, checkedAtMs: nowMs };
     try {
       assertAtomicString(request.inputAmountAtomic, 'input amount');
     } catch {
@@ -354,7 +629,23 @@ export class QuoteDeskService {
   }
 
   private startCollect(stored: StoredSession, nowMs: number): void {
-    if (!stored.collectionPromise) stored.collectionPromise = this.collect(stored.session.id, nowMs);
+    if (!stored.collectionPromise) {
+      stored.collectionPromise = this.collect(stored.session.id, nowMs).catch((error: unknown) => {
+        // A provider failure is still a terminal collection outcome. This
+        // prevents an SSE subscriber from waiting forever on a rejected task.
+        if (stored.session.state !== 'collecting') return;
+        stored.collectionComplete = true;
+        stored.candidates = [];
+        stored.verifiedSourceBalances = {};
+        stored.session = {
+          ...stored.session,
+          state: 'failed',
+          failureMessage: error instanceof Error ? error.message : 'quote collection failed',
+        };
+        this.clearTransaction(stored);
+        this.emit(stored);
+      });
+    }
   }
 
   private async collect(id: string, nowMs = this.clock()): Promise<void> {
@@ -363,13 +654,27 @@ export class QuoteDeskService {
     const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
     if (!asset) {
       stored.collectionComplete = true;
+      if (this.listeners.has(stored.session.id)) this.startFinalize(stored, stored.liveClock ? this.clock() : nowMs);
       return;
     }
+    const referencePolicy = this.referencePolicyStatus(stored.liveClock ? this.clock() : nowMs);
+    if (referencePolicy.status !== 'ready' || !referencePolicy.primary) {
+      stored.sourceErrors.push({ sourceClass: 'private-maker', receivedAtMs: nowMs, rejectionCode: 'capability_unavailable', status: 'rejected' });
+      stored.collectionComplete = true;
+      if (this.listeners.has(stored.session.id)) this.startFinalize(stored, stored.liveClock ? this.clock() : nowMs);
+      return;
+    }
+    // Licensed primary observations drive quotes; registry prices remain signed metadata.
+    const quoteAsset: AssetRegistryEntry = {
+      ...asset,
+      referencePriceAtomic: referencePolicy.primary.priceAtomic,
+      referenceTimestampMs: referencePolicy.primary.observedAtMs,
+    };
     const sprintDeadline = this.monotonicClock() + QUOTE_SPRINT_MS;
-    const settled = await Promise.all(this.sources.map(async (source) => {
+    const settled = await Promise.all(this.sources.filter((source) => this.isSourceActive(source.id)).map(async (source) => {
       try {
         const quoteNowMs = stored.liveClock ? this.clock() : nowMs;
-        const sourceCandidate = await withDeadline(source.quote(stored.session.request, asset, quoteNowMs), sprintDeadline, this.monotonicClock, 'quote sprint timed out');
+        const sourceCandidate = await withDeadline(source.quote(stored.session.request, quoteAsset, quoteNowMs), sprintDeadline, this.monotonicClock, 'quote sprint timed out');
         if (sourceCandidate.sourceId !== source.id || sourceCandidate.sourceKind !== source.kind || sourceCandidate.settlementRoute !== source.settlementRoute) {
           throw new Error('source identity does not match quote');
         }
@@ -389,7 +694,7 @@ export class QuoteDeskService {
         if (simulatedCandidate.sourceKind === 'private-maker') {
           try {
             const balanceNowMs = stored.liveClock ? this.clock() : nowMs;
-            verifiedSourceBalance = await withDeadline(this.sourceBalances.verify(source, simulatedCandidate, asset, balanceNowMs), sprintDeadline, this.monotonicClock, 'source balance verification timed out');
+          verifiedSourceBalance = await withDeadline(this.sourceBalances.verify(source, simulatedCandidate, quoteAsset, balanceNowMs), sprintDeadline, this.monotonicClock, 'source balance verification timed out');
           } catch {
             // Ranking fails closed when a maker's independently verified balance is absent.
           }
@@ -408,10 +713,26 @@ export class QuoteDeskService {
       }
     }
     stored.collectionComplete = true;
+    // Collection completion is itself an event boundary. Start finalization
+    // here so an already-connected SSE client cannot miss the terminal state.
+    if (this.listeners.has(stored.session.id)) this.startFinalize(stored, stored.liveClock ? this.clock() : nowMs);
   }
 
   private startFinalize(stored: StoredSession, nowMs: number): void {
-    if (!stored.finalizationPromise) stored.finalizationPromise = this.finalizeCollection(stored, nowMs);
+    if (!stored.finalizationPromise) {
+      stored.finalizationPromise = this.finalizeCollection(stored, nowMs).catch((error: unknown) => {
+        // Ranking and transaction hashing are trust boundaries. If either
+        // fails, connected SSE clients still receive one terminal state.
+        if (stored.session.state !== 'collecting') return;
+        stored.session = {
+          ...stored.session,
+          state: 'failed',
+          failureMessage: error instanceof Error ? error.message : 'quote finalization failed',
+        };
+        this.clearTransaction(stored);
+        this.emit(stored);
+      });
+    }
   }
 
   private async finalizeCollection(stored: StoredSession, nowMs: number): Promise<void> {
@@ -424,8 +745,17 @@ export class QuoteDeskService {
       this.emit(stored);
       return;
     }
+    const referencePolicy = this.referencePolicyStatus(nowMs);
+    if (referencePolicy.status !== 'ready' || !referencePolicy.primary) {
+      stored.candidates = [];
+      stored.verifiedSourceBalances = {};
+      stored.sourceErrors.push({ sourceClass: 'private-maker', receivedAtMs: nowMs, rejectionCode: 'capability_unavailable', status: 'rejected' });
+      stored.session = { ...stored.session, state: 'no_quote', audit: sanitizeAudit(stored.sourceErrors) };
+      this.emit(stored);
+      return;
+    }
     const ranked = rankExecutableCandidates({
-      candidates: stored.candidates,
+      candidates: stored.candidates.filter((candidate) => this.isSourceActive(candidate.sourceId)),
       nowMs,
       inputMint: stored.session.request.inputMint,
       outputMint: stored.session.request.outputMint,
@@ -433,7 +763,7 @@ export class QuoteDeskService {
       issuer: asset.issuer,
       inputDecimals: asset.decimals,
       outputDecimals: 6,
-      referencePriceAtomic: asset.referencePriceAtomic,
+      referencePriceAtomic: referencePolicy.primary.priceAtomic,
       referencePriceDecimals: asset.referencePriceDecimals,
       wallet: stored.session.request.wallet,
       maxDeviationBps: asset.maxDeviationBps,
@@ -456,21 +786,52 @@ export class QuoteDeskService {
     // removed on expiry or after submission.
     stored.candidates = [];
     stored.verifiedSourceBalances = {};
-    stored.session = { ...stored.session, state: winner ? 'ready' : 'no_quote', winner, audit: sanitizeAudit([...stored.sourceErrors, ...ranked.audit]) };
+    stored.session = { ...stored.session, state: winner ? 'winner_ready' : 'no_quote', winner, audit: sanitizeAudit([...stored.sourceErrors, ...ranked.audit]) };
     this.emit(stored);
+    if (winner && stored.liveClock) this.scheduleExpiry(stored, winner.expiresAtMs);
   }
 
   private expireIfNeeded(stored: StoredSession, nowMs = this.clock()): void {
-    if (stored.session.winner && stored.session.winner.expiresAtMs - nowMs <= 2_000 && ['ready', 'reviewing', 'signing'].includes(stored.session.state)) {
+    const winner = stored.session.winner;
+    if (!winner || winner.expiresAtMs - nowMs > 2_000) return;
+
+    // The executable bytes are disposable as soon as the quote enters its
+    // expiry window, including while a sender is in flight. The sender owns
+    // its request buffer; the desk must not retain another executable copy.
+    const hadTransaction = Boolean(winner.transactionBase64) || Boolean(stored.authorizedSignedTransactionBase64);
+    this.clearTransaction(stored);
+    stored.authorizedSignedTransactionBase64 = undefined;
+    if (['winner_ready', 'authorized', 'signing'].includes(stored.session.state)) {
       stored.session = { ...stored.session, state: 'expired', failureMessage: 'quote expired; request a fresh executable price' };
-      this.clearTransaction(stored);
+      this.emit(stored);
+    } else if (hadTransaction) {
+      // Keep an in-flight submission observable, but publish the payload
+      // removal so connected clients can stop treating it as executable.
       this.emit(stored);
     }
   }
 
   private clearTransaction(stored: StoredSession): void {
+    const timer = this.expiryTimers.get(stored.session.id);
+    if (timer) {
+      clearTimeout(timer);
+      this.expiryTimers.delete(stored.session.id);
+    }
     if (!stored.session.winner?.transactionBase64) return;
     stored.session = { ...stored.session, winner: { ...stored.session.winner, transactionBase64: undefined } };
+  }
+
+  private scheduleExpiry(stored: StoredSession, expiresAtMs: number): void {
+    const previous = this.expiryTimers.get(stored.session.id);
+    if (previous) clearTimeout(previous);
+    const delayMs = Math.max(0, expiresAtMs - this.clock() - 2_000);
+    const timer = setTimeout(() => {
+      this.expiryTimers.delete(stored.session.id);
+      this.expireIfNeeded(stored, this.clock());
+    }, delayMs);
+    // Timers are safety cleanup, not process-liveness handles.
+    if (typeof (timer as unknown as { unref?: () => void }).unref === 'function') (timer as unknown as { unref: () => void }).unref();
+    this.expiryTimers.set(stored.session.id, timer);
   }
 
   private emit(stored: StoredSession): void {

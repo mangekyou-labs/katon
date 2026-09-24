@@ -1,4 +1,4 @@
-import { assertJupiterPayloadUnchanged } from '@katon/solana-core';
+import { assertJupiterPayloadUnchanged } from '../../solana-core/src/venues';
 
 export interface JupiterOrderClient {
   order(request: Record<string, string>): Promise<JupiterOrderResponse>;

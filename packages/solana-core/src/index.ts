@@ -6,3 +6,5 @@ export * from './ranking';
 export * from './registry';
 export * from './types';
 export * from './venues';
+export * from './transactions';
+export * from './wire';
