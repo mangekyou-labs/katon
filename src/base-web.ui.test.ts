@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { approveStockSale, submitStockSaleRoute } from '../apps/base-web/src/transactions';
+import { approveStockSale, submitExternalStockSaleRoute, submitStockSaleRoute } from '../apps/base-web/src/transactions';
 import type { BaseRuntimeConfig } from '../apps/base-web/src/runtime';
 import type { BaseWallet } from '../apps/base-web/src/wallet';
-import type { StockSaleRouteDto } from '../apps/base-web/src/api';
+import type { StockSaleQuoteDto, StockSaleRouteDto } from '../apps/base-web/src/api';
 
 const address = (digit: string): `0x${string}` => `0x${digit.repeat(40)}`;
 
@@ -148,5 +148,96 @@ describe('Base web v2 surface', () => {
       decisionBlock: '100', decisionBlockHash: `0x${'d'.repeat(64)}`, transaction: { to: router, data: '0x1234', value: '0' },
     };
     await expect(submitStockSaleRoute(wallet, config, { route, stockToken: stock, stockAmount: 100n })).rejects.toThrow('SWAP_QUOTE_STALE');
+  });
+
+  it('executes a bound external route only after exact approval, freshness, simulation, and balance checks', async () => {
+    const stock = address('6');
+    const usdc = address('9');
+    const owner = address('1');
+    const allowanceTarget = address('2');
+    const executionTarget = address('3');
+    const calls: string[] = [];
+    const balances = [100n, 500n, 0n, 800n];
+    const approvalCalls: Array<{ token: string; spender: string; amount: bigint }> = [];
+    const wallet = {
+      assertWritable: () => owner,
+      approveExactAllowance: async (token: string, spender: string, amount: bigint) => {
+        calls.push('approve');
+        approvalCalls.push({ token, spender, amount });
+        return '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      },
+      waitForReceipt: async () => {
+        calls.push('receipt');
+        return { status: 'success' as const };
+      },
+      assertRouteFresh: async () => { calls.push('freshness'); },
+      readTokenBalance: async () => balances.shift()!,
+      simulate: async () => { calls.push('simulate'); },
+      sendTransaction: async () => {
+        calls.push('send');
+        return '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      },
+    } as unknown as BaseWallet;
+    const config = {
+      network: 'mainnet', chainId: 8453, networkName: 'Base', rpcUrl: 'https://mainnet.base.org', apiUrl: '/', explorerUrl: 'https://basescan.org',
+      usdc, deployment: {}, adapters: [], b20Assets: {}, status: 'ready', writesEnabled: false,
+      productionEligible: false, forkQa: false, decisionBlockMaxAge: 2n,
+    } as BaseRuntimeConfig;
+    const quote: StockSaleQuoteDto = {
+      requestId: `0x${'c'.repeat(64)}`, chainId: '8453', stockToken: stock, usdcToken: usdc,
+      sellAmount: '100', minBuyAmount: '300', taker: owner, recipient: owner, feeBps: '0',
+      auctionOpenedAtMs: Date.now(), auctionCutoffAtMs: Date.now() + 1_000, simulationBlock: '10',
+      simulationBlockHash: `0x${'d'.repeat(64)}`, status: 'WINNER', alternatives: [], external: [],
+    };
+    const route: StockSaleRouteDto = {
+      kind: 'EXTERNAL', source: '0x', routeId: `0x${'e'.repeat(64)}`, stockAmount: '100',
+      grossUsdc: '310', guaranteedUsdc: '300', fee: '0', gasEstimateUsdc: '0', effectiveUsdc: '300',
+      expiry: String(Math.floor(Date.now() / 1_000) + 60), decisionBlock: '100', decisionBlockHash: `0x${'f'.repeat(64)}`,
+      transaction: {
+        to: executionTarget, data: '0x1234', value: '0', allowanceTarget, chainId: 8453,
+        recipient: owner, stockToken: stock, usdcToken: usdc, sellAmount: '100', minBuyAmount: '300',
+      },
+    };
+
+    await expect(submitExternalStockSaleRoute(wallet, config, quote, route)).resolves.toEqual({
+      hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', receiptStatus: 'success',
+    });
+    expect(approvalCalls).toEqual([{ token: stock, spender: allowanceTarget, amount: 100n }]);
+    expect(calls).toEqual(['approve', 'receipt', 'freshness', 'simulate', 'send', 'receipt']);
+    expect(balances).toEqual([]);
+  });
+
+  it('rejects an external route bound to a different wallet before requesting approval', async () => {
+    const owner = address('1');
+    let approvalRequested = false;
+    const wallet = {
+      assertWritable: () => owner,
+      approveExactAllowance: async () => { approvalRequested = true; return undefined; },
+    } as unknown as BaseWallet;
+    const usdc = address('9');
+    const stock = address('6');
+    const config = {
+      network: 'mainnet', chainId: 8453, networkName: 'Base', rpcUrl: 'https://mainnet.base.org', apiUrl: '/', explorerUrl: 'https://basescan.org',
+      usdc, deployment: {}, adapters: [], b20Assets: {}, status: 'ready', writesEnabled: false,
+      productionEligible: false, forkQa: false,
+    } as BaseRuntimeConfig;
+    const quote: StockSaleQuoteDto = {
+      requestId: `0x${'c'.repeat(64)}`, chainId: '8453', stockToken: stock, usdcToken: usdc,
+      sellAmount: '100', minBuyAmount: '300', taker: address('2'), recipient: address('2'), feeBps: '0',
+      auctionOpenedAtMs: Date.now(), auctionCutoffAtMs: Date.now() + 1_000, simulationBlock: '10',
+      simulationBlockHash: `0x${'d'.repeat(64)}`, status: 'WINNER', alternatives: [], external: [],
+    };
+    const route: StockSaleRouteDto = {
+      kind: 'EXTERNAL', source: '0x', routeId: `0x${'e'.repeat(64)}`, stockAmount: '100',
+      grossUsdc: '310', guaranteedUsdc: '300', fee: '0', gasEstimateUsdc: '0', effectiveUsdc: '300',
+      expiry: String(Math.floor(Date.now() / 1_000) + 60), decisionBlock: '100', decisionBlockHash: `0x${'f'.repeat(64)}`,
+      transaction: {
+        to: address('3'), data: '0x1234', value: '0', allowanceTarget: address('4'), chainId: 8453,
+        recipient: owner, stockToken: stock, usdcToken: usdc, sellAmount: '100', minBuyAmount: '300',
+      },
+    };
+
+    await expect(submitExternalStockSaleRoute(wallet, config, quote, route)).rejects.toThrow('EXTERNAL_QUOTE_BINDING');
+    expect(approvalRequested).toBe(false);
   });
 });

@@ -54,6 +54,8 @@ import {
 } from './base-qa-lib.mjs';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const QA_STOCK_DECIMALS = 8;
+const QA_STOCK_UNIT = 10n ** BigInt(QA_STOCK_DECIMALS);
 const target = parseBaseQaTarget(process.argv.slice(2));
 const sepoliaReleasePaths = candidatePaths(rootDir, 'sepolia');
 const environment = await readEnvironment();
@@ -122,7 +124,7 @@ const mockPolicyRegistry = await deployStep('mockPolicyRegistry', 'BaseQaMocks.s
 const mockOracleFeed = await deployStep('mockOracleFeed', 'BaseQaMocks.sol', 'BaseQaOracleFeed', [false]);
 const mockSequencerFeed = await deployStep('mockSequencerFeed', 'BaseQaMocks.sol', 'BaseQaOracleFeed', [true]);
 const mockB20 = await deployStep('mockB20', 'BaseQaMocks.sol', 'BaseQaB20');
-await writeStep('initializeMockB20', mockB20, 'BaseQaMocks.sol', 'BaseQaB20', 'initialize', ['Katon Control B20', 'B20', 18]);
+await writeStep('initializeMockB20', mockB20, 'BaseQaMocks.sol', 'BaseQaB20', 'initialize', ['Katon Control B20', 'B20', QA_STOCK_DECIMALS]);
 const mockMutableOracle = await deployStep('mockMutableOracle', 'BaseQaMocks.sol', 'BaseQaMutableOracle', [10n ** 24n]);
 
 const router = await deployStep('router', 'RFQRouter.sol', 'RFQRouter');
@@ -149,7 +151,7 @@ const mockAavePool = await deployStep('mockAavePool', 'BaseQaMocks.sol', 'BaseQa
 const mockMorphoBlue = await deployStep('mockMorphoBlue', 'BaseQaMocks.sol', 'BaseQaMorphoBlue', [nativeUsdc]);
 const mockEulerDebtVault = await deployStep('mockEulerDebtVault', 'BaseQaMocks.sol', 'BaseQaEulerVault', [nativeUsdc]);
 const mockEulerCollateralVault = await deployStep('mockEulerCollateralVault', 'BaseQaMocks.sol', 'BaseQaEulerVault', [mockB20]);
-const mockAerodromePool = await deployStep('mockAerodromePool', 'BaseQaMocks.sol', 'BaseQaAerodromePool', [nativeUsdc, mockB20, 10_000_000_000n, 10_000n * 10n ** 18n]);
+const mockAerodromePool = await deployStep('mockAerodromePool', 'BaseQaMocks.sol', 'BaseQaAerodromePool', [nativeUsdc, mockB20, 10_000_000_000n, 10_000n * QA_STOCK_UNIT]);
 await writeStep('mockEulerCollateralLink', mockEulerDebtVault, 'BaseQaMocks.sol', 'BaseQaEulerVault', 'setCollateralVault', [mockEulerCollateralVault]);
 await writeStep('mockAaveLimit', mockAavePool, 'BaseQaMocks.sol', 'BaseQaAavePool', 'setLiquidationDebtLimit', [8_000_000n]);
 await writeStep('mockMorphoTotals', mockMorphoBlue, 'BaseQaMocks.sol', 'BaseQaMorphoBlue', 'setMarketTotals', [controlMarketParams(mockB20), 1_000_000n, 1_000_000n, 1_000_000n, 1_000_000n]);
@@ -272,7 +274,7 @@ const manifest = {
     [getAddress(mockB20)]: {
       ticker: 'B20',
       feed: getAddress(mockOracleFeed),
-      decimals: 18,
+      decimals: QA_STOCK_DECIMALS,
       classification: 'QA_B20_CONTROL',
     },
   },
@@ -693,9 +695,9 @@ async function rawImpersonatedWrite(from, data, label) {
 
 async function seedControlVenues({ mockB20: b20, mockMorphoBlue: morpho, mockAerodromePool: pool }) {
   const mint = async (name, recipient, amount) => writeStep(name, b20, 'BaseQaMocks.sol', 'BaseQaB20', 'mint', [recipient, amount]);
-  await mint('mintB20Operator', byRole.operator, 300n * 10n ** 18n);
-  await mint('mintB20Morpho', morpho, 10_000n * 10n ** 18n);
-  await mint('mintB20Pool', pool, 10_000n * 10n ** 18n);
+  await mint('mintB20Operator', byRole.operator, 300n * QA_STOCK_UNIT);
+  await mint('mintB20Morpho', morpho, 10_000n * QA_STOCK_UNIT);
+  await mint('mintB20Pool', pool, 10_000n * QA_STOCK_UNIT);
   if (!configurationTransactions.fundPoolUsdc) {
     const erc20Abi = [{ type: 'function', name: 'transfer', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }] }];
     const hash = await wallets.operator.writeContract({ address: nativeUsdc, abi: erc20Abi, functionName: 'transfer', args: [pool, 10_000_000_000n], account: wallets.operator.account });
@@ -753,8 +755,8 @@ async function tryCreateRealMorphoMarket(result) {
       await writeExternalStep('realMorphoSupply', BASE_MORPHO_BLUE, abi, 'supply', [params, 100_000_000n, 0n, byRole.operator, '0x']);
     }
     if (collateralAssets === 0n) {
-      await writeExternalStep('realMorphoCollateralApproval', addresses.mockB20, tokenAbi, 'approve', [BASE_MORPHO_BLUE, 100n * 10n ** 18n]);
-      await writeExternalStep('realMorphoSupplyCollateral', BASE_MORPHO_BLUE, abi, 'supplyCollateral', [params, 100n * 10n ** 18n, byRole.operator, '0x']);
+      await writeExternalStep('realMorphoCollateralApproval', addresses.mockB20, tokenAbi, 'approve', [BASE_MORPHO_BLUE, 100n * QA_STOCK_UNIT]);
+      await writeExternalStep('realMorphoSupplyCollateral', BASE_MORPHO_BLUE, abi, 'supplyCollateral', [params, 100n * QA_STOCK_UNIT, byRole.operator, '0x']);
     }
     await writeExternalStep('realMorphoBorrow', BASE_MORPHO_BLUE, abi, 'borrow', [params, 10_000_000n, 0n, byRole.operator, byRole.operator]);
   }
@@ -840,7 +842,7 @@ async function tryCreateRealEulerVaults(result) {
   if (debtPermit2 !== getAddress(BASE_PERMIT2) || collateralPermit2 !== getAddress(BASE_PERMIT2)) {
     throw new Error('BASE_FORK_EULER_PERMIT2');
   }
-  await writeStep('mintB20EulerBorrower', addresses.mockB20, 'BaseQaMocks.sol', 'BaseQaB20', 'mint', [borrower, 100n * 10n ** 18n]);
+  await writeStep('mintB20EulerBorrower', addresses.mockB20, 'BaseQaMocks.sol', 'BaseQaB20', 'mint', [borrower, 100n * QA_STOCK_UNIT]);
   const currentDebt = await publicClient.readContract({ address: debtVault, abi: vaultAbi, functionName: 'debtOf', args: [borrower] });
   if (currentDebt === 0n) {
     await writeExternalStep('realEulerDebtPermit2TokenApproval', nativeUsdc, tokenAbi, 'approve', [debtPermit2, 100_000_000n]);
@@ -853,10 +855,10 @@ async function tryCreateRealEulerVaults(result) {
   }
   const collateralShares = await publicClient.readContract({ address: collateralVault, abi: vaultAbi, functionName: 'balanceOf', args: [borrower] });
   if (collateralShares === 0n) {
-    await writeExternalStep('realEulerCollateralPermit2TokenApproval', addresses.mockB20, tokenAbi, 'approve', [collateralPermit2, 100n * 10n ** 18n], borrowerWallet);
-    await writeExternalStep('realEulerCollateralPermit2Approval', collateralPermit2, permit2Abi, 'approve', [addresses.mockB20, collateralVault, 100n * 10n ** 18n, 281_474_976_710_655n], borrowerWallet);
-    await writeExternalStep('realEulerCollateralApproval', addresses.mockB20, tokenAbi, 'approve', [collateralVault, 100n * 10n ** 18n], borrowerWallet);
-    await writeExternalStep('realEulerCollateralDeposit', collateralVault, vaultAbi, 'deposit', [100n * 10n ** 18n, borrower], borrowerWallet, 0n, 2_000_000n);
+    await writeExternalStep('realEulerCollateralPermit2TokenApproval', addresses.mockB20, tokenAbi, 'approve', [collateralPermit2, 100n * QA_STOCK_UNIT], borrowerWallet);
+    await writeExternalStep('realEulerCollateralPermit2Approval', collateralPermit2, permit2Abi, 'approve', [addresses.mockB20, collateralVault, 100n * QA_STOCK_UNIT, 281_474_976_710_655n], borrowerWallet);
+    await writeExternalStep('realEulerCollateralApproval', addresses.mockB20, tokenAbi, 'approve', [collateralVault, 100n * QA_STOCK_UNIT], borrowerWallet);
+    await writeExternalStep('realEulerCollateralDeposit', collateralVault, vaultAbi, 'deposit', [100n * QA_STOCK_UNIT, borrower], borrowerWallet, 0n, 2_000_000n);
     await writeExternalStep('realEulerCollateralPermit2TokenApprovalClear', addresses.mockB20, tokenAbi, 'approve', [collateralPermit2, 0n], borrowerWallet);
     await writeExternalStep('realEulerCollateralPermit2ApprovalClear', collateralPermit2, permit2Abi, 'approve', [addresses.mockB20, collateralVault, 0n, 281_474_976_710_655n], borrowerWallet);
     await writeExternalStep('realEulerCollateralApprovalClear', addresses.mockB20, tokenAbi, 'approve', [collateralVault, 0n], borrowerWallet);

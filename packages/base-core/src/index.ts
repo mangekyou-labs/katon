@@ -2,6 +2,7 @@ export const BASE_CORE_VERSION = '0.1.0' as const;
 export * from './assets';
 export * from './amounts';
 export * from './b20';
+export * from './builder-code';
 export * from './eip712';
 export * from './network';
 export * from './oracles';

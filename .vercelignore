@@ -23,8 +23,8 @@ docs
 fixtures
 tools
 scripts
-src
-public
+/src
+/public
 otc.html
 apps/flare-api
 apps/flare-web/node_modules

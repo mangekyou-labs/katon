@@ -1,0 +1,143 @@
+{
+  "schema": "katon.base.b20-canonical/v1",
+  "network": "mainnet",
+  "chainId": 8453,
+  "block": 51068301,
+  "blockHash": "0x81ceda4cb39bf70b057c08dc2d70b201b5190ecb8ebb79ccdca3e12b1d73ea41",
+  "pinnedAt": "2026-09-22",
+  "stockDecimals": 8,
+  "assetCount": 13,
+  "assets": [
+    {
+      "address": "0xb200000000000000000000C2e324d24d7eEcd1fb",
+      "ticker": "AAPLc",
+      "decimals": 8,
+      "feed": "0x787f13dEa48Db0897CbCDD985de77809D837F988",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "31626000000",
+      "latestAnswerUpdatedAt": 1788875451
+    },
+    {
+      "address": "0xb200000000000000000000d9192b6B456483C2E8",
+      "ticker": "AMZNc",
+      "decimals": 8,
+      "feed": "0x06A8E4b3aBB3B7543d8396FB2B763d22820cB295",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "25754999999",
+      "latestAnswerUpdatedAt": 1788883619
+    },
+    {
+      "address": "0xb200000000000000000000c85a31389D71F3ecfb",
+      "ticker": "COINc",
+      "decimals": 8,
+      "feed": "0x408e44f504A7371a345F03a73dDC96A4b48e8aa7",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "17988500000",
+      "latestAnswerUpdatedAt": 1788912767
+    },
+    {
+      "address": "0xB20000000000000000000019f6E7C675b73C2e4D",
+      "ticker": "CRCLc",
+      "decimals": 8,
+      "feed": "0x0231cF2635D1E17bB5c2462cc7504Ba1fBd61f33",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "9657499999",
+      "latestAnswerUpdatedAt": 1788918057
+    },
+    {
+      "address": "0xb2000000000000000000002D0BA3164cc74f58B7",
+      "ticker": "GOOGLc",
+      "decimals": 8,
+      "feed": "0x5bF49E0ffA937CE2FfF033c739aD7C634c4D34F2",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "33920205000",
+      "latestAnswerUpdatedAt": 1788908291
+    },
+    {
+      "address": "0xB2000000000000000000004AFF16039bA04bdFBc",
+      "ticker": "INTCc",
+      "decimals": 8,
+      "feed": "0xAB657C39bac0D5886250D70849e2E3E008F2EECB",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "10434000000",
+      "latestAnswerUpdatedAt": 1788923405
+    },
+    {
+      "address": "0xb2000000000000000000008bC8786B856E61707C",
+      "ticker": "METAc",
+      "decimals": 8,
+      "feed": "0x6526aE6797A76123638b863AeE4dD27Ba4E4b27D",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "61627500000",
+      "latestAnswerUpdatedAt": 1788917941
+    },
+    {
+      "address": "0xB200000000000000000000Ab99cFa739E253872B",
+      "ticker": "MSFTc",
+      "decimals": 8,
+      "feed": "0xeB10A6c9aa7E537aEd766C08c35Dae35B321b18c",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "49358135000",
+      "latestAnswerUpdatedAt": 1788895983
+    },
+    {
+      "address": "0xb2000000000000000000004884b426556b92883d",
+      "ticker": "MSTRc",
+      "decimals": 8,
+      "feed": "0xB3cE282CD188b35DA0E38D8Bc7d58e33173D202a",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "13793000000",
+      "latestAnswerUpdatedAt": 1788920275
+    },
+    {
+      "address": "0xb20000000000000000000078ee7ce2fE4908108C",
+      "ticker": "NVDAc",
+      "decimals": 8,
+      "feed": "0x04689a41629776563E6822F76f2e57D148d28513",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "22590680000",
+      "latestAnswerUpdatedAt": 1788884225
+    },
+    {
+      "address": "0xb200000000000000000000397293Cb8cda9a10c5",
+      "ticker": "SNDKc",
+      "decimals": 8,
+      "feed": "0x388b0dC46C0Fb05A74BeE0994fa5b02c6Fcca2eA",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "175578000000",
+      "latestAnswerUpdatedAt": 1788914749
+    },
+    {
+      "address": "0xb2000000000000000000007b9fcbd005511aCBd5",
+      "ticker": "SPCXc",
+      "decimals": 8,
+      "feed": "0x6A634B235903C4ad6376892180d6fF8612e3Fa68",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "15316455000",
+      "latestAnswerUpdatedAt": 1788897185
+    },
+    {
+      "address": "0xb2000000000000000000001e800a7f5189430cD0",
+      "ticker": "TSLAc",
+      "decimals": 8,
+      "feed": "0xFaf869185383a24F8cb00e27BdA6b63B9905DCb4",
+      "feedDecimals": 8,
+      "runtimeBytecodeHash": "0x309b8896ee4c1ff7ec1966155373dee42663b6b40c3fedc70ba501684848d2a3",
+      "latestAnswer": "36735500000",
+      "latestAnswerUpdatedAt": 1788893961
+    }
+  ],
+  "digest": "sha256:7172826771435e51bc9bff379e0b304232993a1448993502fe80394930c99781"
+}

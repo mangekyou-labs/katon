@@ -18,6 +18,11 @@ import {
   HttpEligibilityPort,
   HttpSwapQuotePort,
 } from './app';
+import {
+  CompositeSwapQuotePort,
+  createExternalProviderAdapters,
+  loadExternalProviderConfig,
+} from './external-providers';
 import type {
   BaseClock,
   BaseNotificationPort,
@@ -85,19 +90,33 @@ export async function startBaseApi(overrides: BaseApiServerOverrides = {}) {
       history: repository,
     })
     : new UnavailableDashboardReadPort());
-  const hasSwapProvider = Boolean(
+  // Provider-native adapters are configured and validated before any quote can
+  // be served; a partially configured provider fails the process closed.
+  const externalProviderConfig = loadExternalProviderConfig(
+    process.env,
+    config.network ?? 'sepolia',
+    config.chainId,
+  );
+  const externalProviderAdapters = createExternalProviderAdapters(externalProviderConfig);
+  const hasHttpSwapProvider = Boolean(
     config.swapMakerQuoteUrl
     || config.swapFacilityQuoteUrl
     || Object.values(config.swapExternalQuoteUrls ?? {}).some(Boolean),
   );
+  const hasSwapProvider = hasHttpSwapProvider || externalProviderAdapters.length > 0;
   const swapQuotes = overrides.swapQuotes ?? (hasSwapProvider
-    ? new HttpSwapQuotePort({
-      makerUrl: config.swapMakerQuoteUrl,
-      facilityUrl: config.swapFacilityQuoteUrl,
-      externalUrls: config.swapExternalQuoteUrls,
-      apiKeys: config.swapProviderApiKeys,
-      timeoutMs: config.swapProviderTimeoutMs,
-    })
+    ? new CompositeSwapQuotePort(
+      hasHttpSwapProvider
+        ? [new HttpSwapQuotePort({
+          makerUrl: config.swapMakerQuoteUrl,
+          facilityUrl: config.swapFacilityQuoteUrl,
+          externalUrls: config.swapExternalQuoteUrls,
+          apiKeys: config.swapProviderApiKeys,
+          timeoutMs: config.swapProviderTimeoutMs,
+        })]
+        : [],
+      externalProviderAdapters,
+    )
     : undefined);
   const eligibility = config.eligibilityUrl
     ? new HttpEligibilityPort({ url: config.eligibilityUrl, timeoutMs: config.swapProviderTimeoutMs })

@@ -21,6 +21,7 @@ export * from './adapters';
 export * from './auth';
 export * from './config';
 export * from './dashboard';
+export * from './external-providers';
 export * from './memory';
 export * from './module';
 export * from './mongo';

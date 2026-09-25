@@ -2,7 +2,7 @@
 phase: planning
 title: Katon Base B20 Stock-to-USDC RFQ Plan
 feature: base-tokenized-stock-desk
-status: m5-candidate-promoted
+status: evidence-and-8-decimal-qa-gates-open
 ---
 
 # Delivery plan
@@ -147,3 +147,69 @@ The queued release sequence completed in order:
 The candidate is now promoted for non-production Sepolia QA. Mainnet,
 facility, external-provider, and broader operational approvals remain future
 gates; no production enablement is implied by this checkpoint.
+
+## Tokenized-stock demo completion checkpoint — 2026-09-23
+
+The implementation increment adds canonical 8-decimal metadata and pinning,
+Builder Code attribution, provider-native quote adapters, a locally verified
+CoW EIP-712 signed-intent DTO, validated 0x wallet execution, and an evidence
+API/page. 1inch execution is explicitly gated and remains deferred. No CoW
+order is submitted and no Base mainnet execution is enabled.
+
+The canonical 8-decimal registry and pinned Base state are verified. At the
+pinned block, 0x returned HTTP 422 (`SELL_TOKEN_NOT_AUTHORIZED_FOR_TRADE`) for
+AAPLc, so there is no executable route. CoW returned HTTP 200 and the local
+EIP-712 signer recovery matched the owner, but the provider marked the quote
+`verified=false`; no order was submitted. A fresh 8-decimal Sepolia candidate
+completed a controlled QA redemption lifecycle with verified receipts and
+100,000 native-USDC units of realized profit. The candidate remains
+`productionEligible=false`.
+
+Earlier local checks recorded in the testing increment include provider tests,
+Base tests, typechecks, web build, offline Foundry tests, secret scan, and diff
+check. On the first handoff retry, redemption and canonical-state reads failed
+at HTTP transport and the venue-fork runner crashed before executing tests.
+The later continuation results below supersede the B20 and fork outcomes, but
+the redemption retry still fails at RPC transport. The current
+provider and redemption artifacts are ignored under
+`output/base-qa`; deployment must package them or set
+`KATON_BASE_EVIDENCE_DIR` to the packaged artifact directory. A deterministic
+public HTTP test now covers `/v1/evidence` through an injected evidence reader.
+Live 0x execution and a headed browser run against a usable provider route
+remain open; 1inch and CoW execution remain disabled/deferred.
+
+Remaining exit evidence:
+
+- Keep the recorded 0x AAPLc authorization rejection as an open route/execution
+  gate until the provider grants token access or another verified venue is
+  available.
+- Preserve CoW as quote/signature evidence only while `verified=false`; do not
+  submit the signed intent.
+- Keep 1inch marked deferred until onboarding plus a live AAPLc route passes.
+- Package evidence artifacts or configure `KATON_BASE_EVIDENCE_DIR` in deployed
+  environments.
+- Capture a headed wallet lifecycle when a live executable provider route is
+  available; the controlled QA redemption is complete and must retain that
+  classification.
+
+## Handoff continuation checkpoint — 2026-09-23
+
+- Runtime evidence delivery is implemented and covered through `GET
+  /v1/evidence` using the default file reader configured by
+  `KATON_BASE_EVIDENCE_DIR`. The response test confirms raw provider bodies and
+  signatures are omitted; missing artifacts remain visibly unavailable.
+- Fresh local verification passed: Base tests (220), Base/API/indexer
+  typechecks, web production build, offline Foundry tests (76 passed; 8 fork
+  tests skipped), secret scan, global and feature AI DevKit lint, and
+  `git diff --check`.
+- Fresh pinned B20 validation passed for 13 assets at block `51068301` with
+  zero stale feeds. The venue fork runner executed and passed all eight cases
+  at that same pinned block; this replaces the earlier runner-crash result.
+- The fresh controlled Sepolia redemption verifier was retried twice and
+  failed at RPC transport (`RPC Request failed.`), so the earlier captured QA
+  proof remains historical and was not refreshed in this continuation.
+- AAPLc still has no executable provider route: 0x rejects the token with HTTP
+  422; CoW reports `verified=false` and remains an unsubmitted signed intent;
+  1inch is deferred. Headed wallet QA remains blocked by the absent route.
+- Candidate remains non-production (`productionEligible=false`). No provider
+  order submission or mainnet execution occurred.

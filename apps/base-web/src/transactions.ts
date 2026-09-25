@@ -5,7 +5,7 @@ import {
 } from '../../../packages/base-contracts/src/index';
 import type { BaseRuntimeConfig } from './runtime';
 import type { BaseWallet } from './wallet';
-import type { StockSaleRouteDto } from './api';
+import type { StockSaleQuoteDto, StockSaleRouteDto } from './api';
 
 export interface TransactionResult {
   readonly hash: Hex;
@@ -65,6 +65,53 @@ export async function submitStockSaleRoute(
   }, { decisionBlock: route.decisionBlock, decisionBlockHash: route.decisionBlockHash, maxAge: config.decisionBlockMaxAge ?? 3n });
   const receipt = await wallet.waitForReceipt(hash);
   if (receipt.status !== 'success') throw new Error(`TRANSACTION_REVERTED:${hash}`);
+  return { hash, receiptStatus: 'success' };
+}
+
+/** Execute a freshly quoted provider packet from the connected wallet only. */
+export async function submitExternalStockSaleRoute(
+  wallet: BaseWallet,
+  config: BaseRuntimeConfig,
+  quote: StockSaleQuoteDto,
+  route: StockSaleRouteDto,
+): Promise<TransactionResult> {
+  const transaction = route.transaction;
+  const owner = wallet.assertWritable();
+  if (route.kind !== 'EXTERNAL' || !transaction || !['0x', '1inch'].includes(route.source)) throw new Error('EXTERNAL_ROUTE_UNAVAILABLE');
+  if (quote.chainId !== String(config.chainId) || quote.taker.toLowerCase() !== owner.toLowerCase()) throw new Error('EXTERNAL_QUOTE_BINDING');
+  if (transaction.chainId !== config.chainId
+    || transaction.stockToken?.toLowerCase() !== quote.stockToken.toLowerCase()
+    || transaction.usdcToken?.toLowerCase() !== config.usdc.toLowerCase()
+    || transaction.recipient?.toLowerCase() !== owner.toLowerCase()
+    || transaction.sellAmount !== quote.sellAmount
+    || BigInt(transaction.minBuyAmount ?? '0') < BigInt(quote.minBuyAmount)
+    || BigInt(route.stockAmount) !== BigInt(quote.sellAmount)) throw new Error('EXTERNAL_QUOTE_BINDING');
+  if (!transaction.allowanceTarget || transaction.to === '0x0000000000000000000000000000000000000000') throw new Error('EXTERNAL_TARGET_UNAVAILABLE');
+  if (!route.decisionBlock || !route.decisionBlockHash) throw new Error('SWAP_QUOTE_STALE');
+  const expiry = Number(route.expiry);
+  if (!Number.isSafeInteger(expiry) || expiry <= Math.floor(Date.now() / 1_000)) throw new Error('SWAP_QUOTE_EXPIRED');
+
+  const approval = await wallet.approveExactAllowance(quote.stockToken, transaction.allowanceTarget, BigInt(quote.sellAmount));
+  if (approval) {
+    const approvalReceipt = await wallet.waitForReceipt(approval);
+    if (approvalReceipt.status !== 'success') throw new Error(`TRANSACTION_REVERTED:${approval}`);
+  }
+  await wallet.assertRouteFresh({
+    decisionBlock: route.decisionBlock,
+    decisionBlockHash: route.decisionBlockHash,
+    maxAge: config.decisionBlockMaxAge ?? 3n,
+  });
+  const stockBefore = await wallet.readTokenBalance(quote.stockToken, owner);
+  const usdcBefore = await wallet.readTokenBalance(quote.usdcToken, owner);
+  const call = { to: transaction.to, data: transaction.data, value: BigInt(transaction.value) };
+  await wallet.simulate(call);
+  const hash = await wallet.sendTransaction(call);
+  const receipt = await wallet.waitForReceipt(hash);
+  if (receipt.status !== 'success') throw new Error(`TRANSACTION_REVERTED:${hash}`);
+  const stockAfter = await wallet.readTokenBalance(quote.stockToken, owner);
+  const usdcAfter = await wallet.readTokenBalance(quote.usdcToken, owner);
+  if (stockBefore - stockAfter !== BigInt(quote.sellAmount)) throw new Error(`EXTERNAL_STOCK_DELTA_MISMATCH:${hash}`);
+  if (usdcAfter - usdcBefore < BigInt(quote.minBuyAmount)) throw new Error(`EXTERNAL_USDC_MIN_OUT:${hash}`);
   return { hash, receiptStatus: 'success' };
 }
 

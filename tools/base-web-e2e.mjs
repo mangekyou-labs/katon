@@ -27,7 +27,7 @@ const DECISION_BLOCK_HASH = `0x${'22'.repeat(32)}`;
 const SIMULATION_BLOCK_HASH = `0x${'23'.repeat(32)}`;
 const PAYLOAD_HASH = `0x${'33'.repeat(32)}`;
 const TX_HASH = `0x${'44'.repeat(32)}`;
-const EXACT_STOCK = 1_000_000_000_000_000_000n;
+const EXACT_STOCK = 100_000_000n;
 const EXACT_USDC = 1_234_567n;
 
 function assert(condition, message) {
@@ -140,7 +140,7 @@ function routeFixture(source) {
   };
 }
 
-function stockSaleQuoteFixture() {
+function stockSaleQuoteFixture(status = 'WINNER') {
   return {
     requestId: `0x${'66'.repeat(32)}`,
     chainId: '84532',
@@ -157,8 +157,9 @@ function stockSaleQuoteFixture() {
     decisionBlockHash: DECISION_BLOCK_HASH,
     simulationBlock: '43',
     simulationBlockHash: SIMULATION_BLOCK_HASH,
-    status: 'WINNER',
-    recommended: {
+    status,
+    ...(status === 'NO_ROUTE' ? { reason: 'NO_EXECUTABLE_ROUTE' } : {}),
+    ...(status === 'WINNER' ? { recommended: {
       kind: 'INTERNAL',
       source: 'KATON',
       routeId: `0x${'77'.repeat(32)}`,
@@ -185,7 +186,7 @@ function stockSaleQuoteFixture() {
         minBuyAmount: EXACT_USDC.toString(10),
       },
       legs: [],
-    },
+    } } : {}),
     alternatives: [],
     external: [],
   };
@@ -195,7 +196,7 @@ function jsonResponse(body, status = 200) {
   return { status, contentType: 'application/json', body: JSON.stringify(body) };
 }
 
-async function createFixtureContext(browser, baseUrl, { chainId = '0x14a34', source } = {}) {
+async function createFixtureContext(browser, baseUrl, { chainId = '0x14a34', source, stockSaleStatus = 'WINNER' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const state = {
     postedBid: undefined,
@@ -226,7 +227,7 @@ async function createFixtureContext(browser, baseUrl, { chainId = '0x14a34', sou
         '0xb200000000000000000000c2e324d24d7eecd1fb': {
           ticker: 'AAPLx',
           feed: '0x0000000000000000000000000000000000000080',
-          decimals: 18,
+          decimals: 8,
         },
       },
       liquidationEnabled: true,
@@ -327,7 +328,7 @@ async function createFixtureContext(browser, baseUrl, { chainId = '0x14a34', sou
       return;
     }
     if (request.method() === 'POST' && path === '/v1/swaps/quote') {
-      await route.fulfill(jsonResponse(stockSaleQuoteFixture()));
+      await route.fulfill(jsonResponse(stockSaleQuoteFixture(stockSaleStatus)));
       return;
     }
     await route.continue();
@@ -498,9 +499,8 @@ async function runStockSale(browser, baseUrl) {
     }
     const requests = state.requests.filter((request) => request.path === '/v1/swaps/quote');
     assert(requests.length === 1, `stock sale expected one authenticated quote request, got ${requests.length}`);
-    const approvalTransactions = await page.evaluate(() => window.__walletTransactions);
-    assert(approvalTransactions.length === 1, `stock sale expected one approval before quote, got ${approvalTransactions.length}`);
-    assert(approvalTransactions[0].to.toLowerCase() === B20, 'stock approval did not target B20');
+    const preReviewTransactions = await page.evaluate(() => window.__walletTransactions);
+    assert(preReviewTransactions.length === 0, `stock sale should not request approval before the seller reviews the quote, got ${preReviewTransactions.length}`);
 
     await page.getByTestId('sell-submit').click();
     try {
@@ -514,12 +514,72 @@ async function runStockSale(browser, baseUrl) {
       throw new Error(`STOCK_SALE_SUBMIT_FAILED:${JSON.stringify(diagnostics)}:${error.message}`);
     }
     const transactions = await page.evaluate(() => window.__walletTransactions);
-    assert(transactions.length === 2, `stock sale expected approval + route, got ${transactions.length}`);
+    assert(transactions.length === 2, `stock sale expected approval + route after review, got ${transactions.length}`);
+    assert(transactions[0].to.toLowerCase() === B20, 'stock approval did not target B20');
     assert(transactions[1].to.toLowerCase() === ROUTER, 'stock sale route was not sent to the router');
     assert(transactions[1].data === '0x1234', 'stock sale submitted calldata other than the returned router transaction');
     await assertAccessible(page, 'stock sale approval, quote review, and route submission');
     mkdirSync(join(workspace, 'output'), { recursive: true });
     await page.screenshot({ path: join(workspace, 'output/base-m5-stock-sale.png'), fullPage: true });
+  } finally {
+    await context.close();
+  }
+}
+
+async function runStockSaleUnavailable(browser, baseUrl) {
+  const { context, page, state } = await createFixtureContext(browser, baseUrl, { stockSaleStatus: 'NO_ROUTE' });
+  try {
+    await page.goto(`${baseUrl}/sell`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Sell stock for native USDC.' }).waitFor();
+    await waitForConnected(page);
+    await page.locator('#sell-stock-amount').fill('1');
+    await page.locator('#sell-min-buy').fill('1.234567');
+    await page.getByTestId('sell-quote').click();
+    await page.getByText('No executable route', { exact: true }).waitFor();
+    const bodyText = await page.locator('.state-card--unavailable').innerText();
+    assert(bodyText.includes('No provider quote met the minimum output'), 'no-route state omitted why the route is unavailable');
+    assert(bodyText.includes('reduce the minimum'), 'no-route state omitted the next useful seller action');
+    assert(bodyText.includes('NO_EXECUTABLE_ROUTE'), 'no-route state omitted the provider status');
+    assert(state.requests.filter((request) => request.path === '/v1/swaps/quote').length === 1, 'no-route flow did not make one quote request');
+    assert((await page.evaluate(() => window.__walletTransactions)).length === 0, 'no-route flow attempted a wallet transaction');
+    assert(await page.getByTestId('sell-submit').count() === 0, 'no-route flow exposed a submit action');
+    await assertAccessible(page, 'stock sale unavailable route');
+  } finally {
+    await context.close();
+  }
+}
+
+async function runPublicEvaluation(browser, baseUrl) {
+  const { context, page } = await createFixtureContext(browser, baseUrl);
+  try {
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.getByText('Guided evaluation.', { exact: false }).waitFor();
+    await page.getByText('No live route established', { exact: true }).waitFor();
+    assert(await page.getByRole('button', { name: 'Connect wallet' }).count() === 0, 'public evaluation exposed a wallet connection button');
+    assert(await page.getByRole('link', { name: 'Facility' }).count() === 0, 'public evaluation exposed non-demo app navigation');
+    assert((await page.evaluate(() => window.__walletCalls)).length === 0, 'public evaluation made wallet calls');
+    assert((await page.evaluate(() => window.__walletTransactions)).length === 0, 'public evaluation made wallet transactions');
+
+    await page.getByRole('link', { name: 'Walk through Sell stock' }).click();
+    await page.getByText('Canonical AAPLc is not currently routable', { exact: true }).waitFor();
+    await page.getByText('No approval or sale transaction', { exact: true }).waitFor();
+    const receiptLinks = page.locator('a[href*="sepolia.basescan.org/tx/"]');
+    assert(await receiptLinks.count() === 2, 'public sell walkthrough should link to both Sepolia receipts');
+
+    await page.getByRole('link', { name: 'Evidence', exact: true }).click();
+    await page.getByText('No live AAPLc route established', { exact: true }).waitFor();
+    const providerText = await page.locator('.provider-evidence').allInnerTexts();
+    assert(providerText.some((value) => value.includes('SELL_TOKEN_NOT_AUTHORIZED_FOR_TRADE')), 'public evidence omitted the 0x token eligibility response');
+    await page.getByText('CoW', { exact: true }).waitFor();
+    await page.getByText('1inch / maker', { exact: true }).waitFor();
+    await page.getByText('8 cases passed', { exact: false }).waitFor();
+    assert((await page.evaluate(() => window.__walletCalls)).length === 0, 'public evaluation made wallet calls while viewing evidence');
+    const evidenceResponse = await page.request.get(`${baseUrl}/base-demo-evidence.json`);
+    assert(evidenceResponse.ok(), 'sanitized evidence manifest was not served');
+    const evidence = await evidenceResponse.json();
+    assert(evidence.liveRoute.decision === 'no-go', 'public evidence manifest omitted the live-route decision');
+    assert(evidence.canonical.forkCasesPassed === 8, 'public evidence manifest omitted pinned fork results');
+    await assertAccessible(page, 'public evaluation evidence');
   } finally {
     await context.close();
   }
@@ -538,7 +598,11 @@ try {
   const only = process.env.BASE_E2E_ONLY;
   if (!only || only === 'facility') await runFacilityAndCurator(browser, baseUrl);
   if (!only || only === 'bid') await runBid(browser, baseUrl);
-  if (!only || only === 'stock') await runStockSale(browser, baseUrl);
+  if (!only || only === 'stock') {
+    await runStockSale(browser, baseUrl);
+    await runStockSaleUnavailable(browser, baseUrl);
+  }
+  if (only === 'demo') await runPublicEvaluation(browser, baseUrl);
   if (!only || only === 'winner') {
     await runWinnerRoute(browser, baseUrl, 'LP');
     await runWinnerRoute(browser, baseUrl, 'FACILITY');

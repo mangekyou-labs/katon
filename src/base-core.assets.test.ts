@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   B20_ASSETS_BY_ADDRESS,
+  B20_CANONICAL_PIN,
+  B20_STOCK_DECIMALS,
   USDBC_ADDRESS,
+  assertCanonicalAssetMetadata,
   assertDebtAsset,
   assertFacilityAsset,
   getB20AssetByAddress,
+  getB20DecimalsByAddress,
 } from '../packages/base-core/src/assets';
 import { B20_SYSTEM_CONTRACTS } from '../packages/base-core/src/b20';
 import { getBaseNetworkConfig } from '../packages/base-core/src/network';
@@ -32,6 +36,9 @@ const expectedB20Feeds = {
   '0xb2000000000000000000001e800a7f5189430cD0': '0xFaf869185383a24F8cb00e27BdA6b63B9905DCb4',
 } as const;
 
+const APPLE = '0xb200000000000000000000C2e324d24d7eEcd1fb';
+const APPLE_KEY = APPLE.toLowerCase();
+
 describe('Base asset manifests', () => {
   it('keys all official B20 entries by address and pairs every token with its feed', () => {
     expect(Object.keys(B20_ASSETS_BY_ADDRESS)).toHaveLength(13);
@@ -43,6 +50,50 @@ describe('Base asset manifests', () => {
 
   it('rejects ticker-only B20 lookup keys', () => {
     expect(() => getB20AssetByAddress('AAPLc')).toThrow('INVALID_B20_ADDRESS');
+  });
+
+  it('pins every canonical B20 stock to the verified eight-decimal precision', () => {
+    expect(B20_STOCK_DECIMALS).toBe(8);
+    expect(B20_CANONICAL_PIN).toMatchObject({
+      network: 'mainnet',
+      chainId: 8453,
+      block: 51_068_301n,
+      blockHash: '0x81ceda4cb39bf70b057c08dc2d70b201b5190ecb8ebb79ccdca3e12b1d73ea41',
+    });
+    for (const [token, asset] of Object.entries(B20_ASSETS_BY_ADDRESS)) {
+      expect(asset.decimals, token).toBe(B20_STOCK_DECIMALS);
+      expect(getB20DecimalsByAddress(token)).toBe(B20_STOCK_DECIMALS);
+    }
+    // An eight-decimal stock and six-decimal USDC must never share a scale.
+    expect(B20_ASSETS_BY_ADDRESS[APPLE].decimals).not.toBe(18);
+  });
+
+  it('accepts only matching canonical observations and fails closed on every drift', () => {
+    const observation = {
+      address: APPLE,
+      symbol: 'AAPLc',
+      decimals: 8,
+      feed: '0x787f13dEa48Db0897CbCDD985de77809D837F988',
+      hasCode: true,
+      feedHasCode: true,
+    };
+    expect(assertCanonicalAssetMetadata(observation).ticker).toBe('AAPLc');
+    expect(() => assertCanonicalAssetMetadata({ ...observation, decimals: 18 })).toThrow('B20_DECIMALS_MISMATCH');
+    expect(() => assertCanonicalAssetMetadata({ ...observation, symbol: 'AAPLX' })).toThrow('B20_SYMBOL_MISMATCH');
+    expect(() => assertCanonicalAssetMetadata({ ...observation, hasCode: false })).toThrow('B20_CODE_MISSING');
+    expect(() => assertCanonicalAssetMetadata({ ...observation, feedHasCode: false })).toThrow('B20_FEED_CODE_MISSING');
+    expect(() => assertCanonicalAssetMetadata({
+      ...observation,
+      feed: '0x0000000000000000000000000000000000000001',
+    })).toThrow('B20_FEED_MISMATCH');
+    expect(() => assertCanonicalAssetMetadata({ ...observation, address: '0x0000000000000000000000000000000000000001' })).toThrow('UNKNOWN_B20_ADDRESS');
+    expect(() => assertCanonicalAssetMetadata({ ...observation, symbol: undefined })).toThrow('B20_METADATA_MISSING');
+  });
+
+  it('honors an explicit QA decimals override without mutating the canonical registry', () => {
+    expect(getB20DecimalsByAddress(APPLE, { [APPLE_KEY]: 6 })).toBe(6);
+    expect(getB20DecimalsByAddress(APPLE)).toBe(B20_STOCK_DECIMALS);
+    expect(() => getB20DecimalsByAddress(APPLE, { [APPLE_KEY]: -1 })).toThrow('DECIMALS_INVALID');
   });
 
   it('accepts native Circle USDC and rejects bridged USDbC for facility and debt assets', () => {

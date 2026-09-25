@@ -43,7 +43,7 @@ const CHAIN = {
 };
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_HASH = `0x${'00'.repeat(32)}`;
-const STOCK_AMOUNT = 1n * 10n ** 18n;
+const STOCK_AMOUNT = 1n * 10n ** 8n;
 const USDC_AMOUNT = 1_000_000n;
 const ERC20_ABI = [
   { type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },

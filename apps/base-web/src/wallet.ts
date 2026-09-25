@@ -8,6 +8,11 @@ import {
   type Address,
   type Hex,
 } from 'viem';
+import {
+  appendBuilderCodeSuffix,
+  encodeBuilderCodeSuffix,
+  hasBuilderCodeSuffix,
+} from '../../../packages/base-core/src/builder-code';
 
 export interface Eip1193Provider {
   request(args: { readonly method: string; readonly params?: readonly unknown[] }): Promise<unknown>;
@@ -50,12 +55,23 @@ const ERC20_ALLOWANCE_ABI = [{
   inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
   outputs: [{ name: '', type: 'uint256' }],
 }] as const;
+const ERC20_BALANCE_ABI = [{
+  type: 'function',
+  name: 'balanceOf',
+  stateMutability: 'view',
+  inputs: [{ name: 'owner', type: 'address' }],
+  outputs: [{ name: '', type: 'uint256' }],
+}] as const;
+
+/** Build-time fallback for the ERC-8021 Builder Code. */
+const BUILDER_CODE_ENV_KEY = 'VITE_KATON_BASE_BUILDER_CODE';
 
 export class BaseWallet {
   readonly walletClient: ReturnType<typeof createWalletClient>;
   private state: BaseWalletState;
   private readonly stateListeners = new Set<(state: BaseWalletState) => void>();
   private readonly provider: Eip1193Provider;
+  private readonly attributionSuffix?: Hex;
   private readonly handleAccountsChanged = (): void => { void this.refresh(); };
   private readonly handleChainChanged = (): void => { void this.refresh(); };
 
@@ -63,9 +79,15 @@ export class BaseWallet {
     provider: Eip1193Provider,
     readonly expectedChainId = 84532,
     readonly rpcUrl = 'https://sepolia.base.org',
+    builderCode?: string,
   ) {
     this.provider = provider;
     this.state = { status: 'disconnected', expectedChainId };
+    // The suffix is validated once, at construction, so a malformed builder code
+    // can never silently strip attribution from a funded transaction.
+    if (builderCode !== undefined && builderCode !== '') {
+      this.attributionSuffix = encodeBuilderCodeSuffix([builderCode]);
+    }
     const chain = defineChain({
       id: expectedChainId,
       name: expectedChainId === 8453 ? 'Base Mainnet' : 'Base Sepolia',
@@ -75,6 +97,23 @@ export class BaseWallet {
     this.walletClient = createWalletClient({ chain, transport: custom(provider as never) });
     provider.on?.('accountsChanged', this.handleAccountsChanged);
     provider.on?.('chainChanged', this.handleChainChanged);
+  }
+
+  /** The exact ERC-8021 suffix appended to every contract call, when configured. */
+  getAttributionSuffix(): Hex | undefined {
+    return this.attributionSuffix;
+  }
+
+  /**
+   * Apply ERC-8021 attribution at the single shared transaction boundary so
+   * facility calls, venue calls, approvals, and router submissions are all
+   * attributed. Value-only transfers stay untouched, and calldata that already
+   * carries the marker fails closed instead of double-counting.
+   */
+  attributeCalldata(data: Hex): Hex {
+    if (!this.attributionSuffix) return data;
+    if (hasBuilderCodeSuffix(data)) throw new Error('BUILDER_CODE_DUPLICATE_SUFFIX');
+    return appendBuilderCodeSuffix(data, this.attributionSuffix);
   }
 
   getState(): BaseWalletState {
@@ -160,28 +199,21 @@ export class BaseWallet {
     return this.state.address;
   }
 
+  /** Simulate exactly the calldata that would be sent, attribution included. */
   async simulate(transaction: UnsignedBaseTransaction): Promise<unknown> {
-    const from = this.assertWritable();
-    return this.provider.request({
-      method: 'eth_call',
-      params: [{
-        from,
-        to: transaction.to,
-        data: transaction.data,
-        value: toHex(transaction.value ?? 0n),
-      }, 'latest'],
-    });
+    return this.simulateCall({ ...transaction, data: this.attributeCalldata(transaction.data) });
   }
 
   async sendTransaction(transaction: UnsignedBaseTransaction): Promise<Hex> {
     const from = this.assertWritable();
-    await this.simulate(transaction);
+    const data = this.attributeCalldata(transaction.data);
+    await this.simulateCall({ ...transaction, data });
     const result = await this.provider.request({
       method: 'eth_sendTransaction',
       params: [{
         from,
         to: transaction.to,
-        data: transaction.data,
+        data,
         value: toHex(transaction.value ?? 0n),
       }],
     });
@@ -207,6 +239,19 @@ export class BaseWallet {
       return decoded;
     } catch {
       throw new Error('ALLOWANCE_READ_FAILED');
+    }
+  }
+
+  async readTokenBalance(token: Address, owner = this.assertWritable()): Promise<bigint> {
+    const data = encodeFunctionData({ abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [owner] });
+    const raw = await this.provider.request({ method: 'eth_call', params: [{ to: token, data }, 'latest'] });
+    if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]+$/.test(raw)) throw new Error('TOKEN_BALANCE_READ_FAILED');
+    try {
+      const decoded = decodeFunctionResult({ abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', data: raw as Hex });
+      if (typeof decoded !== 'bigint') throw new Error('TOKEN_BALANCE_READ_FAILED');
+      return decoded;
+    } catch {
+      throw new Error('TOKEN_BALANCE_READ_FAILED');
     }
   }
 
@@ -304,6 +349,19 @@ export class BaseWallet {
     this.stateListeners.clear();
   }
 
+  private async simulateCall(transaction: UnsignedBaseTransaction): Promise<unknown> {
+    const from = this.assertWritable();
+    return this.provider.request({
+      method: 'eth_call',
+      params: [{
+        from,
+        to: transaction.to,
+        data: transaction.data,
+        value: toHex(transaction.value ?? 0n),
+      }, 'latest'],
+    });
+  }
+
   private setState(next: BaseWalletState): void {
     this.state = next;
     for (const listener of this.stateListeners) listener(next);
@@ -313,7 +371,34 @@ export class BaseWallet {
 export function createBrowserWallet(chainId = 84532, rpcUrl = 'https://sepolia.base.org'): BaseWallet | null {
   if (typeof window === 'undefined') return null;
   const provider = (window as Window & { ethereum?: Eip1193Provider }).ethereum;
-  return provider ? new BaseWallet(provider, chainId, rpcUrl) : null;
+  if (!provider) return null;
+  return new BaseWallet(provider, chainId, rpcUrl, readBuilderCode());
+}
+
+/**
+ * Resolve the ERC-8021 Builder Code from the injected runtime config first and
+ * the build-time Vite value second. An unset code simply disables attribution;
+ * a malformed one throws from the wallet constructor.
+ */
+function readBuilderCode(): string | undefined {
+  const globalConfig = typeof window === 'undefined'
+    ? undefined
+    : (window as Window & { __KATON_BASE_CONFIG__?: unknown }).__KATON_BASE_CONFIG__;
+  const injected = builderCodeFrom(globalConfig);
+  if (injected !== undefined) return injected;
+  const envConfig = (import.meta as ImportMeta & { readonly env?: Readonly<Record<string, string | undefined>> }).env?.[BUILDER_CODE_ENV_KEY];
+  return envConfig === undefined || envConfig === '' ? undefined : envConfig;
+}
+
+function builderCodeFrom(config: unknown): string | undefined {
+  if (config === undefined || config === null) return undefined;
+  let parsed: unknown = config;
+  if (typeof config === 'string') {
+    try { parsed = JSON.parse(config) as unknown; } catch { return undefined; }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+  const value = (parsed as { builderCode?: unknown }).builderCode;
+  return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
 function chainState(address: Address, chainId: number, expectedChainId: number): BaseWalletState {

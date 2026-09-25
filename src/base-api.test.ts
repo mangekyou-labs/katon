@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { keccak256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import request from 'supertest';
 import {
   assertKeylessConfiguration,
   BaseApiController,
@@ -58,6 +62,169 @@ function bodyHash(body: string): `0x${string}` {
 }
 
 describe('T3.5 keyless API boundary', () => {
+  it('serves sanitized evidence artifacts from KATON_BASE_EVIDENCE_DIR through the HTTP endpoint', async () => {
+    const evidenceDir = await fs.mkdtemp(path.join(os.tmpdir(), 'katon-base-evidence-'));
+    const previousEvidenceDir = process.env.KATON_BASE_EVIDENCE_DIR;
+    await fs.mkdir(path.join(evidenceDir, 'evidence'), { recursive: true });
+    await fs.mkdir(path.join(evidenceDir, 'sepolia'), { recursive: true });
+    await fs.writeFile(path.join(evidenceDir, 'evidence/provider-gates.json'), JSON.stringify({
+      canonicalPin: { block: 51068301, hash: `0x${'11'.repeat(32)}` },
+      providers: [{
+        provider: '0x',
+        httpStatus: 422,
+        status: 'SELL_TOKEN_NOT_AUTHORIZED_FOR_TRADE',
+        responseHash: `0x${'22'.repeat(32)}`,
+        responseBody: 'private provider payload',
+      }],
+      cow: {
+        status: 'live-quote-locally-signed',
+        httpStatus: 200,
+        quoteAgeMs: 9,
+        responseHash: `0x${'33'.repeat(32)}`,
+        recoveryMatches: true,
+        providerVerified: false,
+        submitted: false,
+        signature: 'private local signature',
+      },
+    }));
+    await fs.writeFile(path.join(evidenceDir, 'sepolia/redemption-proof.json'), JSON.stringify({
+      verified: true,
+      purchaseReceipt: { transactionHash: `0x${'44'.repeat(32)}` },
+      redemptionReceipt: {
+        transactionHash: `0x${'55'.repeat(32)}`,
+        blockNumber: '47184929',
+        blockHash: `0x${'66'.repeat(32)}`,
+      },
+      realizedPnlUsdc: '100000',
+    }));
+    process.env.KATON_BASE_EVIDENCE_DIR = evidenceDir;
+
+    let app: Awaited<ReturnType<typeof createBaseApi>> | undefined;
+    try {
+      app = await createBaseApi({
+        config,
+        repository: new InMemoryBaseRepository(),
+        clock: new InMemoryClock(1_000n),
+        snapshot: new InMemoryChainSnapshotPort(),
+        signatures: new InMemorySignatureVerificationPort(),
+        notifications: new InMemoryNotificationPort(),
+      });
+      await app.listen(0, '127.0.0.1');
+      const response = await request(app.getHttpServer()).get('/v1/evidence').expect(200);
+      expect(response.body).toMatchObject({
+        canonical: { block: '51068301', blockHash: `0x${'11'.repeat(32)}` },
+        providers: [
+          expect.objectContaining({ provider: '0x', status: 'blocked-token-not-authorized', httpStatus: 422, responseHash: `0x${'22'.repeat(32)}` }),
+          expect.objectContaining({ provider: 'COW', status: 'live-quote-locally-signed-unverified', responseHash: `0x${'33'.repeat(32)}` }),
+          expect.objectContaining({ provider: '1inch', status: 'deferred', httpStatus: null }),
+        ],
+        redemption: {
+          status: 'CONTROLLED_QA_REDEMPTION_SETTLED',
+          purchaseReceipt: `0x${'44'.repeat(32)}`,
+          receipt: `0x${'55'.repeat(32)}`,
+          block: '47184929',
+          blockHash: `0x${'66'.repeat(32)}`,
+          realizedPnl: '100000 native-USDC units (6 decimals)',
+        },
+        productionEligible: false,
+      });
+      expect(JSON.stringify(response.body)).not.toContain('private provider payload');
+      expect(JSON.stringify(response.body)).not.toContain('private local signature');
+
+      await fs.rm(path.join(evidenceDir, 'evidence/provider-gates.json'));
+      await fs.rm(path.join(evidenceDir, 'sepolia/redemption-proof.json'));
+      const missing = await request(app.getHttpServer()).get('/v1/evidence').expect(200);
+      expect(missing.body.redemption).toMatchObject({
+        status: 'controlled-qa-redemption-not-run',
+        receipt: null,
+        realizedPnl: null,
+      });
+      expect(missing.body.providers).toEqual(expect.arrayContaining([
+        expect.objectContaining({ provider: '0x', status: expect.stringMatching(/^(unavailable|configured-unproven)$/) }),
+        expect.objectContaining({ provider: 'COW', status: expect.stringMatching(/^(unavailable|configured-unproven)$/) }),
+      ]));
+    } finally {
+      await app?.close();
+      if (previousEvidenceDir === undefined) delete process.env.KATON_BASE_EVIDENCE_DIR;
+      else process.env.KATON_BASE_EVIDENCE_DIR = previousEvidenceDir;
+      await fs.rm(evidenceDir, { recursive: true, force: true });
+    }
+  });
+
+  it('serves captured provider and controlled redemption evidence through the HTTP endpoint', async () => {
+    const app = await createBaseApi({
+      config,
+      repository: new InMemoryBaseRepository(),
+      clock: new InMemoryClock(1_000n),
+      snapshot: new InMemoryChainSnapshotPort(),
+      signatures: new InMemorySignatureVerificationPort(),
+      notifications: new InMemoryNotificationPort(),
+      evidence: {
+        readProviderGates: () => ({
+          canonicalPin: { block: 51068301, hash: `0x${'11'.repeat(32)}` },
+          providers: [{ provider: '0x', httpStatus: 422, responseHash: `0x${'22'.repeat(32)}` }],
+          cow: {
+            status: 'live-quote-locally-signed',
+            httpStatus: 200,
+            quoteAgeMs: 9,
+            responseHash: `0x${'33'.repeat(32)}`,
+            recoveryMatches: true,
+            providerVerified: false,
+            submitted: false,
+          },
+        }),
+        readRedemptionProof: () => ({
+          verified: true,
+          purchaseReceipt: { transactionHash: `0x${'44'.repeat(32)}` },
+          redemptionReceipt: {
+            transactionHash: `0x${'55'.repeat(32)}`,
+            blockNumber: '47184929',
+            blockHash: `0x${'66'.repeat(32)}`,
+          },
+          realizedPnlUsdc: '100000',
+        }),
+      },
+    });
+
+    try {
+      await app.listen(0, '127.0.0.1');
+      const response = await request(app.getHttpServer()).get('/v1/evidence').expect(200);
+      expect(response.body).toMatchObject({
+        chain: { chainId: 84532, qa: 'sepolia-controlled-qa-redemption-verified' },
+        canonical: { block: '51068301', blockHash: `0x${'11'.repeat(32)}` },
+        providers: [
+          expect.objectContaining({
+            provider: '0x',
+            status: 'blocked-token-not-authorized',
+            httpStatus: 422,
+            responseHash: `0x${'22'.repeat(32)}`,
+          }),
+          expect.objectContaining({
+            provider: 'COW',
+            status: 'live-quote-locally-signed-unverified',
+            quoteAgeMs: 9,
+            responseHash: `0x${'33'.repeat(32)}`,
+            transactionReceipt: null,
+          }),
+          expect.objectContaining({ provider: '1inch', status: 'deferred', httpStatus: null }),
+        ],
+        redemption: {
+          status: 'CONTROLLED_QA_REDEMPTION_SETTLED',
+          purchaseReceipt: `0x${'44'.repeat(32)}`,
+          receipt: `0x${'55'.repeat(32)}`,
+          block: '47184929',
+          blockHash: `0x${'66'.repeat(32)}`,
+          realizedPnl: '100000 native-USDC units (6 decimals)',
+        },
+        productionEligible: false,
+      });
+      expect(JSON.stringify(response.body)).not.toContain('responseBody');
+      expect(JSON.stringify(response.body)).not.toContain('signature');
+    } finally {
+      await app.close();
+    }
+  });
+
   it('does not allow swap signing to downgrade from the breaking v2 domain', () => {
     expect(swapDomainFor(config)).toMatchObject({ name: 'KatonRFQSettlement', version: '2', chainId: 84532, verifyingContract: SETTLEMENT });
     expect(() => swapDomainFor({ ...config, swapDomainVersion: '1' })).toThrow('SWAP_DOMAIN_VERSION_INVALID');

@@ -3,6 +3,7 @@ import { formatUnitsExact, parseUnitsExact, USDC_DECIMALS } from '../../../packa
 import type { Address } from 'viem';
 import {
   BaseApiError,
+  type BaseEvidenceDto,
   buildRfqFundingOrder,
   signFundingBid,
   signInWithWallet,
@@ -27,6 +28,7 @@ import {
   submitWinnerRoute,
   approveStockSale,
   submitStockSaleRoute,
+  submitExternalStockSaleRoute,
   withdraw,
 } from './transactions';
 import type { BaseWallet, BaseWalletState } from './wallet';
@@ -38,6 +40,76 @@ export interface PageProps {
   readonly walletState: BaseWalletState;
   readonly connectWallet: () => Promise<void>;
   readonly switchNetwork: () => Promise<void>;
+}
+
+/** Public preview pages are compiled into a separate read-only Vercel deployment. */
+export function DemoOverviewPage(): ReactElement {
+  return <div className="content public-demo">
+    <PageHeading eyebrow="KATON BASE DESK · GUIDED EVALUATION" title="A clearer route from tokenized stock to USDC." description="A seller-first desk for reviewing a stock sale on Base. Walk through the wallet checks, quote review, provider gap, and controlled Sepolia proof. This preview does not connect a wallet or submit transactions." config={demoConfig()} />
+    <section className="panel panel--hero demo-intro">
+      <div><p className="eyebrow">CURRENT STATUS</p><h2>Product proof is ahead of live liquidity.</h2><p className="body-copy">The Base Sepolia journey uses mock AAPLc and native USDC. Canonical AAPLc is checked separately at a pinned Base block. No executable canonical AAPLc sale route has been verified.</p></div>
+      <div className="demo-status"><StatusTag tone="amber">Read only</StatusTag><strong>No live route established</strong><span>Production eligible: no</span></div>
+    </section>
+    <section className="panel"><PanelHeader eyebrow="THREE-MINUTE WALKTHROUGH" title="Follow the seller journey" />
+      <ol className="demo-steps">
+        <li><span className="step-index">01</span><div><strong>Check the wallet and network</strong><p>Before a real quote, connect a wallet and use the expected Base network. A wrong network blocks the action until the wallet switches.</p></div><span className="step-state">Preview only</span></li>
+        <li><span className="step-index">02</span><div><strong>Review the route before signing</strong><p>Confirm the stock, minimum USDC, guaranteed output, gas estimate, expiry, and exact allowance target. Approval comes before the sale transaction.</p></div><span className="step-state">No route in preview</span></li>
+        <li><span className="step-index">03</span><div><strong>Understand the liquidity gap</strong><p>0x rejected canonical AAPLc in a pinned request. CoW returned an unverified quote, which is not executable liquidity.</p></div><span className="step-state">Open gate</span></li>
+        <li><span className="step-index">04</span><div><strong>Inspect the controlled test sale</strong><p>A mock 8-decimal AAPLc completed a Base Sepolia QA purchase and settlement for native USDC. It is not AP redemption.</p></div><span className="step-state">Receipts recorded</span></li>
+      </ol>
+      <div className="button-row"><a className="button button--primary" href="/sell">Walk through Sell stock</a><a className="button button--secondary" href="/evidence">Review evidence</a></div>
+    </section>
+    <section className="demo-proof-grid" aria-label="Key evaluation evidence">
+      <article className="panel"><p className="eyebrow">CANONICAL METADATA</p><strong className="demo-proof-value">13 assets · 8 decimals</strong><p className="field-hint">Pinned Base block 51,068,301 · 8 fork cases passed.</p><a className="text-link" href="https://basescan.org/block/51068301" target="_blank" rel="noreferrer">Inspect pinned Base block ↗</a></article>
+      <article className="panel"><p className="eyebrow">CONTROLLED QA</p><strong className="demo-proof-value">0.100000 USDC realized</strong><p className="field-hint">Mock stock lifecycle on Base Sepolia; not production or AP redemption.</p><a className="text-link" href="/evidence">Open the two Sepolia receipts →</a></article>
+      <article className="panel"><p className="eyebrow">NEXT DECISION</p><strong className="demo-proof-value">No-go for live pilot</strong><p className="field-hint">A verified executable path and a concrete pilot route are still required.</p><a className="text-link" href="/evidence">Read the route check →</a></article>
+    </section>
+  </div>;
+}
+
+export function DemoSellPage(): ReactElement {
+  return <div className="content public-demo">
+    <PageHeading eyebrow="SELL STOCK · READ-ONLY WALKTHROUGH" title="Review every step before a wallet signs." description="A live sale would start with an eligible stock amount and minimum USDC output. The steps below show the checks and the current provider result without requesting wallet access." config={demoConfig()} />
+    <section className="grid grid--two demo-sell-grid">
+      <div className="panel"><PanelHeader eyebrow="STEP 1 · INPUT" title="Choose the asset and amount" /><div className="demo-field"><span>Stock</span><strong>Canonical AAPLc · 8 decimals</strong></div><div className="demo-field"><span>Sell amount</span><strong>1.00000000 AAPLc</strong></div><div className="demo-field"><span>Minimum proceeds</span><strong>Set by the seller in native USDC</strong></div><div className="state-card state-card--unavailable"><strong>Wallet step</strong><p>Connect a holder wallet on Base, then recheck token balance and network. This public preview skips wallet access.</p></div></div>
+      <div className="panel"><PanelHeader eyebrow="STEP 2 · ROUTE CHECK" title="No executable quote available" /><div className="route-state"><StatusTag tone="amber">Unavailable</StatusTag><strong>Canonical AAPLc is not currently routable</strong><p>0x previously rejected AAPLc as not authorized for trading. CoW's quote was unverified and cannot be treated as executable liquidity.</p></div><div className="demo-field"><span>Next wallet action</span><strong>No approval or sale transaction</strong></div><p className="field-hint">A real route must pass holder, token, amount, recipient, network, allowance, simulation, and receipt checks before it can be submitted.</p></div>
+    </section>
+    <section className="panel"><PanelHeader eyebrow="RECORDED MOCK JOURNEY" title="Base Sepolia · mock AAPLc → native USDC" /><p className="body-copy">This completed controlled QA path uses a mock 8-decimal stock token. It demonstrates the transaction lifecycle only; it is not a canonical B20 sale or Coinbase/AP redemption.</p><div className="demo-receipts">
+      <ReceiptStep number="1" title="Mock stock purchased" detail="1.00000000 mock AAPLc for 0.900000 native USDC" href="https://sepolia.basescan.org/tx/0x65fd21250094adfc2798b4afa3e138a8d0804587201a6db456e98b1ba55e1dcc" />
+      <ReceiptStep number="2" title="Operator settlement recorded" detail="Settled for 1.000000 native USDC · 0.100000 USDC realized" href="https://sepolia.basescan.org/tx/0x73670be1969b23caa0d51728137386012dcdeeb3a1a307ffd230cd177a67e4cc" />
+    </div><div className="button-row"><a className="button button--secondary" href="/evidence">See all evidence</a><a className="button button--secondary" href="/">Back to overview</a></div></section>
+  </div>;
+}
+
+export function DemoEvidencePage(): ReactElement {
+  return <div className="content public-demo">
+    <PageHeading eyebrow="EVIDENCE · VERIFIED AND OPEN" title="Separate what passed from what remains unproven." description="Base Sepolia QA proves a controlled mock lifecycle. Pinned canonical metadata and fork results cover a different lane. Neither proves live AAPLc liquidity." config={demoConfig()} />
+    <section className="panel"><PanelHeader eyebrow="CANONICAL ASSET AND FORK CHECK" title="Pinned Base mainnet state" /><div className="grid grid--two demo-facts"><Metric label="Pinned block" value="51,068,301" /><Metric label="Block hash" value="0x81ceda…b73ea41" /><Metric label="Canonical B20 assets" value="13 · all 8 decimals" /><Metric label="Pinned fork suite" value="8 cases passed" /></div><p className="field-hint">Canonical metadata and fork behavior are checked at this pinned block; this is not a deployed mainnet sale.</p><div className="button-row"><a className="text-link" href="https://basescan.org/block/51068301" target="_blank" rel="noreferrer">View pinned Base block ↗</a><a className="text-link" href="/base-demo-evidence.json">Open sanitized fork evidence ↗</a></div></section>
+    <section className="panel"><PanelHeader eyebrow="PROVIDER CHECK" title="No live AAPLc route established" /><div className="grid grid--three">
+      <ProviderEvidence name="0x" status="Token rejected in pinned request" detail="HTTP 422 · SELL_TOKEN_NOT_AUTHORIZED_FOR_TRADE · no route or transaction." />
+      <ProviderEvidence name="CoW" status="Quote is unverified" detail="HTTP 200 · signed-intent only · no order submitted. This is not executable liquidity." />
+      <ProviderEvidence name="1inch / maker" status="Deferred / unavailable" detail="No configured 1inch key and no committed internal maker inventory or size." />
+    </div><p className="helper">No provider onboarding, executable size, or actual holder execution path has been verified.</p></section>
+    <section className="panel"><PanelHeader eyebrow="BASE SEPOLIA · CONTROLLED QA" title="Mock lifecycle completed" /><div className="grid grid--two demo-facts"><Metric label="Mock stock" value="AAPLc · 8 decimals" /><Metric label="Purchased" value="1.00000000 for 0.900000 USDC" /><Metric label="Operator settlement" value="1.000000 USDC" /><Metric label="Realized P&L" value="0.100000 USDC" /></div><div className="demo-receipts"><ReceiptStep number="1" title="Purchase receipt" detail="Base Sepolia · mock stock purchase" href="https://sepolia.basescan.org/tx/0x65fd21250094adfc2798b4afa3e138a8d0804587201a6db456e98b1ba55e1dcc" /><ReceiptStep number="2" title="Settlement receipt" detail="Base Sepolia · operator settlement" href="https://sepolia.basescan.org/tx/0x73670be1969b23caa0d51728137386012dcdeeb3a1a307ffd230cd177a67e4cc" /></div><p className="helper">Classification: controlled QA redemption, not Coinbase/AP redemption. Production eligible: false.</p></section>
+    <section className="state-card state-card--unavailable grant-decision"><StatusTag tone="red">No-go · live pilot</StatusTag><h2>What would change the decision?</h2><p>Verified 0x authorization and a tested holder route, an onboarded 1inch executable quote for a stated size, or an internal maker commitment with inventory, capacity, price, and settlement terms.</p></section>
+  </div>;
+}
+
+function ReceiptStep({ number, title, detail, href }: { readonly number: string; readonly title: string; readonly detail: string; readonly href: string }): ReactElement {
+  return <div className="receipt-step"><span className="step-index">{number}</span><div><strong>{title}</strong><p>{detail}</p></div><a className="text-link" href={href} target="_blank" rel="noreferrer">View receipt ↗</a></div>;
+}
+
+function ProviderEvidence({ name, status, detail }: { readonly name: string; readonly status: string; readonly detail: string }): ReactElement {
+  return <div className="state-card provider-evidence"><div className="summary-title"><strong>{name}</strong><StatusTag tone="amber">Open</StatusTag></div><strong>{status}</strong><p>{detail}</p></div>;
+}
+
+function demoConfig(): BaseRuntimeConfig {
+  return {
+    network: 'sepolia', chainId: 84532, networkName: 'Base Sepolia', rpcUrl: '', apiUrl: '',
+    explorerUrl: 'https://sepolia.basescan.org', usdc: '0x0000000000000000000000000000000000000000',
+    deployment: {}, adapters: [], b20Assets: {}, status: 'unavailable', writesEnabled: false,
+    productionEligible: false, forkQa: false, liquidationEnabled: false, reason: 'DASHBOARD_UNAVAILABLE',
+  };
 }
 
 export function HomePage({ config, api }: PageProps): ReactElement {
@@ -135,7 +207,8 @@ export function SellPage({ config, api, wallet, walletState, connectWallet, swit
   const recommended = quote?.recommended;
   const canExecute = Boolean(
     canQuote
-      && recommended?.kind === 'INTERNAL'
+      && recommended
+      && ['INTERNAL', 'EXTERNAL'].includes(recommended.kind)
       && recommended.transaction
       && quote
       && BigInt(quote.sellAmount) === parsedSellAmount,
@@ -155,9 +228,8 @@ export function SellPage({ config, api, wallet, walletState, connectWallet, swit
     setBusy(true); setError(null); setFeedback(null); setQuote(null);
     try {
       const taker = wallet.assertWritable();
-      const approval = await approveStockSale(wallet, config, stockToken, parsedSellAmount);
-      setFeedback(approval ? 'Exact stock allowance confirmed. Collecting private quotes…' : 'Exact stock allowance already set. Collecting private quotes…');
       await authenticate();
+      setFeedback('Collecting private quotes…');
       const next = await api.quoteStockSale({
         stockToken,
         usdcToken: config.usdc,
@@ -177,10 +249,29 @@ export function SellPage({ config, api, wallet, walletState, connectWallet, swit
   }
 
   async function executeQuote(): Promise<void> {
-    if (!wallet || !quote?.recommended || quote.recommended.kind !== 'INTERNAL' || !quote.recommended.transaction || !stockToken) return;
+    if (!wallet || !quote?.recommended || !quote.recommended.transaction || !stockToken || parsedSellAmount === null || parsedMinBuyAmount === null) return;
     setBusy(true); setError(null); setFeedback(null);
     try {
-      await submitStockSaleRoute(wallet, config, { route: quote.recommended, stockToken, stockAmount: BigInt(quote.sellAmount) });
+      await authenticate();
+      const taker = wallet.assertWritable();
+      if (quote.recommended.kind === 'INTERNAL') {
+        await approveStockSale(wallet, config, stockToken, parsedSellAmount);
+      }
+      const fresh = await api.quoteStockSale({
+        stockToken,
+        usdcToken: config.usdc,
+        sellAmount: parsedSellAmount,
+        minBuyAmount: parsedMinBuyAmount,
+        taker,
+        recipient: taker,
+        deadline: BigInt(Math.floor(Date.now() / 1_000) + 30),
+      });
+      const route = quote.recommended.kind === 'INTERNAL'
+        ? fresh.recommended?.kind === 'INTERNAL' && fresh.recommended.source === quote.recommended.source ? fresh.recommended : undefined
+        : fresh.external.find((candidate) => candidate.kind === 'EXTERNAL' && candidate.source === quote.recommended?.source);
+      if (!route || fresh.status !== 'WINNER') throw new Error('EXTERNAL_QUOTE_CHANGED_REQUOTE');
+      if (route.kind === 'EXTERNAL') await submitExternalStockSaleRoute(wallet, config, fresh, route);
+      else await submitStockSaleRoute(wallet, config, { route, stockToken, stockAmount: BigInt(fresh.sellAmount) });
       setFeedback('Stock sale confirmed. USDC was delivered to the connected wallet.');
     } catch (reason) {
       const code = errorCode(reason);
@@ -219,12 +310,57 @@ export function SellPage({ config, api, wallet, walletState, connectWallet, swit
         </section>
         <section className="panel" aria-labelledby="sell-review-heading">
           <PanelHeader eyebrow="PRIVATE ROUTE REVIEW" title="Execution summary" />
-          {!quote ? <p className="empty-copy">Connect the wallet and request a quote to see the recommended source, guaranteed output, gas estimate, expiry, and allowance target.</p> : quote.status === 'NO_ROUTE' ? <div className="state-card state-card--unavailable"><StatusTag tone="amber">No executable route</StatusTag><p>{quote.reason ?? 'NO_ELIGIBLE_QUOTE'}</p></div> : recommended ? <StockSaleRouteReview route={recommended} quote={quote} config={config} canExecute={Boolean(canExecute && !busy)} onExecute={executeQuote} /> : <p className="empty-copy">The auction returned no recommended route.</p>}
+          {!quote ? <p className="empty-copy">Connect the wallet and request a quote to see the recommended source, guaranteed output, gas estimate, expiry, and allowance target.</p> : quote.status === 'NO_ROUTE' ? <div className="state-card state-card--unavailable"><StatusTag tone="amber">No executable route</StatusTag><p>No provider quote met the minimum output. Check this asset’s provider eligibility or reduce the minimum USDC received, then request a fresh quote.</p>{quote.reason ? <p className="field-hint">Route status: <code>{quote.reason}</code></p> : null}</div> : recommended ? <StockSaleRouteReview route={recommended} quote={quote} config={config} canExecute={Boolean(canExecute && !busy)} onExecute={executeQuote} /> : <p className="empty-copy">The auction returned no recommended route.</p>}
         </section>
       </div>
       {quote && quote.status === 'WINNER' ? <section className="panel" aria-labelledby="alternatives-heading"><PanelHeader eyebrow="COMPETING SOURCES" title="Alternatives" /><div className="grid grid--two"><div><p className="eyebrow">INTERNAL</p>{quote.alternatives.length === 0 ? <p className="empty-copy">No losing internal route is disclosed.</p> : quote.alternatives.map((route) => <StockSaleAlternative key={route.routeId} route={route} config={config} />)}</div><div><p className="eyebrow">VENUE-NATIVE</p>{quote.external.length === 0 ? <p className="empty-copy">No provider packet met the minimum.</p> : quote.external.map((route) => <StockSaleAlternative key={route.routeId} route={route} config={config} external />)}</div></div></section> : null}
     </div>
   );
+}
+
+export function EvidencePage({ config, api }: PageProps): ReactElement {
+  const [evidence, setEvidence] = useState<BaseEvidenceDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    void api.getEvidence().then((value) => { if (mounted) setEvidence(value); })
+      .catch((reason: unknown) => { if (mounted) setError(errorCode(reason)); });
+    return () => { mounted = false; };
+  }, [api]);
+  return <div className="content">
+    <PageHeading eyebrow="GRANT EVIDENCE" title="Execution evidence and open gates." description="Canonical fork execution, live venue data, Sepolia QA transactions, and controlled redemption are reported as separate evidence lanes." config={config} />
+    {error ? <UnavailableNotice reason={error} /> : null}
+    {!evidence ? <p className="empty-copy">Loading evidence status…</p> : <>
+      <section className="panel"><PanelHeader eyebrow="NETWORK / CANONICAL" title="Pinned state" />
+        <Metric label="API chain" value={`${evidence.chain.network} · ${evidence.chain.chainId}`} />
+        <Metric label="QA lane" value={evidence.chain.qa} />
+        <Metric label="Canonical metadata" value={evidence.canonical.status} />
+        <Metric label="Pinned block" value={evidence.canonical.block} />
+        <Metric label="Block hash" value={evidence.canonical.blockHash} />
+      </section>
+      <section className="panel"><PanelHeader eyebrow="LIVE PROVIDERS" title="Quote and execution records" />
+        <div className="grid grid--three">{evidence.providers.map((entry) => <div className="state-card" key={entry.provider}>
+          <div className="summary-title"><strong>{entry.provider}</strong><StatusTag tone={entry.status === 'deferred' ? 'amber' : entry.transactionReceipt ? 'green' : 'gray'}>{entry.status}</StatusTag></div>
+          <Metric label="Block" value={entry.block ?? 'No live proof'} />
+          <Metric label="Provider response" value={entry.httpStatus === null ? 'Unavailable' : `HTTP ${entry.httpStatus}`} />
+          <Metric label="Quote age" value={entry.quoteAgeMs === null ? 'Unavailable' : `${entry.quoteAgeMs} ms`} />
+          <Metric label="Response hash" value={entry.responseHash ?? 'Unavailable'} />
+          <Metric label="Transaction receipt" value={entry.transactionReceipt ?? 'No execution recorded'} />
+          <p className="field-hint">{entry.detail}</p>
+        </div>)}</div>
+      </section>
+      <section className="panel"><PanelHeader eyebrow="SEPOLIA QA" title="Redemption lifecycle" />
+        <Metric label="State" value={evidence.redemption.status} />
+        <Metric label="Purchase receipt" value={evidence.redemption.purchaseReceipt ?? 'No QA purchase recorded'} />
+        <Metric label="Settlement receipt" value={evidence.redemption.receipt ?? 'No QA receipt recorded'} />
+        <Metric label="Settlement block" value={evidence.redemption.block ?? 'Unavailable'} />
+        <Metric label="Settlement block hash" value={evidence.redemption.blockHash ?? 'Unavailable'} />
+        <Metric label="Realized P&L" value={evidence.redemption.realizedPnl ?? 'Not measured'} />
+        <p className="helper">A QA redemption record represents the controlled mock facility flow. It does not represent Coinbase or AP redemption.</p>
+      </section>
+      <p className="field-hint">Production eligible: {String(evidence.productionEligible)}. Provider configuration is not execution evidence.</p>
+    </>}
+  </div>;
 }
 
  function StockSaleRouteReview({ route, quote, config, canExecute, onExecute }: { readonly route: StockSaleRouteDto; readonly quote: StockSaleQuoteDto; readonly config: BaseRuntimeConfig; readonly canExecute: boolean; readonly onExecute: () => Promise<void> }): ReactElement {

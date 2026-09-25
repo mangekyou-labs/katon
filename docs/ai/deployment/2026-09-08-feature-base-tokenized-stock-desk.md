@@ -120,6 +120,24 @@ is still separately incomplete and is not claimed by the current candidate.
 - Playwright QA accounts stay uncommitted
 - Rotate bot API keys independently of contract guardians
 
+### Public evidence endpoint artifacts
+
+The API reads two optional files from `KATON_BASE_EVIDENCE_DIR`:
+
+```text
+<KATON_BASE_EVIDENCE_DIR>/evidence/provider-gates.json
+<KATON_BASE_EVIDENCE_DIR>/sepolia/redemption-proof.json
+```
+
+For a deployment image or mounted volume, copy only those required evidence
+artifacts into this tree and set `KATON_BASE_EVIDENCE_DIR` to its absolute path
+in the API container. The local default is `./output/base-qa`, resolved from
+the API process working directory. Missing files remain unavailable in
+`GET /v1/evidence`; they do not block API startup. The endpoint projects a
+fixed set of status, block, response-hash, receipt, and realized-P/L fields, so
+provider response bodies, CoW signatures, and other source artifact fields are
+never returned.
+
 ## Rollback Plan
 
 - Triggers: oracle fail-open, B20 policy miss, unexpected fee, custody of funds by the API, venue bytecode mismatch, liquidation gate drift

@@ -153,6 +153,30 @@ export interface StockSaleQuoteDto {
   readonly external: readonly StockSaleRouteDto[];
 }
 
+export interface BaseEvidenceDto {
+  readonly chain: { readonly network: string; readonly chainId: number; readonly qa: string };
+  readonly canonical: { readonly status: string; readonly block: string; readonly blockHash: Hex };
+  readonly providers: readonly {
+    readonly provider: string;
+    readonly status: string;
+    readonly detail: string;
+    readonly httpStatus: number | null;
+    readonly block: string | null;
+    readonly quoteAgeMs: number | null;
+    readonly responseHash: Hex | null;
+    readonly transactionReceipt: Hex | null;
+  }[];
+  readonly redemption: {
+    readonly status: string;
+    readonly purchaseReceipt: Hex | null;
+    readonly receipt: Hex | null;
+    readonly block: string | null;
+    readonly blockHash: Hex | null;
+    readonly realizedPnl: string | null;
+  };
+  readonly productionEligible: false;
+}
+
 export interface SiweNonceDto {
   readonly nonce: string;
   readonly issuedAt: string;
@@ -246,6 +270,10 @@ export class BaseBrowserApi {
       }),
     });
     return parseStockSaleQuote(result);
+  }
+
+  async getEvidence(): Promise<BaseEvidenceDto> {
+    return this.request('/v1/evidence') as Promise<BaseEvidenceDto>;
   }
 
   async getNonce(): Promise<SiweNonceDto> {
