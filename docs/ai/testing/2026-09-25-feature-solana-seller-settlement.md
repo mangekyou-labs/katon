@@ -11,8 +11,48 @@ date: 2026-09-25
 This note records the technical settlement close bar for
 [issue #22](https://github.com/mangekyou-labs/katon/issues/22). The canonical
 behavior remains the [Seller Desk full specification](https://github.com/mangekyou-labs/katon/issues/16).
-This localnet walkthrough does not resolve the separate human UX decision in
-[issue #23](https://github.com/mangekyou-labs/katon/issues/23).
+The human UX decision in [issue #23](https://github.com/mangekyou-labs/katon/issues/23)
+accepted a 1.0 AAPLx TEST walkthrough with a fee display discrepancy recorded.
+The corrected 0.1 walkthrough below is a fresh technical rerun; it does not
+represent a new human review of those screenshots.
+
+## Corrected fee and fresh 0.1 walkthrough
+
+The local Private Maker candidate now reports no venue fee and reports the one
+governed Katon fee at 10 bps. Ranking, the issued settlement, pre-sign Review,
+receipt, and RPC deltas all reconcile to that single fee. The corrected
+walkthrough used **0.1 AAPLx TEST** on offline Surfpool:
+
+| Evidence | RPC-observed value |
+| --- | --- |
+| Signature | `3wEdfZomdhtUuQsU69ScYhhEmJZQSFFrBymh6vv6ZQAojszyXZ6XdDYEsMCiadexY5NbeGX4HKjRz23qcnhT3ugx` |
+| Slot and commitment | `798`, `confirmed` |
+| FillReceipt PDA | `GKnwZ94R6qHLwM9MMpET2HcvfzcExsVJRpunCSc49sqp` |
+| Seller stock debit | `100000` atomic (`0.1`) |
+| Gross Maker USDC debit | `10008000` atomic (`10.008`) |
+| Single governed fee | `10` bps; `10008` atomic (`0.010008`) |
+| Seller net minimum and credit | `9997992` atomic (`9.997992`) |
+
+The browser journey checked the issued quote and successful RPC simulation
+before Review, asserted the exact fee and net in the frozen pre-sign Review,
+signed those issued bytes, then asserted the same fee and net in the confirmed
+receipt. The browser independently fetched the landed transaction and checked
+the signature, instruction discriminator/accounts/data, FillReceipt, signature
+status, token-balance metadata, and token-account state through RPC.
+
+| Token account | Before (atomic) | After (atomic) | Delta |
+| --- | ---: | ---: | ---: |
+| Seller stock | 2500000 | 2400000 | -100000 |
+| Maker stock | 0 | 100000 | +100000 |
+| Maker USDC | 1000000000000 | 999989992000 | -10008000 |
+| Seller USDC | 0 | 9997992 | +9997992 |
+| Fee USDC | 0 | 10008 | +10008 |
+
+Captured evidence: [pre-sign Review](evidence/2026-09-25-seller-review-0.1.png)
+and [confirmed receipt](evidence/2026-09-25-seller-receipt-0.1.png). Both
+screenshots show localnet test assets; the receipt includes the confirmed slot,
+fee rate and amount, all token deltas, FillReceipt, quote ID, and signature.
+No Devnet or Mainnet RPC request or transaction was made by this walkthrough.
 
 ## Seller Wallet Standard walkthrough
 
@@ -86,11 +126,11 @@ FillReceipt PDA.
 
 ## Verification run
 
-- `NO_DNA=1 npx vitest run src/solana-localnet-settlement.test.ts src/solana-client.test.ts src/solana-seller-routes.test.ts src/solana-tokenized-stock.test.ts` — 46 tests passed. Covers settlement ABI/account validation, changed accounts/messages, source liquidity and balance gating, failed simulation, quote/review expiry, replay handling, and ambiguous submission reconciliation.
-- `NO_DNA=1 npm run typecheck:solana-api` — passed.
-- `NO_DNA=1 npm run build:solana-web` — passed.
-- `NO_DNA=1 npm run test:solana:settlement-validator` — passed. Validator scenarios cover exact deltas and fee, replay, expired/overlong windows, fee cap, duplicate accounts, CPI rollback, paused settlement, and Token-2022 fee/extension restrictions.
-- `NO_DNA=1 node tools/solana-seller-browser-journey.mjs` — passed; one Seller execution attempt, one confirmed localnet transaction, and no Devnet/Mainnet request.
+- `NO_DNA=1 npx vitest run src/solana-localnet-settlement.test.ts src/solana-client.test.ts src/solana-seller-routes.test.ts src/solana-tokenized-stock.test.ts src/solana-maker-settlement.test.ts` — 59 tests passed. Covers the corrected fee quote, settlement ABI/account validation, changed accounts/messages, source liquidity and balance gating, failed simulation, quote/review expiry, replay handling, and ambiguous submission reconciliation.
+- `NO_DNA=1 npm run typecheck` — passed.
+- `NO_DNA=1 npm run build` — passed.
+- `NO_DNA=1 cargo test --manifest-path contracts/solana-rfq/Cargo.toml --offline` — 14 unit tests and 17 LiteSVM tests passed, including governance delay and early-apply rejection.
+- `NO_DNA=1 node tools/solana-seller-browser-journey.mjs` — passed on 2026-09-25; input `0.1`, successful issued RPC simulation, one Seller execution attempt, one confirmed localnet transaction, complete Review/receipt screenshots, and no Devnet/Mainnet request.
 - `git diff --check` — passed.
 
 The program and API reject unsupported or drifting mint/account state before

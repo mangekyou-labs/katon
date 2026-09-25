@@ -281,12 +281,14 @@ try {
   assert.match(reviewText, new RegExp(fixture.sellerPubkey));
   assert.ok(issuedWinner.katonFeeBps !== undefined, 'issued quote declares its governed fee rate');
   assert.ok(reviewText.includes(`${atomicToDecimal(issuedWinner.katonFeeAtomic)} USDC · ${issuedWinner.katonFeeBps} bps`), 'pre-sign Review shows the exact amount and rate');
+  await page.setViewportSize({ width: 1280, height: 2200 });
   await page.screenshot({ path: reviewScreenshotPath, fullPage: true });
   await review.getByRole('button', { name: 'Approve and sign settlement' }).click();
   await page.getByRole('heading', { name: 'Stock settlement complete' }).waitFor({ timeout: 60_000 });
   const receiptPanel = page.getByRole('dialog', { name: 'Stock settlement complete' });
   const receiptText = await receiptPanel.innerText();
   assert.ok(receiptText.includes(`${atomicToDecimal(issuedWinner.katonFeeAtomic)} USDC · ${issuedWinner.katonFeeBps} bps`), 'final receipt shows the exact amount and rate');
+  await page.setViewportSize({ width: 1280, height: 2200 });
   await page.screenshot({ path: receiptScreenshotPath, fullPage: true });
 
   assert.ok(issuedWinner?.transactionBase64, 'browser flow fetched the actual Private Maker transaction');

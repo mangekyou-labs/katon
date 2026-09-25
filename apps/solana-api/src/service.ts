@@ -30,7 +30,7 @@ import type {
   VerifiedSourceBalance,
 } from '@katon/solana-core';
 import { RejectingSourceBalanceProvider, SubmissionUncertainError, type JupiterExecutor, type PrivateSender, type QuoteSource, type SourceBalanceProvider } from './sources';
-import { localReferencePolicySnapshot, type ReferencePolicySnapshot } from './reference-policy';
+import { localReferencePolicySnapshot, type ReferencePolicyProvider, type ReferencePolicySnapshot } from './reference-policy';
 
 export interface StoredSession {
   session: QuoteSession;
@@ -127,9 +127,14 @@ export class MemoryAssetProvider implements AssetProvider {
   }
 }
 
-function publicSession(stored: StoredSession): QuoteSession {
+export type PublicQuoteSession = QuoteSession & { readonly referencePolicy?: ReferencePolicySnapshot };
+
+function publicSession(stored: StoredSession, referencePolicy?: ReferencePolicySnapshot): PublicQuoteSession {
   const winner = stored.session.winner;
-  return winner ? { ...stored.session, winner: { ...winner } } : stored.session;
+  return {
+    ...(winner ? { ...stored.session, winner: { ...winner } } : stored.session),
+    ...(referencePolicy ? { referencePolicy } : {}),
+  };
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage = 'operation timed out'): Promise<T> {
@@ -256,6 +261,7 @@ export class QuoteDeskService {
     private readonly simulator: QuoteSimulationProvider = new RejectingQuoteSimulationProvider(),
     private readonly sourceBalances: SourceBalanceProvider = new RejectingSourceBalanceProvider(),
     private readonly monotonicClock: () => number = () => performance.now(),
+    private readonly referencePolicyProvider?: ReferencePolicyProvider,
   ) {
     this.sources = [...sources];
     this.makerPublicKeys = makerPublicKeysFromSources(sources);
@@ -278,6 +284,7 @@ export class QuoteDeskService {
   }
 
   listAssets(wallet: string, outputMint: string): readonly (AssetRegistryEntry & { readonly balanceAtomic: string; readonly eligibility: EligibilityResult; readonly capability: AssetCapability; readonly referencePolicy: ReferencePolicySnapshot })[] {
+    const referencePolicy = this.referencePolicyStatus();
     return this.assets.list().map((asset) => {
       const eligibility = asset.issuer === 'ondo' && !asset.enabled
         ? {
@@ -294,14 +301,15 @@ export class QuoteDeskService {
         balanceAtomic: this.assets.balance(wallet, asset),
         eligibility,
         capability: projectCapability(asset, eligibility),
-        referencePolicy: this.referencePolicyStatus(),
+        referencePolicy,
       };
     });
   }
 
-  async createSession(request: QuoteSessionRequest, nowMs?: number): Promise<QuoteSession> {
-    const createdAtMs = nowMs ?? this.clock();
+  async createSession(request: QuoteSessionRequest, nowMs?: number): Promise<PublicQuoteSession> {
+    await this.refreshReferencePolicy(nowMs ?? this.clock());
     await this.assets.refresh?.(request.wallet, request.inputMint, request.outputMint);
+    const createdAtMs = nowMs ?? this.clock();
     const eligibility = this.checkRequest(request, createdAtMs);
     const id = randomUUID();
     const session = buildSession(id, request, createdAtMs, eligibility);
@@ -317,33 +325,33 @@ export class QuoteDeskService {
     this.sessions.set(id, stored);
     this.emit(stored);
     if (session.state === 'collecting') this.startCollect(stored, createdAtMs);
-    return publicSession(stored);
+    return this.publicSession(stored);
   }
 
   /** External Quote Sprint create alias. */
-  createQuoteSprint(request: QuoteSessionRequest, nowMs?: number): Promise<QuoteSession> {
+  createQuoteSprint(request: QuoteSessionRequest, nowMs?: number): Promise<PublicQuoteSession> {
     return this.createSession(request, nowMs);
   }
 
-  getSession(id: string, nowMs = this.clock()): QuoteSession {
+  getSession(id: string, nowMs = this.clock()): PublicQuoteSession {
     const stored = this.requireSession(id);
     if (stored.collectionComplete && stored.session.state === 'collecting') this.startFinalize(stored, nowMs);
     this.expireIfNeeded(stored, nowMs);
-    return publicSession(stored);
+    return this.publicSession(stored);
   }
 
-  getQuoteSprint(id: string, nowMs = this.clock()): QuoteSession {
+  getQuoteSprint(id: string, nowMs = this.clock()): PublicQuoteSession {
     return this.getSession(id, nowMs);
   }
 
-  subscribe(id: string, listener: (session: QuoteSession) => void): () => void {
+  subscribe(id: string, listener: (session: PublicQuoteSession) => void): () => void {
     const listeners = this.listeners.get(id) ?? new Set<(session: QuoteSession) => void>();
     listeners.add(listener);
     this.listeners.set(id, listeners);
     const stored = this.sessions.get(id);
     if (stored) {
       if (stored.collectionComplete && stored.session.state === 'collecting') this.startFinalize(stored, this.clock());
-      listener(publicSession(stored));
+      listener(this.publicSession(stored));
     }
     return () => {
       listeners.delete(listener);
@@ -351,7 +359,7 @@ export class QuoteDeskService {
     };
   }
 
-  async collectNow(id: string, nowMs?: number): Promise<QuoteSession> {
+  async collectNow(id: string, nowMs?: number): Promise<PublicQuoteSession> {
     const stored = this.requireSession(id);
     this.startCollect(stored, nowMs ?? this.clock());
     await stored.collectionPromise;
@@ -361,13 +369,15 @@ export class QuoteDeskService {
     return this.getSession(id, finalizedAtMs);
   }
 
-  async review(id: string, wallet: string, nowMs = this.clock()): Promise<QuoteSession> {
+  async review(id: string, wallet: string, nowMs = this.clock()): Promise<PublicQuoteSession> {
+    await this.refreshReferencePolicy(nowMs);
     const stored = this.requireSession(id);
     const reviewNowMs = stored.liveClock ? this.clock() : nowMs;
     this.expireIfNeeded(stored, reviewNowMs);
     const winner = stored.session.winner;
     if (!winner || stored.session.state !== 'winner_ready') throw new Error('quote is not ready for review');
     if (stored.session.request.wallet !== wallet || winner.wallet !== wallet) throw new Error('wallet does not match quoted seller');
+    this.assertReferencePolicyReady(stored, reviewNowMs, 'review');
     const remaining = winner.expiresAtMs - reviewNowMs;
     if (remaining <= 2_000) {
       this.expireIfNeeded(stored, reviewNowMs);
@@ -388,7 +398,9 @@ export class QuoteDeskService {
         await withTimeout(this.simulator.simulate(winner, reviewNowMs), 3_000, 'final quote simulation timed out'),
         reviewNowMs,
       );
+      await this.refreshReferencePolicy(stored.liveClock ? this.clock() : nowMs);
       const finalReviewNowMs = stored.liveClock ? this.clock() : nowMs;
+      this.assertReferencePolicyReady(stored, finalReviewNowMs, 'review');
       if (winner.expiresAtMs - finalReviewNowMs <= 2_000) {
         this.expireIfNeeded(stored, finalReviewNowMs);
         throw new Error('quote expired; request a fresh quote');
@@ -403,7 +415,7 @@ export class QuoteDeskService {
       if (!simulation.ok) this.clearTransaction(stored);
       this.emit(stored);
       if (!simulation.ok) throw new Error(stored.session.failureMessage);
-      return publicSession(stored);
+      return this.publicSession(stored);
     } catch (error) {
       if (stored.session.state !== 'failed' && stored.session.state !== 'expired') {
         stored.session = { ...stored.session, state: 'failed', failureMessage: error instanceof Error ? error.message : 'final simulation failed' };
@@ -420,10 +432,12 @@ export class QuoteDeskService {
     reviewHash: string,
     signedTransactionBase64: string,
     nowMs = this.clock(),
-  ): Promise<QuoteSession> {
+  ): Promise<PublicQuoteSession> {
+    await this.refreshReferencePolicy(nowMs);
     const stored = this.requireSession(id);
     const authorizeNowMs = stored.liveClock ? this.clock() : nowMs;
     this.expireIfNeeded(stored, authorizeNowMs);
+    this.assertReferencePolicyReady(stored, authorizeNowMs, 'authorization');
     const winner = stored.session.winner;
     if (stored.session.state === 'expired') throw new Error('quote expired; request a fresh quote');
     if (!winner || stored.session.state !== 'winner_ready') throw new Error('quote is not ready for authorization');
@@ -449,7 +463,7 @@ export class QuoteDeskService {
     stored.authorizedSignedTransactionBase64 = signedTransactionBase64;
     stored.session = { ...stored.session, state: 'authorized' };
     this.emit(stored);
-    return publicSession(stored);
+    return this.publicSession(stored);
   }
 
   async createExecutionAttempt(
@@ -460,8 +474,10 @@ export class QuoteDeskService {
     const existing = stored.executionAttempts.get(input.idempotencyKey);
     if (existing) return { attempt: existing.attempt, ...(existing.receipt === undefined ? {} : { receipt: existing.receipt }) };
 
+    await this.refreshReferencePolicy(nowMs);
     const executeNowMs = stored.liveClock ? this.clock() : nowMs;
     this.expireIfNeeded(stored, executeNowMs);
+    this.assertReferencePolicyReady(stored, executeNowMs, 'execution');
     const winner = stored.session.winner;
     if (!winner || stored.session.state !== 'authorized') throw new Error('quote requires authorization before execution');
     this.assertSourceActive(winner.sourceId, 'execution');
@@ -606,12 +622,17 @@ export class QuoteDeskService {
   }
 
   referencePolicyStatus(nowMs = this.clock()): ReferencePolicySnapshot {
+    if (this.referencePolicyProvider) return this.referencePolicyProvider.snapshot(nowMs);
     // No production vendor adapters are wired in this release. An environment
     // flag alone cannot turn the local fixture into licensed market evidence.
     if (process.env.NODE_ENV === 'production') {
       return { status: 'unavailable', checkedAtMs: nowMs, reason: 'production reference policy providers are not configured' };
     }
     return localReferencePolicySnapshot(nowMs);
+  }
+
+  async refreshReferencePolicy(nowMs = this.clock()): Promise<void> {
+    await this.referencePolicyProvider?.refresh(nowMs);
   }
 
   private requireSession(id: string): StoredSession {
@@ -644,6 +665,23 @@ export class QuoteDeskService {
       outputMint,
       nowMs,
     });
+  }
+
+  private assertReferencePolicyReady(stored: StoredSession, nowMs: number, action: 'review' | 'authorization' | 'execution'): void {
+    const reference = this.referencePolicyStatus(nowMs);
+    if (reference.status === 'ready') return;
+    const message = `reference policy ${reference.status} before ${action}: ${reference.reason ?? 'observations unavailable'}`;
+    const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
+    stored.session = {
+      ...stored.session,
+      state: 'failed',
+      eligibility: { status: 'unknown', code: 'capability_unavailable', message, ...(asset ? { asset } : {}), checkedAtMs: nowMs },
+      failureMessage: message,
+    };
+    this.clearTransaction(stored);
+    stored.authorizedSignedTransactionBase64 = undefined;
+    this.emit(stored);
+    throw new Error(message);
   }
 
   private checkRequest(request: QuoteSessionRequest, nowMs: number): EligibilityResult {
@@ -681,6 +719,7 @@ export class QuoteDeskService {
   private async collect(id: string, nowMs = this.clock()): Promise<void> {
     const stored = this.sessions.get(id);
     if (!stored || stored.session.state !== 'collecting') return;
+    await this.refreshReferencePolicy(stored.liveClock ? this.clock() : nowMs);
     await this.assets.refresh?.(stored.session.request.wallet, stored.session.request.inputMint, stored.session.request.outputMint);
     const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
     if (!asset) {
@@ -768,6 +807,7 @@ export class QuoteDeskService {
 
   private async finalizeCollection(stored: StoredSession, nowMs: number): Promise<void> {
     if (!stored.collectionComplete || stored.session.state !== 'collecting') return;
+    await this.refreshReferencePolicy(stored.liveClock ? this.clock() : nowMs);
     const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
     if (!asset) {
       stored.candidates = [];
@@ -868,7 +908,12 @@ export class QuoteDeskService {
   private emit(stored: StoredSession): void {
     const listeners = this.listeners.get(stored.session.id);
     if (!listeners) return;
-    const snapshot = publicSession(stored);
+    const snapshot = this.publicSession(stored);
     for (const listener of listeners) listener(snapshot);
+  }
+
+  private publicSession(stored: StoredSession): PublicQuoteSession {
+    const nowMs = stored.liveClock ? this.clock() : stored.session.createdAtMs;
+    return publicSession(stored, this.referencePolicyStatus(nowMs));
   }
 }

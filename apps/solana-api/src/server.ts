@@ -11,6 +11,7 @@ import { DeskOperatorControls, loadProvisionedRoleIdentities, RoleSessionService
 import { createSolanaOperatorEvidenceReaderFromEnv } from './operator-evidence';
 import { governedMakerIds } from './governance-observation';
 import { SellerSessionService, type SellerCluster } from './seller-auth';
+import { createLiveReferencePolicyProviderFromEnv } from './live-reference-policy';
 import type { QuoteSessionRequest } from '@katon/solana-core';
 
 const port = Number(process.env.SOLANA_API_PORT ?? 8787);
@@ -36,6 +37,7 @@ if (!localnetRpc && sourceBalances instanceof MemorySourceBalanceProvider) {
     sourceBalances.setBalance('maker-sandbox-01', outputMint, '1000000000000');
   }
 }
+const referencePolicyProvider = createLiveReferencePolicyProviderFromEnv();
 export const desk = new QuoteDeskService(
   assets,
   [new JupiterStubSource(), maker],
@@ -44,6 +46,8 @@ export const desk = new QuoteDeskService(
   Date.now,
   localnetRpc ? new LocalnetQuoteSimulationProvider(localnetRpc) : new MockQuoteSimulationProvider(),
   sourceBalances,
+  undefined,
+  referencePolicyProvider,
 );
 if (localnetFixture && localnetRpc) {
   await localnetRpc.assertGovernedFixture();
@@ -245,6 +249,7 @@ export function route(request: IncomingMessage, response: ServerResponse): void 
       if (request.method === 'GET' && parts.join('/') === 'v1/operator') {
         roleSessions.authenticate(bearer(request), 'operator');
         const evidence = await observeGovernedMakerEnablement();
+        await desk.refreshReferencePolicy();
         json(response, 200, {
           ...operatorControls.operatorStatus({ sources: desk.operatorSourceStatus(), referencePolicy: desk.referencePolicyStatus() }),
           ...evidence,
@@ -252,6 +257,7 @@ export function route(request: IncomingMessage, response: ServerResponse): void 
         return;
       }
       if (request.method === 'GET' && parts.join('/') === 'v1/reference-policy') {
+        await desk.refreshReferencePolicy();
         json(response, 200, desk.referencePolicyStatus());
         return;
       }
@@ -306,6 +312,7 @@ export function route(request: IncomingMessage, response: ServerResponse): void 
         if (wallet) authenticateSeller(request, wallet);
         fundWalletIfNeeded(wallet);
         if (wallet && localnetFixture && localnetAssets) await localnetAssets.refresh(wallet, localnetFixture.stockMint, outputMint);
+        await desk.refreshReferencePolicy();
         json(response, 200, desk.listAssets(wallet, outputMint));
         return;
       }

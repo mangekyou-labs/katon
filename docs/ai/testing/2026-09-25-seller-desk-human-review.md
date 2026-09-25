@@ -39,7 +39,7 @@ RPC transaction pre/post token balances:
 | Seller test USDC | 0 | 99.97992 | +99.97992 |
 | Fee account test USDC | 0 | 0.10008 | +0.10008 |
 
-## Receipt differences visible in the screenshot
+## Receipt discrepancy in the human-reviewed screenshot
 
 The receipt correctly shows the stock debit, Maker inventory, Maker stablecoin
 debit, Seller stablecoin credit, slot, quote, FillReceipt, and transaction
@@ -47,16 +47,35 @@ signature. It shows **0.1008 USDC · 0 bps** for the fee, but the landed
 instruction and RPC balances show **0.10008 USDC · 10 bps**. The receipt fee
 amount and fee rate therefore do not match independent RPC evidence.
 
-The reviewer chose ACCEPT with these differences recorded. They remain visible
-UX discrepancies and are not represented here as passing the receipt-match
-check. All assets and balances above are offline local test assets with no
-issuer backing.
+The reviewer chose ACCEPT with the discrepancy recorded. That screenshot did
+not pass the receipt-match check. The fee display was corrected afterward and
+the fresh 0.1 walkthrough below confirms that the current Review and receipt
+show the single 10 bps fee. All assets and balances above are offline local
+test assets with no issuer backing.
+
+## Corrected 0.1 technical follow-up — no new human decision
+
+On 2026-09-25, the automated Wallet Standard browser journey was repeated with
+0.1 AAPLx TEST after correcting the local quote's fee breakdown. It showed
+`0.010008 USDC · 10 bps` and `9.997992 USDC` net in both pre-sign Review and
+the confirmed receipt. RPC confirmed signature
+`3wEdfZomdhtUuQsU69ScYhhEmJZQSFFrBymh6vv6ZQAojszyXZ6XdDYEsMCiadexY5NbeGX4HKjRz23qcnhT3ugx`
+at slot `798`, with `10008` fee atomic units and `9997992` Seller USDC atomic
+units. The full new evidence is linked from the [settlement testing note](2026-09-25-feature-solana-seller-settlement.md):
+[pre-sign Review screenshot](evidence/2026-09-25-seller-review-0.1.png) and
+[confirmed receipt screenshot](evidence/2026-09-25-seller-receipt-0.1.png).
+
+This follow-up establishes the corrected technical behavior. It does not
+claim that the human reviewer separately inspected or approved these new
+screenshots; the existing ACCEPT remains the decision recorded on issue #23.
 
 ## Evidence limitations
 
-The screenshot supplied in chat is not embedded in this text artifact. It
-shows the completed receipt; it does not show the frozen pre-sign Review panel.
-RPC evidence independently confirms the landed transaction and token deltas.
+The original screenshot supplied in chat is not embedded in this text artifact.
+It showed the completed receipt but not the frozen pre-sign Review panel. The
+corrected automated follow-up has both Review and receipt screenshots in the
+repository. RPC evidence independently confirms its landed transaction and
+token deltas; those new screenshots have not received a separate human review.
 
 ## Posted issue updates
 

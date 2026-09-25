@@ -2,10 +2,21 @@ import type { AssetRegistryEntry, EligibilityResult, QuoteCandidate, SanitizedAu
 
 export type AssetCapability = 'executable' | 'informational' | 'unavailable';
 
+export interface ReferenceObservationView {
+  readonly provider: string;
+  readonly symbol?: string;
+  readonly priceAtomic: string;
+  readonly observedAtMs: number;
+  readonly marketSession?: string;
+}
+
 export interface ReferencePolicyView {
   readonly status: 'ready' | 'market_closed' | 'stale' | 'conflicting' | 'corporate_action_pending' | 'unavailable';
   readonly checkedAtMs: number;
-  readonly primary?: { readonly provider: string; readonly priceAtomic: string; readonly observedAtMs: number };
+  readonly primary?: ReferenceObservationView;
+  readonly crossCheck?: ReferenceObservationView;
+  readonly pyth?: ReferenceObservationView;
+  readonly reason?: string;
 }
 
 export interface AssetView extends AssetRegistryEntry {
@@ -48,6 +59,8 @@ export interface QuoteSprint {
   /** Bound review package hash when the server projects one. */
   readonly reviewHash?: string;
   readonly failureMessage?: string;
+  /** Exact Reference Policy snapshot exposed with quote and frozen review data. */
+  readonly referencePolicy?: ReferencePolicyView;
 }
 
 export interface AuthorizeQuoteSprintRequest {
