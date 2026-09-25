@@ -64,9 +64,11 @@ describe('localnet Private Maker settlement builder', () => {
 
     expect(issued.candidate.transactionBase64).toBeTruthy();
     expect(issued.candidate.settlementRoute).toBe('generic-spl');
-    expect(issued.candidate.venueFeeAtomic).toBe('5000');
+    expect(issued.candidate.grossOutputAtomic).toBe('5000000');
+    expect(issued.candidate.venueFeeAtomic).toBe('0');
     expect(issued.candidate.netOutputAtomic).toBe('4995000');
-    expect(issued.candidate.katonFeeAtomic).toBe('0');
+    expect(issued.candidate.katonFeeAtomic).toBe('5000');
+    expect(issued.candidate.katonFeeBps).toBe(10);
     expect(issued.transaction.message.header.numRequiredSignatures).toBe(2);
     expect(issued.transaction.message.staticAccountKeys[0]?.toBase58()).toBe(seller.publicKey.toBase58());
     expect(issued.transaction.message.staticAccountKeys[1]?.toBase58()).toBe(maker.publicKey.toBase58());

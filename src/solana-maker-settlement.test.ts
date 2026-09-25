@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { Keypair, PublicKey, SystemProgram, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
+import { AddressLookupTableAccount, ComputeBudgetProgram, Keypair, PublicKey, SystemProgram, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { validateMakerSettlement } from '../apps/solana-api/src/maker-settlement';
 
 const program = new PublicKey('J32rnah2cKSL1nrMw3HQS8A8Lx17JvjY6WNn5qQSyGib');
@@ -68,16 +68,14 @@ function settlementInstruction(
   return new TransactionInstruction({ programId: program, keys: accounts, data });
 }
 
-function signedTransaction(instructions: TransactionInstruction[]): string {
-  const issuedAt = Math.floor(Date.now() / 1000);
+function signedTransaction(instructions: TransactionInstruction[], lookupTables: AddressLookupTableAccount[] = []): string {
   const message = new TransactionMessage({
     payerKey: seller.publicKey,
     recentBlockhash: Keypair.generate().publicKey.toBase58(),
-    instructions,
-  }).compileToV0Message();
+    instructions: [ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }), ...instructions],
+  }).compileToV0Message(lookupTables);
   const transaction = new VersionedTransaction(message);
   transaction.sign([seller, maker]);
-  const _expiry = issuedAt + 20;
   return Buffer.from(transaction.serialize()).toString('base64');
 }
 
@@ -103,14 +101,14 @@ describe('Maker settlement transaction binding', () => {
   });
 
   it.each([
-    ['quote ID', (data: Buffer) => Buffer.from('28'.repeat(32), 'hex').copy(data, 8), /quote ID/],
+    ['quote ID', (data: Buffer) => Buffer.from('28'.repeat(32), 'hex').copy(data, 8), /quote terms/],
     ['issue time', (data: Buffer) => data.writeBigInt64LE(BigInt(Math.floor(Date.now() / 1000) + 1), 40), /economics|expiry/],
     ['expiry', (data: Buffer) => data.writeBigInt64LE(BigInt(Math.floor(terms.expiresAtMs / 1000) + 1), 48), /economics|expiry/],
-    ['stock amount', (data: Buffer) => data.writeBigUInt64LE(99_999n, 56), /economics/],
-    ['maker minimum', (data: Buffer) => data.writeBigUInt64LE(99_999n, 64), /economics/],
-    ['gross stable amount', (data: Buffer) => data.writeBigUInt64LE(99_999n, 72), /economics/],
-    ['seller minimum', (data: Buffer) => data.writeBigUInt64LE(99_901n, 80), /economics/],
-    ['fee', (data: Buffer) => data.writeUInt16LE(9, 88), /economics/],
+    ['stock amount', (data: Buffer) => data.writeBigUInt64LE(99_999n, 56), /quote terms/],
+    ['maker minimum', (data: Buffer) => data.writeBigUInt64LE(99_999n, 64), /quote terms/],
+    ['gross stable amount', (data: Buffer) => data.writeBigUInt64LE(99_999n, 72), /quote terms/],
+    ['seller minimum', (data: Buffer) => data.writeBigUInt64LE(99_901n, 80), /quote terms/],
+    ['fee', (data: Buffer) => data.writeUInt16LE(9, 88), /quote terms/],
     ['extension fingerprint', (data: Buffer) => { data[90] ^= 1; }, /fingerprint/],
   ] as const)('rejects a correctly signed settlement with a different %s', (_field, mutate, error) => {
     const data = settlementData();
@@ -130,6 +128,32 @@ describe('Maker settlement transaction binding', () => {
       .toThrow(/account/);
     expect(() => validateMakerSettlement(signedTransaction([settlementInstruction(), SystemProgram.transfer({
       fromPubkey: seller.publicKey, toPubkey: maker.publicKey, lamports: 1,
-    })]), terms)).toThrow(/extra instruction/);
+    })]), terms)).toThrow(/other instructions|extra instruction/i);
+  });
+
+  it('rejects extra compute settings, memo instructions, lookup tables, and an empty maker signature slot', () => {
+    expect(() => validateMakerSettlement(signedTransaction([
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }), settlementInstruction(),
+    ]), terms)).toThrow(/one compute limit|no other instructions/i);
+
+    const memo = new TransactionInstruction({
+      programId: new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'), keys: [], data: Buffer.from('memo'),
+    });
+    expect(() => validateMakerSettlement(signedTransaction([settlementInstruction(), memo]), terms))
+      .toThrow(/one compute limit|no other instructions/i);
+
+    const lookup = new AddressLookupTableAccount({
+      key: Keypair.generate().publicKey,
+      state: {
+        deactivationSlot: BigInt('18446744073709551615'), lastExtendedSlot: 0, lastExtendedSlotStartIndex: 0,
+        authority: undefined, addresses: [feeRecipient],
+      },
+    });
+    expect(() => validateMakerSettlement(signedTransaction([settlementInstruction()], [lookup]), terms))
+      .toThrow(/address lookup tables/i);
+
+    const serialized = Buffer.from(signedTransaction([settlementInstruction()]), 'base64');
+    serialized.fill(0, 1 + 64, 1 + 128);
+    expect(() => validateMakerSettlement(serialized.toString('base64'), terms)).toThrow(/maker signature slot is empty/i);
   });
 });

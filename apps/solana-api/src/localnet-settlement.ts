@@ -160,7 +160,6 @@ export async function buildLocalnetPrivateSettlement(
   transaction.sign([makerKeypair]);
   const transactionBase64 = Buffer.from(transaction.serialize()).toString('base64');
   const gross = BigInt(input.grossStableAmountAtomic);
-  const fee = feeAtomic(gross, fixture.feeBps);
   const quoteIdHex = quoteId.toString('hex');
   const expiresAtMs = Number(expirySeconds) * 1_000;
   const candidate = withComputedPrivateFee({
@@ -174,7 +173,7 @@ export async function buildLocalnetPrivateSettlement(
     outputMint: request.outputMint,
     inputAmountAtomic: request.inputAmountAtomic,
     grossOutputAtomic: gross.toString(),
-    venueFeeAtomic: fee.toString(),
+    venueFeeAtomic: '0',
     referencePriceAtomic: asset.referencePriceAtomic,
     referencePriceDecimals: asset.referencePriceDecimals,
     deviationBps: 8,
@@ -185,7 +184,7 @@ export async function buildLocalnetPrivateSettlement(
     transactionVersion: 'v0',
     transactionBase64,
     simulation: { ok: false, errorCode: 'awaiting_rpc_simulation', simulatedAtMs: input.nowMs },
-    feeBps: 0,
+    feeBps: fixture.feeBps,
   });
   const terms: MakerSettlementTerms = {
     quoteId: quoteIdHex,

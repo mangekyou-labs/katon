@@ -25,7 +25,7 @@ async function importRoutes() {
 }
 
 function request(method: string, url: string, body?: unknown, headers: Record<string, string> = {}) {
-  const requestHeaders = { host: 'localhost:8787', ...headers };
+  const requestHeaders: Record<string, string> = { host: 'localhost:8787', ...headers };
   if (body !== undefined) requestHeaders['content-type'] = 'application/json';
   const req = {
     method,

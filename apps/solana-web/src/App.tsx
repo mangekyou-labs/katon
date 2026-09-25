@@ -268,6 +268,7 @@ export function App(): ReactElement {
         inputAmountAtomic: winner.inputAmountAtomic,
         grossOutputAtomic: winner.grossOutputAtomic,
         netOutputAtomic: winner.netOutputAtomic,
+        feeBps: winner.katonFeeBps ?? 0,
         expiresAtMs: winner.expiresAtMs,
       });
       setSprint(reviewed);
@@ -301,6 +302,7 @@ export function App(): ReactElement {
         inputAmountAtomic: winner.inputAmountAtomic,
         grossOutputAtomic: winner.grossOutputAtomic,
         netOutputAtomic: winner.netOutputAtomic,
+        feeBps: winner.katonFeeBps ?? 0,
         expiresAtMs: winner.expiresAtMs,
       });
       if (!reviewedSettlement || JSON.stringify(currentSettlement) !== JSON.stringify(reviewedSettlement)) {

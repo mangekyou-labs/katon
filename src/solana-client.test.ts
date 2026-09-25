@@ -30,8 +30,9 @@ describe('inspectLocalnetSettlementTransaction', () => {
     assetRegistry: pda(Buffer.from('asset'), stockMint.toBuffer()),
     makerRegistry: pda(Buffer.from('makers')), governance: pda(Buffer.from('governance')), feeBps: 10,
   };
+  const alternateStableMint = new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB');
   const asset = localnetTestAsset({
-    mint: fixture.stockMint, stableOutputs: [stableMint.toBase58()], tokenProgram: 'spl-token', decimals: 6,
+    mint: fixture.stockMint, stableOutputs: [stableMint.toBase58(), alternateStableMint.toBase58()], tokenProgram: 'spl-token', decimals: 6,
     extensionFingerprint: fixture.stockExtensionFingerprint, issuerAuthorityFingerprint: '77'.repeat(32),
   });
 
@@ -50,7 +51,7 @@ describe('inspectLocalnetSettlementTransaction', () => {
     const summary = inspectLocalnetSettlementTransaction(issued.candidate.transactionBase64!, seller, {
       sourceKind: 'private-maker', quoteId: issued.candidate.quoteId, inputMint: fixture.stockMint,
       outputMint: stableMint.toBase58(), inputAmountAtomic: '1000000', grossOutputAtomic: '5000000',
-      netOutputAtomic: '4995000', expiresAtMs: issued.candidate.expiresAtMs,
+      netOutputAtomic: '4995000', feeBps: issued.terms.feeBps, expiresAtMs: issued.candidate.expiresAtMs,
     });
     expect(summary).toMatchObject({
       feePayer: seller, maker: fixture.makerPublicKey, programId: fixture.programId,
@@ -67,7 +68,7 @@ describe('inspectLocalnetSettlementTransaction', () => {
     const expected = {
       sourceKind: 'private-maker' as const, quoteId: issued.candidate.quoteId,
       inputMint: fixture.stockMint, outputMint: stableMint.toBase58(), inputAmountAtomic: '1000000',
-      grossOutputAtomic: '5000000', netOutputAtomic: '4995000', expiresAtMs: issued.candidate.expiresAtMs,
+      grossOutputAtomic: '5000000', netOutputAtomic: '4995000', feeBps: issued.terms.feeBps, expiresAtMs: issued.candidate.expiresAtMs,
     };
     const altered = VersionedTransaction.deserialize(Buffer.from(issued.candidate.transactionBase64!, 'base64'));
     const settle = altered.message.compiledInstructions.find((instruction) => altered.message.staticAccountKeys[instruction.programIdIndex]?.equals(programId));

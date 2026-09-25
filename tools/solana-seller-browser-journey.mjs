@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
@@ -17,6 +17,10 @@ import bs58 from 'bs58';
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const localRpcUrl = 'http://127.0.0.1:8899';
+const evidenceDir = join(repo, 'docs/ai/testing/evidence');
+const reviewScreenshotPath = join(evidenceDir, '2026-09-25-seller-review-0.1.png');
+const receiptScreenshotPath = join(evidenceDir, '2026-09-25-seller-receipt-0.1.png');
+mkdirSync(evidenceDir, { recursive: true });
 const fixturePath = join(repo, '.local/solana-seller-localnet.json');
 const allocatedPorts = new Set();
 const apiPort = await freePort();
@@ -261,6 +265,9 @@ try {
   await page.locator('#amount').fill('0.1');
   await page.getByRole('button', { name: /Find best executable price/ }).click();
   await page.locator('.ready-panel').waitFor();
+  const readyText = await page.locator('.ready-panel').innerText();
+  assert.ok(issuedWinner?.katonFeeAtomic, 'ready quote exposes a computed Katon fee');
+  assert.ok(readyText.includes(`${atomicToDecimal(issuedWinner.katonFeeAtomic)} USDC`), 'ready quote shows the governed fee amount');
   await page.getByRole('button', { name: 'Review settlement' }).click();
   const review = page.getByRole('dialog', { name: 'Review stock settlement' });
   await review.waitFor();
@@ -272,8 +279,15 @@ try {
   assert.match(reviewText, /settle_private_quote/);
   assert.match(reviewText, /LOCAL TEST ASSETS|Local test assets/);
   assert.match(reviewText, new RegExp(fixture.sellerPubkey));
+  assert.ok(issuedWinner.katonFeeBps !== undefined, 'issued quote declares its governed fee rate');
+  assert.ok(reviewText.includes(`${atomicToDecimal(issuedWinner.katonFeeAtomic)} USDC · ${issuedWinner.katonFeeBps} bps`), 'pre-sign Review shows the exact amount and rate');
+  await page.screenshot({ path: reviewScreenshotPath, fullPage: true });
   await review.getByRole('button', { name: 'Approve and sign settlement' }).click();
   await page.getByRole('heading', { name: 'Stock settlement complete' }).waitFor({ timeout: 60_000 });
+  const receiptPanel = page.getByRole('dialog', { name: 'Stock settlement complete' });
+  const receiptText = await receiptPanel.innerText();
+  assert.ok(receiptText.includes(`${atomicToDecimal(issuedWinner.katonFeeAtomic)} USDC · ${issuedWinner.katonFeeBps} bps`), 'final receipt shows the exact amount and rate');
+  await page.screenshot({ path: receiptScreenshotPath, fullPage: true });
 
   assert.ok(issuedWinner?.transactionBase64, 'browser flow fetched the actual Private Maker transaction');
   assert.equal(issuedWinner.sourceKind, 'private-maker');
@@ -422,6 +436,7 @@ try {
   });
 
   console.log('Seller Wallet Standard walkthrough: challenge signed, exact Private Maker v0 settlement reviewed, Seller signed issued bytes, one submission confirmed by local RPC.');
+  console.log(`Browser screenshots: ${reviewScreenshotPath} and ${receiptScreenshotPath}`);
   console.log(`Settlement evidence: ${JSON.stringify(rpcEvidence[0])}`);
   console.log(`HTTP evidence: ${httpEvidence.length} authenticated Seller API calls; every protected response succeeded. No Devnet or Mainnet request was made.`);
 } catch (error) {

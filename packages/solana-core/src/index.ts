@@ -1,5 +1,6 @@
 export * from './amounts';
 export * from './eligibility';
+export * from './frozen-settlement';
 export * from './issuers';
 export * from './quote';
 export * from './ranking';

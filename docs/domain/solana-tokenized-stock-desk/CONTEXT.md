@@ -44,6 +44,10 @@ _Avoid_: Trader, user, customer
 The seller-facing Quote Sprint and settlement flow.
 _Avoid_: Liquidator, exchange
 
+**Frozen Settlement Review**:
+The shared review of the base64 transaction a Private Maker partially signs and the Seller reviews. It binds the exact two-instruction transaction, quote terms, signer slots, and account privileges before server-owned account derivation and signature validation.
+_Avoid_: Transaction preview
+
 **Liquidation Execution**:
 The independently gated service that liquidates supported lending positions and atomically unwinds approved stock collateral.
 _Avoid_: Seller Desk, automatic fallback
