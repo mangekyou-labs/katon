@@ -178,6 +178,11 @@ automated tests.
 
 ## Seller Desk human acceptance walkthrough (2026-09-23)
 
+Historical record: this UX walkthrough used a local proof transfer. The
+technical settlement path was implemented and independently verified on
+2026-09-25 as recorded below; this earlier proof transfer is not evidence of a
+stock or stablecoin fill.
+
 The localnet acceptance UI explicitly identifies the transaction that may be
 signed as a 1 lamport System Program SOL transfer. It displays the recipient,
 fee payer, `solana:localnet` cluster, signer count, and the quote-only stock and
@@ -335,3 +340,30 @@ Maker sources. Collection and final ranking exclude disabled sources, and an
 already-issued winner is rejected at authorization or execution after its
 source is disabled. The Maker quote-rejection count now excludes malformed
 heartbeat, advertisement, and other non-quote stream messages.
+
+## Real Seller stock settlement on offline Surfpool (2026-09-25)
+
+The localnet Seller path now builds a Private Maker `settle_private_quote` v0
+transaction from the governed fixture and exact-input quote. The Maker signs
+the frozen message before review. Localnet preflight reads governed mint and
+token-account state, checks Maker source liquidity, and simulates the actual
+issued bytes through RPC. Jupiter remains a visibly non-executable demo stub
+in this RFQ settlement flow.
+
+Seller review decodes the issued transaction and binds approval to its message
+hash. It shows the actual stock debit, net stablecoin minimum, fee payer,
+`solana:localnet`, and executable instructions. Wallet Standard signs those
+same bytes; the API verifies the Maker and Seller signatures and message
+identity before its single submission.
+
+The sender derives the signature before submission and publishes no successful
+receipt until RPC reports confirmation, the landed transaction has no error,
+the token-account deltas match the quote and fee, and the RFQ-owned FillReceipt
+matches. Uncertain submission stays in reconciliation; a failed attempt does
+not enter successful activity. The Seller Wallet Standard walkthrough and
+independent transaction/account evidence are recorded in
+[`docs/ai/testing/2026-09-25-feature-solana-seller-settlement.md`](../testing/2026-09-25-feature-solana-seller-settlement.md).
+
+This evidence is for synthetic offline test assets only. It does not establish
+live issuer balances, Devnet behavior, production Squads approval, or the
+separate human UX acceptance decision in issue #23.

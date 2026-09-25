@@ -1,69 +1,62 @@
-# Seller localnet harness (ticket 13)
+# Seller localnet settlement harness
 
-Operator notes for `tools/solana-seller-localnet.mjs`. Not a product spec.
+Operator notes for `tools/solana-seller-localnet.mjs` and the Seller Wallet
+Standard walkthrough. This is an offline test fixture, not a production asset
+or issuer integration.
 
-## Agent / CLI requirement
+## Safety and prerequisites
 
-Always set `NO_DNA=1` for Surfpool / Anchor agent CLI:
+- Set `NO_DNA=1` for Surfpool and Anchor commands.
+- The only supported cluster is offline Surfpool at
+  `http://127.0.0.1:8899` (`solana:localnet`). Do not point the harness at
+  Devnet or Mainnet.
+- Surfpool must run with `--offline`; Surfpool's default fork mode is not used.
+- The RFQ binary is built from `contracts/solana-rfq` and loaded into the
+  local bank. Set `SURFPOOL_BIN` or `ANCHOR_BIN` only when the local binary is
+  installed outside the defaults in the harness.
 
-```bash
-NO_DNA=1 surfpool start --offline --no-tui --no-studio --yes --no-deploy --daemon
-```
+## Run the Seller walkthrough
 
-Binary default: `/Users/kyler/.local/bin/surfpool` (override with `SURFPOOL_BIN`).
-
-## One-shot bootstrap
-
-From repo root:
-
-```bash
-npm run seller:localnet
-# or
-node tools/solana-seller-localnet.mjs
-```
-
-The script:
-
-1. Checks `http://127.0.0.1:8899`; if down, starts offline Surfpool in the background with `NO_DNA=1` (`--daemon` on Linux; detached child on macOS).
-2. Funds seller + maker SOL via `surfnet_setAccount` (and startup `--airdrop` when it starts Surfpool).
-3. Creates a **local** Token-2022 QA stock mint + classic SPL USDC stand-in via `surfnet_setAccount` / `surfnet_setTokenAccount` — **not** cloned mainnet xStocks.
-4. Loads `solana_rfq.so` with `surfnet_writeProgram` when `contracts/solana-rfq/target/deploy/solana_rfq.so` exists. If governance init blocks a full deploy path, the harness still continues so the API loop can land a System transfer. **Does not** rewrite Squads vault PDA (ticket 14).
-5. Writes `.local/solana-seller-localnet.json`, `.local/maker-keypair.json`, `.local/seller-keypair.json` (gitignored).
-
-### Program build notes (ticket 13)
-
-`anchor build` produces `target/deploy/solana_rfq.so` but exits non-zero: SBF stack checks warn that `settle_private_quote` / `SettlePrivateQuote::try_accounts` exceed the 4096-byte frame (undefined behavior risk), and `idl-build` feature is missing on the program crate. Workspace `[profile.release] overflow-checks = true` is set. Harness loads the `.so` via `surfnet_writeProgram` with **hex** chunks when present (`programLoaded: true`). The local loop still lands a System-transfer v0 under `KATON_LOCALNET=1` (does not invoke settle CPI yet). Exact Input program path is covered by `cargo test --lib`.
-
-## Env printed by the harness
+From the repository root:
 
 ```bash
-export SOLANA_RPC_URL=http://127.0.0.1:8899
-export KATON_LOCALNET=1
-export KATON_MAKER_SECRET_KEY=$(cat .local/maker-keypair.json)
-export SOLANA_API_PORT=8787
+NO_DNA=1 node tools/solana-seller-browser-journey.mjs
 ```
 
-`KATON_LOCALNET=1` makes the API emit landable System-transfer v0 bytes (private maker co-signed; Jupiter stub self-transfer). No `api.jup.ag` calls.
+The walkthrough prepares the offline bank, launches the Seller API and Vite,
+and drives the trade page with a headless Wallet Standard test wallet. It
+checks the signed message against the Maker-issued bytes, submits once, waits
+for RPC confirmation, and independently reads the landed RFQ instruction,
+FillReceipt, transaction token-balance metadata, and before/after token
+accounts. The test process stops its API and web servers on completion.
 
-## API + loop
+The harness command can also be run by itself:
 
 ```bash
-npm run seller:localnet
-npm run dev:solana-api:localnet   # separate terminal
-npm run seller:loop
+NO_DNA=1 npm run seller:localnet
 ```
 
-Loop asserts the cluster signature does **not** start with `mock-` and that nothing called `api.jup.ag`.
+It loads the `solana_rfq` program, initializes or validates the governed local
+asset and Maker registry, and provisions Seller stock plus Maker, Seller, and
+fee-recipient USDC/USDT accounts. The generated fixture, keys, and Surfpool
+helpers live in ignored `.local/` files. Reusing an initialized governance
+fixture resets test token balances before a new walkthrough; the browser test
+also asserts the expected initial balances.
 
-## Background Surfpool (manual)
+## Local assets
 
-```bash
-mkdir -p .local
-NO_DNA=1 /Users/kyler/.local/bin/surfpool start \
-  --offline --no-tui --no-studio --yes --no-deploy --daemon \
-  --airdrop <SELLER_PUBKEY> --airdrop <MAKER_PUBKEY> \
-  --airdrop-amount 1000000000
-# pid/log helpers are under .local/ when started via the harness
-```
+The `AAPLx TEST` stock mint is created for this offline bank. The stablecoin
+fixtures use the familiar Solana USDC and USDT public-key identities, but their
+mint state and balances are locally provisioned synthetic test state. They
+have no issuer backing, do not prove a live stablecoin balance, and are not
+Devnet or Mainnet assets. The UI labels the assets accordingly.
 
-Stop with the process listed in `.local/surfpool.pid` or your process manager. Studio/TUI are disabled for agent use.
+## Current evidence
+
+The latest confirmed Seller-driven settlement and account identities are
+recorded in
+[`docs/ai/testing/2026-09-25-feature-solana-seller-settlement.md`](../docs/ai/testing/2026-09-25-feature-solana-seller-settlement.md).
+
+`tools/solana-seller-loop.mjs` is a legacy API-only probe. Use the browser
+walkthrough above for current acceptance evidence because it exercises the
+Wallet Standard review and signature path.

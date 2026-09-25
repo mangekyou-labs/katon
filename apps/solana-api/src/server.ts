@@ -6,6 +6,7 @@ import { validateMakerSettlement } from './maker-settlement';
 import { MemoryAssetProvider, MockQuoteSimulationProvider, QuoteDeskService } from './service';
 import { DEMO_WALLET, HeadlessPrivateMakerSource, JupiterStubSource, MemorySourceBalanceProvider, StreamedMakerSource, TrustedRpcSender } from './sources';
 import { demoAssets } from './registry';
+import { loadLocalnetFixtureConfig, loadMakerSecretKey, LocalnetAssetProvider, LocalnetQuoteSimulationProvider, LocalnetRpcClient, LocalnetSourceBalanceProvider } from './localnet-runtime';
 import { DeskOperatorControls, loadProvisionedRoleIdentities, RoleSessionService, verifyProvisionedSignature, type DeskRole, type MakerCapability, type RoleSessionClaims } from './roles';
 import { createSolanaOperatorEvidenceReaderFromEnv } from './operator-evidence';
 import { governedMakerIds } from './governance-observation';
@@ -13,17 +14,27 @@ import { SellerSessionService, type SellerCluster } from './seller-auth';
 import type { QuoteSessionRequest } from '@katon/solana-core';
 
 const port = Number(process.env.SOLANA_API_PORT ?? 8787);
-const assets = new MemoryAssetProvider(demoAssets);
-// Fund the local fixture wallet and any wallet that later appears via listAssets
-// for xStocks only. Ondo remains informational / non-executable.
-assets.setBalance(DEMO_WALLET, demoAssets[0].mint, '2500000');
-if (demoAssets[1]) assets.setBalance(DEMO_WALLET, demoAssets[1].mint, '2500000');
+const localnetFixture = process.env.KATON_LOCALNET === '1' ? loadLocalnetFixtureConfig() : undefined;
+const localnetRpc = localnetFixture ? new LocalnetRpcClient(localnetFixture) : undefined;
+const assets = localnetFixture && localnetRpc
+  ? new LocalnetAssetProvider(localnetFixture, localnetRpc)
+  : new MemoryAssetProvider(demoAssets);
+const localnetAssets = assets instanceof LocalnetAssetProvider ? assets : undefined;
+const memoryAssets = assets instanceof MemoryAssetProvider ? assets : undefined;
+if (memoryAssets) {
+  memoryAssets.setBalance(DEMO_WALLET, demoAssets[0].mint, '2500000');
+  if (demoAssets[1]) memoryAssets.setBalance(DEMO_WALLET, demoAssets[1].mint, '2500000');
+}
 
-const maker = new HeadlessPrivateMakerSource();
-const sender = new TrustedRpcSender(process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899', { simulateFirst: true });
-const sourceBalances = new MemorySourceBalanceProvider();
-for (const outputMint of [demoAssets[0].supportedOutputs[0], demoAssets[0].supportedOutputs[1]]) {
-  sourceBalances.setBalance('maker-sandbox-01', outputMint, '1000000000000');
+const maker = localnetFixture && localnetRpc
+  ? new HeadlessPrivateMakerSource(loadMakerSecretKey(localnetFixture.makerKeypairPath), { fixture: localnetFixture, rpc: localnetRpc })
+  : new HeadlessPrivateMakerSource();
+const sender = new TrustedRpcSender(process.env.SOLANA_RPC_URL ?? localnetFixture?.rpcUrl ?? 'http://127.0.0.1:8899', { simulateFirst: true }, localnetRpc);
+const sourceBalances = localnetRpc ? new LocalnetSourceBalanceProvider(localnetRpc) : new MemorySourceBalanceProvider();
+if (!localnetRpc && sourceBalances instanceof MemorySourceBalanceProvider) {
+  for (const outputMint of [demoAssets[0].supportedOutputs[0], demoAssets[0].supportedOutputs[1]]) {
+    sourceBalances.setBalance('maker-sandbox-01', outputMint, '1000000000000');
+  }
 }
 export const desk = new QuoteDeskService(
   assets,
@@ -31,9 +42,13 @@ export const desk = new QuoteDeskService(
   sender,
   sender,
   Date.now,
-  new MockQuoteSimulationProvider(),
+  localnetRpc ? new LocalnetQuoteSimulationProvider(localnetRpc) : new MockQuoteSimulationProvider(),
   sourceBalances,
 );
+if (localnetFixture && localnetRpc) {
+  await localnetRpc.assertGovernedFixture();
+  desk.observeGovernedMaker('maker-sandbox-01', localnetFixture.makerPublicKey, true);
+}
 const roleIdentities = loadProvisionedRoleIdentities();
 if (roleIdentities.length > 0 && !process.env.SOLANA_ROLE_SESSION_SECRET) throw new Error('SOLANA_ROLE_SESSION_SECRET is required when role identities are provisioned');
 const roleSessions = new RoleSessionService(roleIdentities, process.env.SOLANA_ROLE_SESSION_SECRET ?? randomBytes(32).toString('base64url'));
@@ -149,7 +164,7 @@ export function parseMakerCapabilities(value: unknown): MakerCapability[] {
     }
     const inputMint = stringField(item, 'inputMint');
     const outputMint = stringField(item, 'outputMint');
-    const asset = demoAssets.find((entry) => entry.mint === inputMint);
+    const asset = assets.list().find((entry) => entry.mint === inputMint);
     if (!asset || !asset.enabled || asset.issuer !== 'xstocks' || !asset.supportedOutputs.includes(outputMint)) {
       throw new Error('maker capability is not enabled by the asset registry');
     }
@@ -168,12 +183,12 @@ function canonicalMakerQuote(quote: Record<string, unknown>): string {
 }
 
 function fundWalletIfNeeded(wallet: string): void {
-  if (!wallet) return;
+  if (!wallet || !memoryAssets) return;
   const xstocks = demoAssets.find((asset) => asset.issuer === 'xstocks' && asset.enabled);
   if (!xstocks) return;
-  if (assets.balance(wallet, xstocks) === '0') assets.setBalance(wallet, xstocks.mint, '2500000');
+  if (memoryAssets.balance(wallet, xstocks) === '0') memoryAssets.setBalance(wallet, xstocks.mint, '2500000');
   const ondo = demoAssets.find((asset) => asset.issuer === 'ondo');
-  if (ondo && assets.balance(wallet, ondo) === '0') assets.setBalance(wallet, ondo.mint, '2500000');
+  if (ondo && memoryAssets.balance(wallet, ondo) === '0') memoryAssets.setBalance(wallet, ondo.mint, '2500000');
 }
 
 export function route(request: IncomingMessage, response: ServerResponse): void {
@@ -290,6 +305,7 @@ export function route(request: IncomingMessage, response: ServerResponse): void 
         const outputMint = url.searchParams.get('outputMint') ?? '';
         if (wallet) authenticateSeller(request, wallet);
         fundWalletIfNeeded(wallet);
+        if (wallet && localnetFixture && localnetAssets) await localnetAssets.refresh(wallet, localnetFixture.stockMint, outputMint);
         json(response, 200, desk.listAssets(wallet, outputMint));
         return;
       }
@@ -370,10 +386,25 @@ export function route(request: IncomingMessage, response: ServerResponse): void 
         if (Object.keys(body).some((key) => !['quoteSprintId', 'idempotencyKey'].includes(key))) throw new Error('unknown execution-attempt field');
         const quoteSprintId = stringField(body, 'quoteSprintId');
         authenticateSeller(request, desk.getQuoteSprint(quoteSprintId).request.wallet);
-        json(response, 201, await desk.createExecutionAttempt({
+        const result = await desk.createExecutionAttempt({
           quoteSprintId,
           idempotencyKey: stringField(body, 'idempotencyKey'),
-        }));
+        });
+        const status = result.attempt.state === 'confirmed' || result.attempt.state === 'finalized'
+          ? 'final'
+          : result.attempt.state === 'submitting'
+            ? 'provisional'
+            : result.attempt.state === 'reconciling'
+              ? 'reconciling'
+              : 'failed';
+        json(response, 201, {
+          attemptId: result.attempt.id,
+          quoteSprintId: result.attempt.quoteSprintId,
+          status,
+          ...(result.attempt.signature === undefined ? {} : { signature: result.attempt.signature }),
+          ...(result.attempt.failureMessage === undefined ? {} : { failureMessage: result.attempt.failureMessage }),
+          ...(result.receipt === undefined ? {} : { receipt: result.receipt }),
+        });
         return;
       }
       if (request.method === 'GET' && parts.join('/') === 'v1/trades') {
@@ -469,8 +500,8 @@ if (process.env.SOLANA_API_AUTOSTART !== 'false') {
           if (message.transactionHash !== transactionDigest) throw new Error('maker transaction hash does not match commitment');
           const partial = await validateMakerPartialTransaction(message.transactionBase64, identity.publicKey, transactionDigest, message.expiresAtMs as number);
           if (!partial.ok) throw new Error(partial.message);
-          const asset = demoAssets.find((entry) => entry.mint === message.inputMint);
-          const feeRecipient = process.env.SOLANA_RFQ_FEE_RECIPIENT;
+          const asset = assets.list().find((entry) => entry.mint === message.inputMint);
+          const feeRecipient = localnetFixture?.feeRecipient ?? process.env.SOLANA_RFQ_FEE_RECIPIENT;
           if (!asset || !feeRecipient) throw new Error('maker settlement registry or fee recipient configuration is unavailable');
           const tokenProgram = asset.tokenProgram === 'token-2022'
             ? 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'

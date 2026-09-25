@@ -66,6 +66,7 @@ export interface ExecutionAttemptResult {
   readonly quoteSprintId: string;
   readonly status: 'provisional' | 'final' | 'reconciling' | 'failed' | 'rejected' | 'expired' | 'not_landed';
   readonly signature?: string;
+  readonly failureMessage?: string;
   readonly receipt?: TradeReceipt;
 }
 

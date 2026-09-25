@@ -7,7 +7,7 @@ export type QuoteSourceKind = 'jupiter' | 'private-maker';
 export type SettlementRoute = 'generic-spl' | 'ondo-managed';
 export type ExecutionCommitment = 'confirmed' | 'finalized';
 export type AssetCapability = 'executable' | 'informational' | 'unavailable';
-export type ExecutionAttemptState = 'accepted' | 'submitting' | 'confirmed' | 'finalized' | 'failed';
+export type ExecutionAttemptState = 'accepted' | 'submitting' | 'reconciling' | 'confirmed' | 'finalized' | 'failed';
 
 /** Evidence returned by the RPC/sender boundary for a submitted transaction. */
 export interface ExecutionEvidence {
@@ -16,6 +16,19 @@ export interface ExecutionEvidence {
   readonly confirmedAtMs?: number;
   readonly finalizedAtMs?: number;
   readonly commitment: ExecutionCommitment;
+  /** Present for the RFQ settlement route after RPC observes exact token deltas. */
+  readonly cluster?: string;
+  readonly slot?: number;
+  readonly stockMint?: string;
+  readonly stableMint?: string;
+  readonly stockTokenProgram?: string;
+  readonly stableTokenProgram?: string;
+  readonly sellerStockDeltaAtomic?: string;
+  readonly makerStockDeltaAtomic?: string;
+  readonly makerStableDeltaAtomic?: string;
+  readonly sellerStableDeltaAtomic?: string;
+  readonly feeStableDeltaAtomic?: string;
+  readonly fillReceipt?: string;
 }
 export type QuoteSessionState =
   | 'validating'
@@ -29,6 +42,7 @@ export type QuoteSessionState =
   | 'authorized'
   | 'signing'
   | 'submitting'
+  | 'reconciling'
   | 'confirmed'
   | 'finalized'
   | 'failed';
@@ -237,4 +251,16 @@ export interface TradeReceipt {
   readonly confirmedAtMs: number;
   readonly finalizedAtMs?: number;
   readonly commitment: ExecutionCommitment;
+  readonly cluster?: string;
+  readonly slot?: number;
+  readonly stockMint?: string;
+  readonly stableMint?: string;
+  readonly stockTokenProgram?: string;
+  readonly stableTokenProgram?: string;
+  readonly sellerStockDeltaAtomic?: string;
+  readonly makerStockDeltaAtomic?: string;
+  readonly makerStableDeltaAtomic?: string;
+  readonly sellerStableDeltaAtomic?: string;
+  readonly feeStableDeltaAtomic?: string;
+  readonly fillReceipt?: string;
 }

@@ -29,7 +29,7 @@ import type {
   TradeReceipt,
   VerifiedSourceBalance,
 } from '@katon/solana-core';
-import { RejectingSourceBalanceProvider, type JupiterExecutor, type PrivateSender, type QuoteSource, type SourceBalanceProvider } from './sources';
+import { RejectingSourceBalanceProvider, SubmissionUncertainError, type JupiterExecutor, type PrivateSender, type QuoteSource, type SourceBalanceProvider } from './sources';
 import { localReferencePolicySnapshot, type ReferencePolicySnapshot } from './reference-policy';
 
 export interface StoredSession {
@@ -50,6 +50,8 @@ export interface AssetProvider {
   list(): readonly AssetRegistryEntry[];
   mintSnapshot(asset: AssetRegistryEntry): MintAccountSnapshot;
   balance(wallet: string, asset: AssetRegistryEntry): string;
+  /** Refresh policy, mint, token-account, and wallet balances from RPC before a gated action. */
+  refresh?(wallet: string, inputMint: string, outputMint?: string): Promise<void>;
 }
 
 export interface QuoteSimulationProvider {
@@ -195,6 +197,18 @@ function normalizeExecutionEvidence(value: unknown): NormalizedExecutionEvidence
     confirmedAtMs,
     ...(evidence.finalizedAtMs === undefined ? {} : { finalizedAtMs: evidence.finalizedAtMs }),
     commitment: evidence.commitment,
+    ...(evidence.cluster === undefined ? {} : { cluster: evidence.cluster }),
+    ...(evidence.slot === undefined ? {} : { slot: evidence.slot }),
+    ...(evidence.stockMint === undefined ? {} : { stockMint: evidence.stockMint }),
+    ...(evidence.stableMint === undefined ? {} : { stableMint: evidence.stableMint }),
+    ...(evidence.stockTokenProgram === undefined ? {} : { stockTokenProgram: evidence.stockTokenProgram }),
+    ...(evidence.stableTokenProgram === undefined ? {} : { stableTokenProgram: evidence.stableTokenProgram }),
+    ...(evidence.sellerStockDeltaAtomic === undefined ? {} : { sellerStockDeltaAtomic: evidence.sellerStockDeltaAtomic }),
+    ...(evidence.makerStockDeltaAtomic === undefined ? {} : { makerStockDeltaAtomic: evidence.makerStockDeltaAtomic }),
+    ...(evidence.makerStableDeltaAtomic === undefined ? {} : { makerStableDeltaAtomic: evidence.makerStableDeltaAtomic }),
+    ...(evidence.sellerStableDeltaAtomic === undefined ? {} : { sellerStableDeltaAtomic: evidence.sellerStableDeltaAtomic }),
+    ...(evidence.feeStableDeltaAtomic === undefined ? {} : { feeStableDeltaAtomic: evidence.feeStableDeltaAtomic }),
+    ...(evidence.fillReceipt === undefined ? {} : { fillReceipt: evidence.fillReceipt }),
   };
 }
 
@@ -287,6 +301,7 @@ export class QuoteDeskService {
 
   async createSession(request: QuoteSessionRequest, nowMs?: number): Promise<QuoteSession> {
     const createdAtMs = nowMs ?? this.clock();
+    await this.assets.refresh?.(request.wallet, request.inputMint, request.outputMint);
     const eligibility = this.checkRequest(request, createdAtMs);
     const id = randomUUID();
     const session = buildSession(id, request, createdAtMs, eligibility);
@@ -360,6 +375,7 @@ export class QuoteDeskService {
     }
     const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
     if (!asset) throw new Error('asset is not present in the signed registry');
+    await this.assets.refresh?.(wallet, asset.mint, stored.session.request.outputMint);
     const eligibility = this.preflight(asset, wallet, stored.session.request.outputMint, stored.session.request.inputAmountAtomic, reviewNowMs);
     if (eligibility.status !== 'eligible') {
       stored.session = { ...stored.session, eligibility, state: eligibility.status, failureMessage: eligibility.message };
@@ -503,6 +519,18 @@ export class QuoteDeskService {
         confirmedAtMs: evidence.confirmedAtMs,
         commitment: evidence.commitment,
         ...(evidence.finalizedAtMs === undefined ? {} : { finalizedAtMs: evidence.finalizedAtMs }),
+        ...(evidence.cluster === undefined ? {} : { cluster: evidence.cluster }),
+        ...(evidence.slot === undefined ? {} : { slot: evidence.slot }),
+        ...(evidence.stockMint === undefined ? {} : { stockMint: evidence.stockMint }),
+        ...(evidence.stableMint === undefined ? {} : { stableMint: evidence.stableMint }),
+        ...(evidence.stockTokenProgram === undefined ? {} : { stockTokenProgram: evidence.stockTokenProgram }),
+        ...(evidence.stableTokenProgram === undefined ? {} : { stableTokenProgram: evidence.stableTokenProgram }),
+        ...(evidence.sellerStockDeltaAtomic === undefined ? {} : { sellerStockDeltaAtomic: evidence.sellerStockDeltaAtomic }),
+        ...(evidence.makerStockDeltaAtomic === undefined ? {} : { makerStockDeltaAtomic: evidence.makerStockDeltaAtomic }),
+        ...(evidence.makerStableDeltaAtomic === undefined ? {} : { makerStableDeltaAtomic: evidence.makerStableDeltaAtomic }),
+        ...(evidence.sellerStableDeltaAtomic === undefined ? {} : { sellerStableDeltaAtomic: evidence.sellerStableDeltaAtomic }),
+        ...(evidence.feeStableDeltaAtomic === undefined ? {} : { feeStableDeltaAtomic: evidence.feeStableDeltaAtomic }),
+        ...(evidence.fillReceipt === undefined ? {} : { fillReceipt: evidence.fillReceipt }),
       };
       this.trades.unshift(receipt);
       this.clearTransaction(stored);
@@ -524,12 +552,14 @@ export class QuoteDeskService {
       return { attempt, receipt };
     } catch (error) {
       const failureMessage = error instanceof Error ? error.message : 'transaction submission failed';
-      attempt = { ...attempt, state: 'failed', failureMessage };
+      const uncertain = error instanceof SubmissionUncertainError;
+      attempt = { ...attempt, state: uncertain ? 'reconciling' : 'failed', ...(uncertain ? { signature: error.signature } : {}), failureMessage };
       stored.executionAttempts.set(input.idempotencyKey, { attempt });
-      stored.session = { ...stored.session, state: 'failed', failureMessage };
+      stored.session = { ...stored.session, state: uncertain ? 'reconciling' : 'failed', failureMessage };
       this.clearTransaction(stored);
       stored.authorizedSignedTransactionBase64 = undefined;
       this.emit(stored);
+      if (uncertain) return { attempt };
       throw error;
     }
   }
@@ -651,6 +681,7 @@ export class QuoteDeskService {
   private async collect(id: string, nowMs = this.clock()): Promise<void> {
     const stored = this.sessions.get(id);
     if (!stored || stored.session.state !== 'collecting') return;
+    await this.assets.refresh?.(stored.session.request.wallet, stored.session.request.inputMint, stored.session.request.outputMint);
     const asset = this.assets.list().find((entry) => entry.mint === stored.session.request.inputMint);
     if (!asset) {
       stored.collectionComplete = true;

@@ -103,7 +103,7 @@ describe('Seller proof on HTTP routes', () => {
     vi.spyOn(server.desk, 'getQuoteSprint').mockReturnValue(sprint as never);
     const review = vi.spyOn(server.desk, 'review').mockResolvedValue(sprint as never);
     const authorize = vi.spyOn(server.desk, 'authorize').mockResolvedValue(sprint as never);
-    const execute = vi.spyOn(server.desk, 'createExecutionAttempt').mockResolvedValue({ attempt: { attemptId: 'attempt-1' } } as never);
+    const execute = vi.spyOn(server.desk, 'createExecutionAttempt').mockResolvedValue({ attempt: { id: 'attempt-1', quoteSprintId: 'private-sprint', state: 'confirmed' } } as never);
 
     const requests = [
       invoke(server, 'GET', `/v1/assets?wallet=${encodeURIComponent(wallet)}`),
@@ -142,7 +142,21 @@ describe('Seller proof on HTTP routes', () => {
     vi.spyOn(server.desk, 'getQuoteSprint').mockReturnValue(sprint as never);
     vi.spyOn(server.desk, 'review').mockResolvedValue(sprint as never);
     vi.spyOn(server.desk, 'authorize').mockResolvedValue(sprint as never);
-    vi.spyOn(server.desk, 'createExecutionAttempt').mockResolvedValue({ attempt: { attemptId: 'attempt-1' } } as never);
+    const execute = vi.spyOn(server.desk, 'createExecutionAttempt')
+      .mockResolvedValueOnce({
+        attempt: { id: 'attempt-1', quoteSprintId: 'private-sprint', state: 'confirmed', signature: 'settlement-signature' },
+        receipt: {
+          tradeId: 'trade-1', quoteId: 'quote-1', wallet, signature: 'settlement-signature', sourceKind: 'private-maker', sourceId: 'maker-sandbox-01',
+          inputMint: 'stock-mint', outputMint: 'stable-mint', inputAmountAtomic: '100', grossOutputAtomic: '200', netOutputAtomic: '199',
+          katonFeeAtomic: '1', venueFeeAtomic: '1', createdAtMs: 1, submittedAtMs: 2, confirmedAtMs: 3, commitment: 'confirmed',
+          cluster: 'solana:localnet', slot: 12, stockMint: 'stock-mint', stableMint: 'stable-mint', stockTokenProgram: 'spl-token',
+          stableTokenProgram: 'spl-token', sellerStockDeltaAtomic: '-100', makerStockDeltaAtomic: '100', makerStableDeltaAtomic: '-200',
+          sellerStableDeltaAtomic: '199', feeStableDeltaAtomic: '1', fillReceipt: 'fill-receipt',
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        attempt: { id: 'attempt-2', quoteSprintId: 'private-sprint', state: 'reconciling', signature: 'uncertain-signature', failureMessage: 'submission outcome unknown' },
+      } as never);
     const token = await authenticate(server, seller);
     const proof = { token, origin, cluster };
 
@@ -160,7 +174,14 @@ describe('Seller proof on HTTP routes', () => {
 
     expect((await invoke(server, 'POST', '/v1/quote-sprints/private-sprint/review', { wallet }, proof)).status).toBe(200);
     expect((await invoke(server, 'POST', '/v1/quote-sprints/private-sprint/authorize', { wallet, reviewHash: 'review-hash', signedTransactionBase64: 'signed-bytes' }, proof)).status).toBe(200);
-    expect((await invoke(server, 'POST', '/v1/execution-attempts', { quoteSprintId: 'private-sprint', idempotencyKey: 'attempt-1' }, proof)).status).toBe(201);
+    const settled = await invoke(server, 'POST', '/v1/execution-attempts', { quoteSprintId: 'private-sprint', idempotencyKey: 'attempt-1' }, proof);
+    expect(settled.status).toBe(201);
+    expect(settled.body).toMatchObject({ attemptId: 'attempt-1', quoteSprintId: 'private-sprint', status: 'final', signature: 'settlement-signature', receipt: { slot: 12, sellerStockDeltaAtomic: '-100', fillReceipt: 'fill-receipt' } });
+    const reconciling = await invoke(server, 'POST', '/v1/execution-attempts', { quoteSprintId: 'private-sprint', idempotencyKey: 'attempt-2' }, proof);
+    expect(reconciling.status).toBe(201);
+    expect(reconciling.body).toMatchObject({ attemptId: 'attempt-2', status: 'reconciling', signature: 'uncertain-signature', failureMessage: 'submission outcome unknown' });
+    expect(reconciling.body).not.toHaveProperty('receipt');
+    expect(execute).toHaveBeenCalledTimes(2);
 
     expect((await invoke(server, 'GET', `/v1/assets?wallet=${encodeURIComponent(otherSeller.publicKey)}`, undefined, proof)).status).toBe(401);
     expect((await invoke(server, 'GET', '/v1/quote-sprints/private-sprint', undefined, { ...proof, origin: 'http://localhost:5174' })).status).toBe(401);

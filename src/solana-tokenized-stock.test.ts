@@ -26,7 +26,7 @@ import {
 import { InMemoryLiquidationSafetyStateStore, LiquidationCircuitBreaker, LiquidationSolver, chooseFundingSource, requiresZeroResidualStock } from '../services/solana-liquidator/src/index';
 import { compareDeploymentIdentity, deploymentManifestPayload, DeploymentManifestGate, initializeLiquidationStartup, startLiquidationSolver, verifyDeploymentManifest, MAINNET_PROGRAM_IDS, KaminoLendAdapter, verifyDiscoveredMarkets, type DeploymentManifest, type RuntimeProgramState, type DiscoveredMarket, type LendingPosition } from '../services/solana-liquidator/src/index';
 import { MemoryAssetProvider, MockQuoteSimulationProvider, QuoteDeskService } from '../apps/solana-api/src/service';
-import { DEMO_WALLET, HeadlessPrivateMakerSource, JupiterStubSource, MemorySourceBalanceProvider, RecordingSender } from '../apps/solana-api/src/sources';
+import { DEMO_WALLET, HeadlessPrivateMakerSource, JupiterStubSource, MemorySourceBalanceProvider, RecordingSender, SubmissionUncertainError } from '../apps/solana-api/src/sources';
 import { demoAssets } from '../apps/solana-api/src/registry';
 import { base64FromBytes, transactionHash, validateSignedTransaction, WalletStandardAdapter } from '../packages/solana-sdk/src/index';
 
@@ -781,10 +781,19 @@ describe('local coordination seam', () => {
     expect(events.filter((state) => ['winner_ready', 'no_quote', 'expired', 'failed'].includes(state))).toEqual(['failed']);
   });
 
-  it('uses sender commitment evidence verbatim in receipts', async () => {
+  it('preserves sender commitment and settlement evidence verbatim in receipts', async () => {
     const provider = new MemoryAssetProvider([asset]);
     provider.setBalance(TEST_WALLET, asset.mint, '2500000');
-    const evidence = { signature: 'chain-signature', submittedAtMs: 1_310, confirmedAtMs: 1_322, finalizedAtMs: 1_344, commitment: 'finalized' as const };
+    const evidence = {
+      signature: 'chain-signature', submittedAtMs: 1_310, confirmedAtMs: 1_322, finalizedAtMs: 1_344,
+      commitment: 'finalized' as const, cluster: 'solana:localnet', slot: 12,
+      stockMint: asset.mint, stableMint: SOLANA_USDC_MINT,
+      stockTokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      stableTokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      sellerStockDeltaAtomic: '-1000000', makerStockDeltaAtomic: '1000000',
+      makerStableDeltaAtomic: '-100000000', sellerStableDeltaAtomic: '99900000',
+      feeStableDeltaAtomic: '100000', fillReceipt: 'fill-receipt-account',
+    };
     const sender = { execute: async () => evidence, send: async () => evidence };
     const source = {
       id: 'jupiter-chain-evidence',
@@ -797,7 +806,16 @@ describe('local coordination seam', () => {
     const created = await desk.createSession({ wallet: TEST_WALLET, inputMint: asset.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000' }, 1_000);
     await desk.collectNow(created.id, 1_100);
     const result = await reviewAuthorizeExecute(desk, created.id, TEST_WALLET, 1_300);
-    expect(result.receipt).toMatchObject({ signature: 'chain-signature', submittedAtMs: 1_310, confirmedAtMs: 1_322, finalizedAtMs: 1_344, commitment: 'finalized' });
+    expect(result.receipt).toMatchObject({
+      signature: 'chain-signature', submittedAtMs: 1_310, confirmedAtMs: 1_322,
+      finalizedAtMs: 1_344, commitment: 'finalized', cluster: 'solana:localnet', slot: 12,
+      stockMint: asset.mint, stableMint: SOLANA_USDC_MINT,
+      stockTokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      stableTokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      sellerStockDeltaAtomic: '-1000000', makerStockDeltaAtomic: '1000000',
+      makerStableDeltaAtomic: '-100000000', sellerStableDeltaAtomic: '99900000',
+      feeStableDeltaAtomic: '100000', fillReceipt: 'fill-receipt-account',
+    });
   });
 
   it('rejects contradictory sender commitment evidence', async () => {
@@ -895,6 +913,32 @@ describe('local coordination seam', () => {
     const result = await reviewAuthorizeExecute(desk2, created2.id, TEST_WALLET, 1_300, 'honest');
     expect(result.receipt?.signature.startsWith('mock-')).toBe(false);
     expect(encodeBase58(localMakerPublicKey()).length).toBeGreaterThan(30);
+  });
+
+  it('keeps an ambiguous submission in reconciliation without publishing a trade receipt or resubmitting', async () => {
+    const provider = new MemoryAssetProvider([demoAssets[0]!]);
+    provider.setBalance(TEST_WALLET, demoAssets[0]!.mint, '2500000');
+    const sourceBalances = new MemorySourceBalanceProvider();
+    sourceBalances.setBalance('maker-sandbox-01', SOLANA_USDC_MINT, '1000000000');
+    const maker = new HeadlessPrivateMakerSource();
+    const send = vi.fn(async () => { throw new SubmissionUncertainError('localnet-signature', 'RPC submission outcome is unknown'); });
+    const sender = { execute: vi.fn(), send };
+    const desk = new QuoteDeskService(provider, [maker], sender, sender, Date.now, new MockQuoteSimulationProvider(), sourceBalances);
+    observeGovernedLocalMakers(desk, [maker]);
+    const created = await desk.createSession({ wallet: TEST_WALLET, inputMint: demoAssets[0]!.mint, outputMint: SOLANA_USDC_MINT, inputAmountAtomic: '1000000' }, 1_000);
+    await desk.collectNow(created.id, 1_100);
+
+    const result = await reviewAuthorizeExecute(desk, created.id, TEST_WALLET, 1_300, 'ambiguous');
+    expect(result.attempt.state).toBe('reconciling');
+    expect(result.attempt.signature).toBe('localnet-signature');
+    expect(result.attempt.failureMessage).toMatch(/outcome is unknown/);
+    expect(result.receipt).toBeUndefined();
+    expect(desk.listTrades(TEST_WALLET)).toEqual([]);
+    expect(desk.getSession(created.id, 1_300).state).toBe('reconciling');
+
+    const repeated = await desk.createExecutionAttempt({ quoteSprintId: created.id, idempotencyKey: 'ambiguous' }, 1_400);
+    expect(repeated).toEqual(result);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it('keeps Jupiter stub fee at zero with unchanged message bytes', async () => {

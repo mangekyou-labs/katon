@@ -2,37 +2,32 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactElement, ReactNode } from 'react';
 import { useClient } from '@solana/react';
 import { useConnect, useConnectedWallet, useSignMessage, useWalletStatus, useWallets } from '@solana/kit-plugin-wallet/react';
-import { SolanaApiClient, transactionHash, type AssetView, type QuoteSprint } from '../../../packages/solana-sdk/src/index';
+import { SolanaApiClient, type AssetView, type QuoteSprint } from '../../../packages/solana-sdk/src/index';
 import { atomicToDecimal, decimalToAtomic } from '../../../packages/solana-core/src/amounts';
 import { SOLANA_USDC_MINT, SOLANA_USDT_MINT } from '../../../packages/solana-core/src/registry';
 import type { TradeReceipt } from '../../../packages/solana-core/src/types';
 import {
   EXPECTED_CHAIN,
   explorerTxUrl,
-  inspectLocalnetProofTransaction,
+  inspectLocalnetSettlementTransaction,
   shortAddress,
   signIssuedWinnerTransaction,
   type AppSolanaClient,
-  type LocalnetProofSummary,
+  type LocalnetSettlementSummary,
 } from './solanaClient';
 
 const api = new SolanaApiClient({ baseUrl: '' });
 
-const fallbackAssets: readonly AssetView[] = [
-  {
-    mint: '2gamkL7f7ikNbPAvchzyjFtVVWhLaVTPtjskiCv5i3gW', issuer: 'xstocks', ticker: 'AAPLx', underlyingTicker: 'AAPL', tokenProgram: 'token-2022', decimals: 6,
-    issuerAuthorityFingerprint: 'xstocks-authority-demo', expectedMetadataPointer: 'xstk-demo-AAPL-metadata', extensionFingerprint: 'metadata-pointer|active|scaled|none|none|no-memo', capabilities: { transferHook: false, pausable: true, scaledUiAmount: true, transferFee: false, permanentDelegate: false, memoTransfer: false, confidentialTransfer: false }, supportedOutputs: [SOLANA_USDC_MINT, SOLANA_USDT_MINT], referenceState: 'open', referencePriceAtomic: '100000000', referencePriceDecimals: 6, referenceTimestampMs: Date.now(), maxDeviationBps: 150, enabled: true, registryVersion: 1, balanceAtomic: '2500000', eligibility: { status: 'eligible', message: 'Ready for a checked quote', checkedAtMs: Date.now() }, capability: 'executable',
-  },
-  {
-    mint: 'ondo-demo-MSFT-mint', issuer: 'ondo', ticker: 'MSFTon', underlyingTicker: 'MSFT', tokenProgram: 'token-2022', decimals: 6,
-    issuerAuthorityFingerprint: 'ondo-authority-demo', issuerProgram: 'ondo-issuer-program-demo', jitCapabilityFingerprint: 'ondo-jit-capability-demo', expectedMetadataPointer: 'ondo-demo-MSFT-metadata', extensionFingerprint: 'metadata-pointer|pausable|transfer-hook|active|unscaled|none|none|no-memo', expectedHookProgram: 'ondo-jit-hook-demo', capabilities: { transferHook: true, pausable: true, scaledUiAmount: false, transferFee: false, permanentDelegate: false, memoTransfer: false, confidentialTransfer: false }, supportedOutputs: [SOLANA_USDC_MINT, SOLANA_USDT_MINT], referenceState: 'open', referencePriceAtomic: '100000000', referencePriceDecimals: 6, referenceTimestampMs: Date.now(), maxDeviationBps: 150, enabled: false, registryVersion: 1, balanceAtomic: '2500000', eligibility: { status: 'ineligible', code: 'policy_failure', message: 'Managed Route not enabled', checkedAtMs: Date.now() }, capability: 'informational', reason: 'Managed Route not enabled',
-  },
-];
-
-type TicketState = 'idle' | 'collecting' | 'ready' | 'reviewing' | 'submitting' | 'success' | 'no_quote' | 'expired' | 'error' | 'offline' | 'wrong_cluster';
+type TicketState = 'idle' | 'collecting' | 'ready' | 'reviewing' | 'submitting' | 'reconciling' | 'success' | 'no_quote' | 'expired' | 'error' | 'offline' | 'wrong_cluster';
 type WalletUiState = 'pending' | 'disconnected' | 'connecting' | 'connected' | 'wrong-cluster' | 'rejected' | 'locked';
 
 function formatAmount(atomic: string | undefined, decimals: number): string { return atomic === undefined ? '—' : atomicToDecimal(atomic, decimals); }
+function formatDelta(atomic: string | undefined, decimals: number): string {
+  if (atomic === undefined) return '—';
+  const negative = atomic.startsWith('-');
+  const magnitude = negative ? atomic.slice(1) : atomic;
+  return `${negative ? '−' : '+'}${formatAmount(magnitude, decimals)}`;
+}
 function formatBps(value: number | undefined): string { return value === undefined ? '—' : `${value > 0 ? '+' : ''}${value} bps`; }
 function formatTimestamp(value: number | undefined): string { return value === undefined ? '—' : new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 function stableSymbol(mint: string): string { return mint === SOLANA_USDT_MINT ? 'USDT' : 'USDC'; }
@@ -97,19 +92,18 @@ export function App(): ReactElement {
             : 'disconnected';
 
   const [outputMint, setOutputMint] = useState(SOLANA_USDC_MINT);
-  const [assets, setAssets] = useState<readonly AssetView[]>(fallbackAssets);
+  const [assets, setAssets] = useState<readonly AssetView[]>([]);
   const executableAssets = useMemo(() => assets.filter(isExecutableAsset), [assets]);
   const informationalHeld = useMemo(
     () => assets.filter((entry) => !isExecutableAsset(entry) && entry.balanceAtomic !== '0'),
     [assets],
   );
-  const [assetMint, setAssetMint] = useState(executableAssets[0]?.mint ?? fallbackAssets[0].mint);
+  const [assetMint, setAssetMint] = useState('');
   const [amount, setAmount] = useState('');
   const [ticketState, setTicketState] = useState<TicketState>('idle');
   const [sprint, setSprint] = useState<QuoteSprint>();
   const [trade, setTrade] = useState<TradeReceipt>();
-  const [reviewedProof, setReviewedProof] = useState<LocalnetProofSummary>();
-  const [submittedProof, setSubmittedProof] = useState<LocalnetProofSummary>();
+  const [reviewedSettlement, setReviewedSettlement] = useState<LocalnetSettlementSummary>();
   const [error, setError] = useState<string>();
   const [auditOpen, setAuditOpen] = useState(false);
   const [activity, setActivity] = useState<readonly TradeReceipt[]>([]);
@@ -122,7 +116,7 @@ export function App(): ReactElement {
     [assetMint, assets, executableAssets],
   );
   const outputDecimals = 6;
-  const inputsLocked = ['collecting', 'ready', 'reviewing', 'submitting', 'success'].includes(ticketState);
+  const inputsLocked = ['collecting', 'ready', 'reviewing', 'submitting', 'reconciling', 'success'].includes(ticketState);
 
   const loadAssets = useCallback(async (address: string) => {
     try {
@@ -143,11 +137,10 @@ export function App(): ReactElement {
   useEffect(() => {
     api.clearSellerSession();
     setSellerSession(undefined);
-    setAssets(fallbackAssets);
+    setAssets([]);
     setActivity([]);
     setSprint(undefined);
-    setReviewedProof(undefined);
-    setSubmittedProof(undefined);
+    setReviewedSettlement(undefined);
     setTrade(undefined);
     if (wallet && !wrongCluster) setTicketState('idle');
   }, [wallet, wrongCluster]);
@@ -265,19 +258,33 @@ export function App(): ReactElement {
     setTicketState('reviewing');
     void api.reviewQuoteSprint(sprint.id, wallet).then((reviewed) => {
       if (!reviewed.winner?.simulation.ok) throw new Error('The issued transaction did not pass simulation. Signing is blocked.');
-      const proof = inspectLocalnetProofTransaction(reviewed.winner.transactionBase64 ?? '', wallet, reviewed.winner.sourceKind);
+      const winner = reviewed.winner;
+      if (!winner?.transactionBase64 || !winner.transactionHash) throw new Error('The issued settlement bytes or message hash are missing. Signing is blocked.');
+      const settlement = inspectLocalnetSettlementTransaction(winner.transactionBase64, wallet, {
+        sourceKind: winner.sourceKind,
+        quoteId: winner.quoteId,
+        inputMint: winner.inputMint,
+        outputMint: winner.outputMint,
+        inputAmountAtomic: winner.inputAmountAtomic,
+        grossOutputAtomic: winner.grossOutputAtomic,
+        netOutputAtomic: winner.netOutputAtomic,
+        expiresAtMs: winner.expiresAtMs,
+      });
       setSprint(reviewed);
-      setReviewedProof(proof);
+      setReviewedSettlement(settlement);
       setTicketState('ready');
     }).catch((reviewError: unknown) => {
-      setError(reviewError instanceof Error ? reviewError.message : 'The localnet proof transaction could not be reviewed.');
+      setError(reviewError instanceof Error ? reviewError.message : 'The localnet settlement transaction could not be reviewed.');
       setTicketState('error');
       if (!api.activeSellerSession()) setSellerSession(undefined);
     });
   };
 
   const signAndAuthorize = async (): Promise<void> => {
-    if (!wallet || !connected?.account || !sprint?.winner?.transactionBase64) return;
+    if (!wallet || !connected?.account || !sprint?.winner) return;
+    const winner = sprint.winner;
+    const issuedTransactionBase64 = winner.transactionBase64;
+    if (!issuedTransactionBase64) return;
     if (wrongCluster) {
       setTicketState('wrong_cluster');
       setError('Wrong cluster: connect a wallet on solana:localnet before authorizing.');
@@ -286,14 +293,24 @@ export function App(): ReactElement {
     setTicketState('submitting');
     setError(undefined);
     try {
-      const currentProof = inspectLocalnetProofTransaction(sprint.winner.transactionBase64, wallet, sprint.winner.sourceKind);
-      if (!reviewedProof || JSON.stringify(currentProof) !== JSON.stringify(reviewedProof)) {
+      const currentSettlement = inspectLocalnetSettlementTransaction(issuedTransactionBase64, wallet, {
+        sourceKind: winner.sourceKind,
+        quoteId: winner.quoteId,
+        inputMint: winner.inputMint,
+        outputMint: winner.outputMint,
+        inputAmountAtomic: winner.inputAmountAtomic,
+        grossOutputAtomic: winner.grossOutputAtomic,
+        netOutputAtomic: winner.netOutputAtomic,
+        expiresAtMs: winner.expiresAtMs,
+      });
+      if (!reviewedSettlement || JSON.stringify(currentSettlement) !== JSON.stringify(reviewedSettlement)) {
         throw new Error('The transaction no longer matches the summary you reviewed. Signing is blocked.');
       }
-      const reviewHash = sprint.reviewHash
-        ?? sprint.winner.transactionHash
-        ?? await transactionHash(sprint.winner.transactionBase64);
-      const signedTransactionBase64 = await signIssuedWinnerTransaction(connected.account, sprint.winner.transactionBase64);
+      const reviewHash = winner.transactionHash;
+      if (!reviewHash || (sprint.reviewHash !== undefined && sprint.reviewHash !== reviewHash)) {
+        throw new Error('The approval hash does not match the issued transaction message. Signing is blocked.');
+      }
+      const signedTransactionBase64 = await signIssuedWinnerTransaction(connected.account, issuedTransactionBase64);
       const authorized = await api.authorizeQuoteSprint(sprint.id, { wallet, reviewHash, signedTransactionBase64 });
       setSprint(authorized);
       if (authorized.state !== 'authorized') {
@@ -305,35 +322,22 @@ export function App(): ReactElement {
         quoteSprintId: authorized.id,
         idempotencyKey: globalThis.crypto.randomUUID(),
       });
-      const receipt = attempt.receipt ?? (attempt.signature ? {
-        tradeId: attempt.attemptId,
-        quoteId: authorized.winner?.quoteId ?? authorized.id,
-        wallet,
-        signature: attempt.signature,
-        sourceKind: authorized.winner?.sourceKind ?? 'private-maker',
-        sourceId: authorized.winner?.sourceId ?? 'unknown',
-        inputMint: authorized.request.inputMint,
-        outputMint: authorized.request.outputMint,
-        inputAmountAtomic: authorized.winner?.inputAmountAtomic ?? authorized.request.inputAmountAtomic,
-        grossOutputAtomic: authorized.winner?.grossOutputAtomic ?? '0',
-        netOutputAtomic: authorized.winner?.netOutputAtomic ?? '0',
-        katonFeeAtomic: authorized.winner?.katonFeeAtomic ?? '0',
-        katonFeeBps: authorized.winner?.katonFeeBps,
-        venueFeeAtomic: authorized.winner?.venueFeeAtomic ?? '0',
-        deviationBps: authorized.winner?.deviationBps,
-        priceImpactBps: authorized.winner?.priceImpactBps,
-        effectivePriceAtomic: authorized.winner?.effectivePriceAtomic,
-        effectivePriceDecimals: authorized.winner?.effectivePriceDecimals,
-        createdAtMs: Date.now(),
-        submittedAtMs: Date.now(),
-        confirmedAtMs: Date.now(),
-        commitment: 'confirmed' as const,
-      } : undefined);
-      if (!receipt?.signature || receipt.signature.startsWith('mock-')) {
-        throw new Error('Execution attempt did not return a cluster signature');
+      if (attempt.status === 'reconciling') {
+        setTicketState('reconciling');
+        setError(attempt.failureMessage ?? `Settlement submission is being reconciled${attempt.signature ? `: ${attempt.signature}` : ''}. Do not resubmit.`);
+        return;
+      }
+      const receipt = attempt.receipt;
+      if (attempt.status !== 'final' || !receipt?.signature || receipt.signature.startsWith('mock-')) {
+        throw new Error(attempt.failureMessage ?? 'Execution attempt did not return confirmed settlement evidence');
+      }
+      if (receipt.cluster !== EXPECTED_CHAIN || !receipt.slot || !receipt.fillReceipt
+        || !receipt.stockMint || !receipt.stableMint || !receipt.stockTokenProgram || !receipt.stableTokenProgram
+        || receipt.sellerStockDeltaAtomic !== `-${receipt.inputAmountAtomic}`
+        || receipt.sellerStableDeltaAtomic === undefined || receipt.feeStableDeltaAtomic === undefined) {
+        throw new Error('Confirmed transaction receipt is missing verified localnet settlement evidence');
       }
       setTrade(receipt);
-      setSubmittedProof(currentProof);
       setTicketState('success');
     } catch (executeError) {
       const message = executeError instanceof Error ? executeError.message : 'Authorization rejected';
@@ -364,11 +368,10 @@ export function App(): ReactElement {
     if (hasSellerSession) {
       api.clearSellerSession();
       setSellerSession(undefined);
-      setAssets(fallbackAssets);
+      setAssets([]);
       setActivity([]);
       setSprint(undefined);
-      setReviewedProof(undefined);
-      setSubmittedProof(undefined);
+      setReviewedSettlement(undefined);
       setTrade(undefined);
       return;
     }
@@ -395,15 +398,15 @@ export function App(): ReactElement {
         <div className="eyebrow">SELLER DESK <span className="live-dot" aria-hidden="true" /> LOCALNET</div>
         <h1 id="page-title">Sell tokenized stock.<br /><em>Keep control.</em></h1>
         <p className="lede">Request an exact-input Quote Sprint, inspect the frozen winner, and review the exact localnet transaction before deciding whether to sign.</p>
-        <div className="proof-disclosure" role="note"><strong>Localnet acceptance mode</strong><span>The transaction that lands is a 1 lamport SOL System Program proof transfer. It does not sell stock or pay USDC/USDT; Quote Sprint amounts are informational only.</span></div>
+        <div className="proof-disclosure" role="note"><strong>Localnet test settlement</strong><span>This desk settles local test stock for locally provisioned USDC or USDT. These assets have no issuer backing and are not Devnet or Mainnet assets.</span></div>
 
         <form className="trade-ticket" onSubmit={(event) => void submit(event)}>
-          <div className="ticket-header"><div><span className="label">SELL</span><strong>Verified stock</strong></div><span className="session-pill">{wrongCluster ? 'Wrong cluster' : hasSellerSession ? 'Seller session active' : wallet ? 'Wallet proof required' : 'Connect to begin'}</span></div>
+          <div className="ticket-header"><div><span className="label">SELL · TEST ASSET</span><strong>Local test stock</strong></div><span className="session-pill">{wrongCluster ? 'Wrong cluster' : hasSellerSession ? 'Seller session active' : wallet ? 'Wallet proof required' : 'Connect to begin'}</span></div>
           <label className="field-label" htmlFor="asset">Asset</label>
           <select id="asset" className="select-input" value={asset?.mint ?? ''} onChange={(event) => setAssetMint(event.target.value)} disabled={inputsLocked || !hasSellerSession || executableAssets.length === 0}>
             {executableAssets.map((entry) => <option value={entry.mint} key={entry.mint}>{entry.ticker} · xStocks · {entry.underlyingTicker}</option>)}
           </select>
-          <div className="asset-meta"><span className={`issuer-badge issuer-${asset?.issuer ?? 'xstocks'}`}>{issuerLabel(asset?.issuer ?? 'xstocks')}</span><span>{asset?.tokenProgram === 'token-2022' ? 'Token-2022' : 'SPL Token'} · {asset?.decimals ?? 0} decimals</span><span>Balance {hasSellerSession ? formatAmount(asset?.balanceAtomic, asset?.decimals ?? 6) : 'prove wallet to view'}</span></div>
+          <div className="asset-meta"><span className={`issuer-badge issuer-${asset?.issuer ?? 'xstocks'}`}>{asset ? `${issuerLabel(asset.issuer)} test asset` : 'Local test asset'}</span><span>{asset?.tokenProgram === 'token-2022' ? 'Token-2022' : 'SPL Token'} · {asset?.decimals ?? 0} decimals</span><span>RPC balance {hasSellerSession ? formatAmount(asset?.balanceAtomic, asset?.decimals ?? 6) : 'prove wallet to view'}</span></div>
           {hasSellerSession && informationalHeld.length > 0 ? <p className="ticket-footnote informational-note"><span aria-hidden="true">◇</span> Held Ondo / managed inventory is informational only — Managed Route not enabled.</p> : null}
 
           <div className="amount-label-row"><label className="field-label" htmlFor="amount">Amount</label><button type="button" className="max-button" onClick={() => asset && setAmount(formatAmount(asset.balanceAtomic, asset.decimals))} disabled={inputsLocked || !asset || !hasSellerSession}>Use full balance</button></div>
@@ -414,31 +417,32 @@ export function App(): ReactElement {
           <p className="ticket-footnote"><span aria-hidden="true">♢</span> Exact input · full fill · no custody · max quote life 30 seconds</p>
         </form>
 
-        <StatusPanel state={ticketState} error={error} sprint={sprint} onReview={openReview} onRefresh={() => { setTicketState(wrongCluster ? 'wrong_cluster' : 'idle'); setSprint(undefined); setReviewedProof(undefined); setSubmittedProof(undefined); setError(undefined); }} />
+        <StatusPanel state={ticketState} error={error} sprint={sprint} onReview={openReview} onRefresh={() => { setTicketState(wrongCluster ? 'wrong_cluster' : 'idle'); setSprint(undefined); setReviewedSettlement(undefined); setError(undefined); }} />
       </section>
 
       <aside className="context-column" aria-label="Execution context">
         <div className="context-card reference-card"><div className="card-kicker">REFERENCE POLICY</div><div className="context-row"><span>Status</span><strong>{asset?.referencePolicy?.status ?? 'unavailable'}</strong></div><div className="context-row"><span>Licensed primary</span><strong>{asset?.referencePolicy?.primary ? `${formatAmount(asset.referencePolicy.primary.priceAtomic, asset.referencePriceDecimals ?? asset.decimals)} USDC · ${formatTimestamp(asset.referencePolicy.primary.observedAtMs)}` : 'No current observation'}</strong></div><div className="reference-note">Collection requires a fresh licensed primary and independent cross-check. Registry values are metadata and never price fallbacks.</div></div>
-        <div className="context-card"><div className="card-kicker">BEST EXECUTION</div><div className="source-line"><span className="source-mark jupiter-mark">J</span><span><strong>Jupiter</strong><small>Meta-Aggregator</small></span><span className="source-state">Raced</span></div><div className="source-line"><span className="source-mark maker-mark">K</span><span><strong>Private makers</strong><small>Authenticated streams</small></span><span className="source-state">Raced</span></div><div className="context-divider" /><p className="context-note">One recommendation. Losing sources appear only as anonymized audit rows after the sprint.</p></div>
-        <div className="context-card safety-card"><div className="card-kicker">LOCALNET PROOF FLOW</div><div className="safety-item"><span>01</span><p><strong>Exact bytes</strong>Your wallet signs the reviewed 1 lamport transfer without mutation.</p></div><div className="safety-item"><span>02</span><p><strong>Authorize then submit</strong>Hash-checked authorization precedes one proof-transfer attempt.</p></div><div className="safety-item"><span>03</span><p><strong>Proof receipt</strong>The receipt confirms the localnet transfer only; the quoted stock sale is not settled.</p></div><p className="context-note">{activity.length} {activity.length === 1 ? 'proof attempt' : 'proof attempts'} in this wallet</p></div>
+        <div className="context-card"><div className="card-kicker">BEST EXECUTION</div><div className="source-line"><span className="source-mark jupiter-mark">J</span><span><strong>Jupiter</strong><small>Non-executable demo stub</small></span><span className="source-state">Excluded</span></div><div className="source-line"><span className="source-mark maker-mark">K</span><span><strong>Private Maker</strong><small>Governed local RFQ settlement</small></span><span className="source-state">Executable</span></div><div className="context-divider" /><p className="context-note">Only the governed Private Maker can win this local settlement flow.</p></div>
+        <div className="context-card safety-card"><div className="card-kicker">SETTLEMENT CONTROLS</div><div className="safety-item"><span>01</span><p><strong>Inspect exact bytes</strong>Review the stock debit, stablecoin minimum, fee, accounts, and instructions.</p></div><div className="safety-item"><span>02</span><p><strong>Authorize before submit</strong>The Seller signs the frozen message hash; the API checks both signatures.</p></div><div className="safety-item"><span>03</span><p><strong>RPC confirmed receipt</strong>Activity is published after confirmation and verified token-account deltas.</p></div><p className="context-note">{activity.length} confirmed {activity.length === 1 ? 'settlement' : 'settlements'} in this wallet</p></div>
       </aside>
     </main>
 
-    {sprint?.winner && reviewedProof && (ticketState === 'ready' || ticketState === 'reviewing') ? <ReviewPanel sprint={sprint} proof={reviewedProof} outputDecimals={outputDecimals} onOpenAudit={() => setAuditOpen(true)} onSign={() => void signAndAuthorize()} onClose={() => setTicketState('ready')} /> : null}
+    {sprint?.winner && reviewedSettlement && (ticketState === 'ready' || ticketState === 'reviewing') ? <ReviewPanel sprint={sprint} settlement={reviewedSettlement} outputDecimals={outputDecimals} onOpenAudit={() => setAuditOpen(true)} onSign={() => void signAndAuthorize()} onClose={() => setTicketState('ready')} /> : null}
     {auditOpen && sprint ? <AuditDrawer sprint={sprint} onClose={() => setAuditOpen(false)} outputDecimals={outputDecimals} /> : null}
-    {trade && submittedProof ? <ReceiptPanel trade={trade} proof={submittedProof} outputDecimals={outputDecimals} onClose={() => setTrade(undefined)} /> : null}
+    {trade ? <ReceiptPanel trade={trade} outputDecimals={outputDecimals} onClose={() => setTrade(undefined)} /> : null}
   </div>;
 }
 
 function StatusPanel({ state, error, sprint, onReview, onRefresh }: { readonly state: TicketState; readonly error?: string; readonly sprint?: QuoteSprint; readonly onReview: () => void; readonly onRefresh: () => void }): ReactElement | null {
   if (state === 'idle') return null;
   if (state === 'collecting') return <div className="status-panel collecting-panel" role="status"><div className="status-icon ring-icon"><span className="spinner" /></div><div><strong>Quote sprint in progress</strong><p>Checking Jupiter and healthy private makers for up to three seconds. No placeholder prices are shown.</p></div></div>;
-  if (state === 'ready' && sprint?.winner) return <div className="status-panel ready-panel"><div className="status-icon check-icon">✓</div><div className="ready-copy"><div className="ready-label">INDICATIVE QUOTE · {sprint.winner.sourceKind === 'jupiter' ? 'JUPITER DEMO' : 'PRIVATE MAKER DEMO'}</div><strong>{formatAmount(sprint.winner.netOutputAtomic, 6)} {stableSymbol(sprint.winner.outputMint)} · quote only</strong><p>Indicative {sprint.winner.effectivePriceAtomic ? `${formatAmount(sprint.winner.effectivePriceAtomic, sprint.winner.effectivePriceDecimals ?? 6)} ${stableSymbol(sprint.winner.outputMint)} / stock` : '—'} · Impact {formatBps(sprint.winner.priceImpactBps)}</p><p>No stock or stablecoin settlement occurs in this localnet proof flow.</p><p>Quote expires {formatTimestamp(sprint.winner.expiresAtMs)} · {formatBps(sprint.winner.deviationBps)} to reference</p><button className="secondary-button" type="button" onClick={onReview}>Review 1 lamport transfer <span>↗</span></button></div></div>;
+  if (state === 'ready' && sprint?.winner) return <div className="status-panel ready-panel"><div className="status-icon check-icon">✓</div><div className="ready-copy"><div className="ready-label">EXECUTABLE LOCALNET SETTLEMENT · PRIVATE MAKER</div><strong>{formatAmount(sprint.winner.netOutputAtomic, 6)} {stableSymbol(sprint.winner.outputMint)} minimum</strong><p>Receive at least this amount for {formatAmount(sprint.winner.inputAmountAtomic, 6)} stock · fee {formatAmount(sprint.winner.katonFeeAtomic, 6)} {stableSymbol(sprint.winner.outputMint)}</p><p>Quote expires {formatTimestamp(sprint.winner.expiresAtMs)} · {formatBps(sprint.winner.deviationBps)} to reference</p><button className="secondary-button" type="button" onClick={onReview}>Review settlement <span>↗</span></button></div></div>;
   if (state === 'no_quote') return <div className="status-panel warning-panel"><div className="status-icon">!</div><div><strong>No executable quote</strong><p>{sprint?.eligibility.message ?? 'All sources rejected this size or state. Check eligibility, session hours, balance, or try a smaller supported size.'}</p><button className="text-button" type="button" onClick={onRefresh}>Start a fresh sprint</button></div></div>;
   if (state === 'expired') return <div className="status-panel warning-panel"><div className="status-icon">↻</div><div><strong>Quote expired</strong><p>The action was invalidated with two seconds or less remaining. Request a fresh executable price.</p><button className="text-button" type="button" onClick={onRefresh}>Find a fresh price</button></div></div>;
   if (state === 'wrong_cluster') return <div className="status-panel warning-panel" role="alert"><div className="status-icon">!</div><div><strong>Wrong cluster</strong><p>{error ?? 'Connect a Wallet Standard wallet on solana:localnet. Authorization is blocked on other clusters.'}</p><button className="text-button" type="button" onClick={onRefresh}>Dismiss</button></div></div>;
-  if (state === 'submitting') return <div className="status-panel collecting-panel" role="status"><div className="status-icon ring-icon"><span className="spinner" /></div><div><strong>Signing and authorizing</strong><p>Your wallet signs the issued bytes; the desk hash-checks them before creating an Execution Attempt.</p></div></div>;
-  if (state === 'success') return <div className="status-panel ready-panel" role="status"><div className="status-icon check-icon">✓</div><div><strong>Proof transfer submitted</strong><p>The signature confirms a localnet proof transfer only. Open the receipt for details.</p></div></div>;
+  if (state === 'submitting') return <div className="status-panel collecting-panel" role="status"><div className="status-icon ring-icon"><span className="spinner" /></div><div><strong>Submitting settlement</strong><p>Your wallet signed the issued message. The API is checking and submitting those same bytes once.</p></div></div>;
+  if (state === 'reconciling') return <div className="status-panel warning-panel" role="status"><div className="status-icon">↻</div><div><strong>Settlement outcome is being reconciled</strong><p>{error ?? 'RPC has not confirmed whether the transaction landed. Do not submit this quote again.'}</p></div></div>;
+  if (state === 'success') return <div className="status-panel ready-panel" role="status"><div className="status-icon check-icon">✓</div><div><strong>Stock settlement confirmed</strong><p>RPC confirmed the transaction and token-account deltas. Open the receipt for the fill evidence.</p></div></div>;
   return <div className="status-panel error-panel" role="alert"><div className="status-icon">×</div><div><strong>{state === 'offline' ? 'Desk unavailable' : 'Could not complete request'}</strong><p>{error ?? 'Try again after checking your wallet and network.'}</p><button className="text-button" type="button" onClick={onRefresh}>Try again</button></div></div>;
 }
 
@@ -452,10 +456,10 @@ function ActivityPage({ wallet, walletUiState, activity, sellerSession, sellerAu
     <main className="activity-main" aria-labelledby="activity-title">
       <div className="eyebrow">WALLET ACTIVITY <span className="live-dot" aria-hidden="true" /> LOCALNET</div>
       <h1 id="activity-title">Your exits.</h1>
-      <p className="lede">Activity is scoped to the connected Wallet Standard account. In this localnet acceptance build, signatures identify proof transfers; quoted stock and stablecoin amounts did not settle.</p>
-      {!wallet || walletUiState !== 'connected' ? <div className="empty-state"><strong>Connect a wallet to view activity</strong><p>Activity is scoped to the connected Wallet Standard account on solana:localnet.</p><button className="primary-button" type="button" onClick={onSellerAccess}>Connect wallet <span>↗</span></button></div> : !sellerSession ? <div className="empty-state"><strong>Prove control of this wallet</strong><p>Sign a one time Seller challenge before this wallet’s activity can be read.</p><button className="primary-button" type="button" onClick={onSellerAccess} disabled={sellerAuthBusy}>Prove Seller wallet <span>↗</span></button></div> : activity.length === 0 ? <div className="empty-state"><strong>No localnet attempts yet</strong><p>Proof transfer signatures appear here after a Quote Sprint attempt.</p><a className="secondary-button" href="/trade">Open Seller Desk <span>↗</span></a></div> : <div className="activity-table" role="table"><div className="activity-row activity-header" role="row"><span>Date</span><span>Quote source</span><span>Quoted stock</span><span>Quoted output</span><span>Attempt status</span></div>{activity.map((trade) => {
+      <p className="lede">Activity is scoped to the connected Wallet Standard account and contains only RPC-confirmed localnet stock-for-stablecoin fills.</p>
+      {!wallet || walletUiState !== 'connected' ? <div className="empty-state"><strong>Connect a wallet to view activity</strong><p>Activity is scoped to the connected Wallet Standard account on solana:localnet.</p><button className="primary-button" type="button" onClick={onSellerAccess}>Connect wallet <span>↗</span></button></div> : !sellerSession ? <div className="empty-state"><strong>Prove control of this wallet</strong><p>Sign a one time Seller challenge before this wallet’s activity can be read.</p><button className="primary-button" type="button" onClick={onSellerAccess} disabled={sellerAuthBusy}>Prove Seller wallet <span>↗</span></button></div> : activity.length === 0 ? <div className="empty-state"><strong>No confirmed fills yet</strong><p>Settlements appear here after RPC confirms the transaction and account deltas.</p><a className="secondary-button" href="/trade">Open Seller Desk <span>↗</span></a></div> : <div className="activity-table" role="table"><div className="activity-row activity-header" role="row"><span>Date</span><span>Quote source</span><span>Stock debited</span><span>Stablecoin received</span><span>Status</span></div>{activity.map((trade) => {
         const link = explorerTxUrl(trade.signature);
-        return <details className="activity-detail" key={trade.tradeId}><summary className="activity-row" role="row"><span>{formatTimestamp(trade.finalizedAtMs ?? trade.confirmedAtMs)}</span><span>{trade.sourceKind === 'jupiter' ? 'Jupiter demo' : 'Private maker demo'}</span><span>{formatAmount(trade.inputAmountAtomic, 6)} stock · quoted</span><span>{formatAmount(trade.netOutputAtomic, 6)} {trade.outputMint === SOLANA_USDT_MINT ? 'USDT' : 'USDC'} · quoted</span><span className="audit-good">{trade.finalizedAtMs ? 'Proof landed' : 'Confirmed'}</span></summary><div className="activity-expanded"><p>Localnet transaction: 1 lamport SOL proof transfer. The quoted stock and stablecoin amounts did not move.</p><div><span>Trade ID</span><strong>{trade.tradeId}</strong></div><div><span>Quote ID</span><strong>{trade.quoteId}</strong></div><div><span>Signature</span><strong className="signature">{trade.signature}</strong></div>{link ? <a className="solscan-link" href={link} target="_blank" rel="noreferrer">View on explorer ↗</a> : <span className="mock-signature-note">No explorer link until a cluster signature is present</span>}</div></details>;
+        return <details className="activity-detail" key={trade.tradeId}><summary className="activity-row" role="row"><span>{formatTimestamp(trade.finalizedAtMs ?? trade.confirmedAtMs)}</span><span>Private Maker</span><span>{formatAmount(trade.inputAmountAtomic, 6)} stock</span><span>{formatAmount(trade.sellerStableDeltaAtomic, 6)} {trade.outputMint === SOLANA_USDT_MINT ? 'USDT' : 'USDC'}</span><span className="audit-good">{trade.commitment}</span></summary><div className="activity-expanded"><p>Confirmed stock and stablecoin account deltas from {trade.cluster ?? EXPECTED_CHAIN} slot {trade.slot ?? '—'}.</p><div><span>Fill receipt</span><strong className="signature">{trade.fillReceipt ?? '—'}</strong></div><div><span>Stock mint · Token program</span><strong className="signature">{trade.stockMint ?? trade.inputMint} · {trade.stockTokenProgram ?? '—'}</strong></div><div><span>Stable mint · Token program</span><strong className="signature">{trade.stableMint ?? trade.outputMint} · {trade.stableTokenProgram ?? '—'}</strong></div><div><span>Seller stock delta</span><strong>{formatDelta(trade.sellerStockDeltaAtomic, 6)}</strong></div><div><span>Seller stablecoin delta</span><strong>{formatDelta(trade.sellerStableDeltaAtomic, 6)}</strong></div><div><span>Fee account delta</span><strong>{formatDelta(trade.feeStableDeltaAtomic, 6)}</strong></div><div><span>Trade ID</span><strong>{trade.tradeId}</strong></div><div><span>Quote ID</span><strong>{trade.quoteId}</strong></div><div><span>Signature</span><strong className="signature">{trade.signature}</strong></div>{link ? <a className="solscan-link" href={link} target="_blank" rel="noreferrer">View on explorer ↗</a> : <span className="mock-signature-note">Localnet signatures are inspected through RPC.</span>}</div></details>;
       })}</div>}
     </main>
   </div>;
@@ -603,20 +607,37 @@ function OperationsCard({ kicker, title, value, detail, status }: { readonly kic
   return <article className="operations-card"><div className="card-kicker">{kicker}</div><div className="operations-card-head"><h2>{title}</h2><span className="operations-status">{status}</span></div><strong className="operations-value">{value}</strong><div className="operations-card-detail">{detail}</div></article>;
 }
 
-function ReviewPanel({ sprint, proof, outputDecimals, onOpenAudit, onSign, onClose }: { readonly sprint: QuoteSprint; readonly proof: LocalnetProofSummary; readonly outputDecimals: number; readonly onOpenAudit: () => void; readonly onSign: () => void; readonly onClose: () => void }): ReactElement {
+function ReviewPanel({ sprint, settlement, outputDecimals, onOpenAudit, onSign, onClose }: { readonly sprint: QuoteSprint; readonly settlement: LocalnetSettlementSummary; readonly outputDecimals: number; readonly onOpenAudit: () => void; readonly onSign: () => void; readonly onClose: () => void }): ReactElement {
   const winner = sprint.winner!;
-  const feeBps = winner.katonFeeBps ?? (winner.sourceKind === 'private-maker' ? 10 : 0);
-  const feeLabel = `${formatAmount(winner.katonFeeAtomic, outputDecimals)} ${stableSymbol(winner.outputMint)} · ${feeBps} bps`;
-  return <div className="modal-scrim"><section className="review-panel" role="dialog" aria-modal="true" aria-labelledby="review-title"><div className="review-head"><div><div className="card-kicker">LOCALNET TRANSACTION REVIEW · {EXPECTED_CHAIN}</div><h2 id="review-title">Review proof transfer</h2></div><button type="button" className="close-button" onClick={onClose} aria-label="Close review">×</button></div><div className="proof-warning" role="alert"><strong>This does not execute the quoted stock sale.</strong><span>Signing submits a 1 lamport SOL transfer only. No stock or stablecoin moves; quote amounts below are informational and are not protected minimums.</span></div><h3 className="review-section-title">Transaction that will land</h3><div className="proof-transfer-amount"><span>Transfer amount</span><strong>1 lamport · 0.000000001 SOL</strong></div><div className="review-grid"><div><span>Recipient</span><strong className="signature">{proof.recipient}</strong></div><div><span>Program</span><strong>System Program · {proof.systemProgram}</strong></div><div><span>Fee payer</span><strong className="signature">{proof.feePayer}</strong></div><div><span>Cluster</span><strong>{EXPECTED_CHAIN}</strong></div><div><span>Pre-sign demo simulation</span><strong className="simulation-ok">{winner.simulation.ok ? '✓ Passed' : '✕ Failed'} · {winner.simulation.unitsConsumed?.toLocaleString() ?? '—'} CU reported</strong></div><div><span>Instruction / signers</span><strong>1 transfer · {proof.signerCount} required signers</strong></div></div><p className="review-note">The pre-sign result is from the local demo simulator. After signing, the API simulates these exact bytes against localnet again before submission.</p><h3 className="review-section-title">Indicative Quote Sprint terms · not settled</h3><div className="review-amounts"><div><span>Quoted stock input</span><strong>{formatAmount(winner.inputAmountAtomic, 6)} stock</strong><small>{winner.inputMint}</small></div><div className="arrow" aria-hidden="true">→</div><div><span>Quoted stablecoin output</span><strong>{formatAmount(winner.netOutputAtomic, outputDecimals)} {stableSymbol(winner.outputMint)}</strong><small>quote only · no payment instruction</small></div></div><div className="review-grid"><div><span>Quote source</span><strong>{winner.sourceKind === 'jupiter' ? 'Jupiter demo source' : 'Private maker demo source'}</strong></div><div><span>Indicative effective price</span><strong>{winner.effectivePriceAtomic ? `${formatAmount(winner.effectivePriceAtomic, winner.effectivePriceDecimals ?? outputDecimals)} ${stableSymbol(winner.outputMint)} / stock` : '—'}</strong></div><div><span>Indicative price impact</span><strong>{formatBps(winner.priceImpactBps)}</strong></div><div><span>Indicative quoted fees</span><strong>{feeLabel} Katon · {formatAmount(winner.venueFeeAtomic, outputDecimals)} {stableSymbol(winner.outputMint)} venue</strong></div></div><div className="expiry-bar"><span>Quote expires {formatTimestamp(winner.expiresAtMs)}</span><span>Quote remains winner_ready until authorization</span></div><div className="review-actions"><button type="button" className="text-button" onClick={onOpenAudit}>View audit comparison</button><button type="button" className="primary-button" onClick={onSign}>Approve and sign 1 lamport transfer <span>↗</span></button></div></section></div>;
+  const stable = stableSymbol(settlement.stableMint);
+  const feeLabel = `${formatAmount(settlement.feeAtomic, outputDecimals)} ${stable} · ${settlement.feeBps} bps`;
+  return <div className="modal-scrim"><section className="review-panel" role="dialog" aria-modal="true" aria-labelledby="review-title">
+    <div className="review-head"><div><div className="card-kicker">ISSUED RFQ TRANSACTION · {EXPECTED_CHAIN}</div><h2 id="review-title">Review stock settlement</h2></div><button type="button" className="close-button" onClick={onClose} aria-label="Close review">×</button></div>
+    <div className="proof-warning" role="note"><strong>Local test assets</strong><span>This signed transaction settles the displayed local test stock and stablecoin. They have no issuer backing and are not Devnet or Mainnet assets.</span></div>
+    <h3 className="review-section-title">Exact transaction economics</h3>
+    <div className="review-amounts"><div><span>Seller stock debit</span><strong>{formatAmount(settlement.stockDebitAtomic, 6)} stock</strong><small>{settlement.stockMint}</small></div><div className="arrow" aria-hidden="true">→</div><div><span>Net stablecoin minimum</span><strong>{formatAmount(settlement.netStableMinimumAtomic, outputDecimals)} {stable}</strong><small>{settlement.stableMint}</small></div></div>
+    <div className="review-grid"><div><span>Fee withheld</span><strong>{feeLabel}</strong></div><div><span>Gross stablecoin transfer</span><strong>{formatAmount(settlement.grossStableAtomic, outputDecimals)} {stable}</strong></div><div><span>Fee payer</span><strong className="signature">{settlement.feePayer}</strong></div><div><span>Cluster</span><strong>{EXPECTED_CHAIN}</strong></div><div><span>Private Maker signer</span><strong className="signature">{settlement.maker}</strong></div><div><span>RFQ program</span><strong className="signature">{settlement.programId}</strong></div><div><span>Source account</span><strong className="signature">{settlement.sellerStockAccount}</strong></div><div><span>Stablecoin destination</span><strong className="signature">{settlement.sellerStableAccount}</strong></div><div><span>Quote ID</span><strong className="signature">{settlement.quoteId}</strong></div><div><span>Expiry</span><strong>{new Date(settlement.expiresAtSeconds * 1_000).toLocaleString()}</strong></div></div>
+    <h3 className="review-section-title">Executable instructions</h3><ol className="instruction-list">{settlement.executableInstructions.map((instruction) => <li key={instruction}>{instruction}</li>)}</ol>
+    <p className="review-note">RPC simulation passed for these issued bytes. The API rechecks live policy and balances, verifies both signatures and the unchanged message, then submits once.</p>
+    <div className="review-grid"><div><span>Issued message hash</span><strong className="signature">{winner.transactionHash ?? 'Missing hash'}</strong></div><div><span>Required signatures</span><strong>{settlement.signerCount} · Seller + Maker</strong></div><div><span>Token program · stock</span><strong className="signature">{settlement.stockTokenProgram}</strong></div><div><span>Token program · stablecoin</span><strong className="signature">{settlement.stableTokenProgram}</strong></div></div>
+    <div className="expiry-bar"><span>Settlement quote expires {formatTimestamp(winner.expiresAtMs)}</span><span>Full fill · exact input</span></div>
+    <div className="review-actions"><button type="button" className="text-button" onClick={onOpenAudit}>View source audit</button><button type="button" className="primary-button" onClick={onSign}>Approve and sign settlement <span>↗</span></button></div>
+  </section></div>;
 }
 
 function AuditDrawer({ sprint, onClose, outputDecimals }: { readonly sprint: QuoteSprint; readonly onClose: () => void; readonly outputDecimals: number }): ReactElement {
   return <div className="modal-scrim"><section className="audit-drawer" role="dialog" aria-modal="true" aria-labelledby="audit-title"><div className="review-head"><div><div className="card-kicker">EXECUTION AUDIT</div><h2 id="audit-title">Source comparison</h2></div><button type="button" className="close-button" onClick={onClose} aria-label="Close audit">×</button></div><p className="drawer-intro">Losing payloads and inventory stay private. This comparison records only source class, net amount, timestamp, and structured outcome.</p><div className="audit-table" role="table"><div className="audit-row audit-header" role="row"><span>Source class</span><span>Net received</span><span>At</span><span>Outcome</span></div>{sprint.audit.map((row, index) => <div className="audit-row" role="row" key={`${row.sourceClass}-${index}`}><span>{row.sourceClass === 'jupiter' ? 'Jupiter' : 'Private maker'}</span><span>{row.netOutputAtomic ? `${formatAmount(row.netOutputAtomic, outputDecimals)} ${sprint.request.outputMint === SOLANA_USDT_MINT ? 'USDT' : 'USDC'}` : '—'}</span><span>{formatTimestamp(row.receivedAtMs)}</span><span className={row.status === 'executable' ? 'audit-good' : 'audit-bad'}>{row.status === 'executable' ? 'Executable' : row.rejectionCode?.replaceAll('_', ' ')}</span></div>)}</div><button type="button" className="secondary-button full-button" onClick={onClose}>Back to review</button></section></div>;
 }
 
-function ReceiptPanel({ trade, proof, outputDecimals, onClose }: { readonly trade: TradeReceipt; readonly proof: LocalnetProofSummary; readonly outputDecimals: number; readonly onClose: () => void }): ReactElement {
-  const feeBps = trade.katonFeeBps ?? (trade.sourceKind === 'private-maker' ? 10 : 0);
-  const feeLabel = `${formatAmount(trade.katonFeeAtomic, outputDecimals)} ${stableSymbol(trade.outputMint)} · ${feeBps} bps`;
+function ReceiptPanel({ trade, outputDecimals, onClose }: { readonly trade: TradeReceipt; readonly outputDecimals: number; readonly onClose: () => void }): ReactElement {
   const link = explorerTxUrl(trade.signature);
-  return <div className="modal-scrim"><section className="receipt-panel" role="dialog" aria-modal="true" aria-labelledby="receipt-title"><div className="receipt-mark">✓</div><div className="card-kicker">LOCALNET PROOF RECEIPT</div><h2 id="receipt-title">Proof transfer landed</h2><p className="receipt-lede">This signature confirms a 1 lamport SOL transfer on localnet. It does not confirm stock or stablecoin settlement.</p><div className="proof-transfer-amount"><span>On-chain transfer</span><strong>1 lamport · 0.000000001 SOL</strong></div><div className="receipt-grid"><div><span>Recipient</span><strong className="signature">{proof.recipient}</strong></div><div><span>Program</span><strong>System Program</strong></div><div><span>Fee payer</span><strong className="signature">{proof.feePayer}</strong></div><div><span>Cluster</span><strong>{EXPECTED_CHAIN}</strong></div><div><span>Quoted stock · not moved</span><strong>{formatAmount(trade.inputAmountAtomic, 6)} stock</strong></div><div><span>Quoted stablecoin · not paid</span><strong>{formatAmount(trade.netOutputAtomic, outputDecimals)} {stableSymbol(trade.outputMint)}</strong></div><div><span>Quote source</span><strong>{trade.sourceKind === 'jupiter' ? 'Jupiter demo' : 'Private maker demo'}</strong></div><div><span>Attempt ID</span><strong>{trade.tradeId}</strong></div><div><span>Cluster signature</span><strong className="signature">{trade.signature}</strong></div></div><p className="receipt-lede">Quoted price {trade.effectivePriceAtomic ? `${formatAmount(trade.effectivePriceAtomic, trade.effectivePriceDecimals ?? outputDecimals)} ${stableSymbol(trade.outputMint)} / stock` : '—'} · impact {formatBps(trade.priceImpactBps)} · indicative fee {feeLabel}</p>{link ? <a className="solscan-link" href={link} target="_blank" rel="noreferrer">View on Solana Explorer ↗</a> : <span className="mock-signature-note">Explorer link appears only after a real cluster signature</span>}<button className="secondary-button full-button" type="button" onClick={onClose}>Done</button></section></div>;
+  const stable = stableSymbol(trade.outputMint);
+  return <div className="modal-scrim"><section className="receipt-panel" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+    <div className="receipt-mark">✓</div><div className="card-kicker">RPC-CONFIRMED LOCALNET FILL</div><h2 id="receipt-title">Stock settlement complete</h2>
+    <p className="receipt-lede">The Seller’s stock debit, Maker inventory, stablecoin payment, and fee were verified against confirmed localnet token-account state.</p>
+    <div className="review-amounts"><div><span>Stock debited</span><strong>{formatAmount(trade.inputAmountAtomic, 6)} stock</strong><small>{trade.stockMint}</small></div><div className="arrow" aria-hidden="true">→</div><div><span>Stablecoin received</span><strong>{formatAmount(trade.sellerStableDeltaAtomic, outputDecimals)} {stable}</strong><small>{trade.stableMint}</small></div></div>
+    <div className="receipt-grid"><div><span>Cluster · commitment · slot</span><strong>{trade.cluster} · {trade.commitment} · {trade.slot}</strong></div><div><span>Fee withheld</span><strong>{formatAmount(trade.feeStableDeltaAtomic, outputDecimals)} {stable} · {trade.katonFeeBps ?? 10} bps</strong></div><div><span>Seller stock delta</span><strong>{formatDelta(trade.sellerStockDeltaAtomic, 6)}</strong></div><div><span>Maker stock delta</span><strong>{formatDelta(trade.makerStockDeltaAtomic, 6)}</strong></div><div><span>Maker stablecoin delta</span><strong>{formatDelta(trade.makerStableDeltaAtomic, outputDecimals)}</strong></div><div><span>Seller stablecoin delta</span><strong>{formatDelta(trade.sellerStableDeltaAtomic, outputDecimals)}</strong></div><div><span>Fee account delta</span><strong>{formatDelta(trade.feeStableDeltaAtomic, outputDecimals)}</strong></div><div><span>Stock Token program</span><strong className="signature">{trade.stockTokenProgram}</strong></div><div><span>Stablecoin Token program</span><strong className="signature">{trade.stableTokenProgram}</strong></div><div><span>Fill receipt identity</span><strong className="signature">{trade.fillReceipt}</strong></div><div><span>Quote ID</span><strong className="signature">{trade.quoteId}</strong></div><div><span>Settlement signature</span><strong className="signature">{trade.signature}</strong></div></div>
+    {link ? <a className="solscan-link" href={link} target="_blank" rel="noreferrer">View on Solana Explorer ↗</a> : <span className="mock-signature-note">Localnet transaction and token deltas were checked through RPC.</span>}
+    <button className="secondary-button full-button" type="button" onClick={onClose}>Done</button>
+  </section></div>;
 }

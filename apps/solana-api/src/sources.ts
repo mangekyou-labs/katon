@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  blockhashBytesFromBase58,
-  buildLocalnetLandingV0Transaction,
   buildQuoteBoundV0Transaction,
   decodeBase58,
   encodeBase58,
@@ -18,6 +16,11 @@ import {
 } from '@katon/solana-core';
 import type { AssetRegistryEntry, ExecutionEvidence, QuoteCandidate, QuoteSessionRequest, SimulationResult, VerifiedSourceBalance } from '@katon/solana-core';
 import type { MakerCapability } from './roles';
+import { buildLocalnetPrivateSettlement, type LocalnetSettlementFixture } from './localnet-settlement';
+import { validateMakerSettlement } from './maker-settlement';
+import type { LocalnetRpcClient } from './localnet-runtime';
+export { SubmissionUncertainError } from './localnet-runtime';
+import { transactionHash, validateMakerPartialTransaction } from '@katon/solana-sdk';
 
 export type { ExecutionEvidence } from '@katon/solana-core';
 
@@ -217,22 +220,6 @@ function sellerPubkeyFromRequest(request: QuoteSessionRequest): Uint8Array {
   return decoded;
 }
 
-async function fetchRecentBlockhashBytes(rpcUrl = process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899'): Promise<Uint8Array> {
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getLatestBlockhash', params: [{ commitment: 'confirmed' }] }),
-  });
-  const body = await response.json() as {
-    result?: { value?: { blockhash?: string } };
-    error?: { message?: string };
-  };
-  if (!response.ok || body.error || !body.result?.value?.blockhash) {
-    throw new Error(body.error?.message ?? 'getLatestBlockhash failed');
-  }
-  return blockhashBytesFromBase58(body.result.value.blockhash);
-}
-
 async function makeJupiterCandidate(request: QuoteSessionRequest, asset: AssetRegistryEntry, nowMs: number): Promise<QuoteCandidate> {
   const gross = baseGross(request, asset, 0);
   const venueFee = (gross * 3n) / 10_000n;
@@ -240,10 +227,7 @@ async function makeJupiterCandidate(request: QuoteSessionRequest, asset: AssetRe
   const quoteId = `jup-${nowMs}`;
   const sellerPubkey = sellerPubkeyFromRequest(request);
   const built = isLocalnetMode()
-    ? buildLocalnetLandingV0Transaction({
-      sellerPubkey,
-      recentBlockhash: await fetchRecentBlockhashBytes(),
-    })
+    ? undefined
     : buildQuoteBoundV0Transaction({
       sellerPubkey,
       quoteId,
@@ -273,8 +257,10 @@ async function makeJupiterCandidate(request: QuoteSessionRequest, asset: AssetRe
     expiresAtMs: nowMs + quoteLifetimeMs('jupiter'),
     reliabilityBps: 9_900,
     transactionVersion: 'v0',
-    transactionBase64: built.transactionBase64,
-    simulation: simulation(nowMs),
+    ...(built === undefined ? {} : { transactionBase64: built.transactionBase64 }),
+    simulation: isLocalnetMode()
+      ? { ok: false, errorCode: 'jupiter_stub_not_executable_for_rfq_settlement', simulatedAtMs: nowMs }
+      : simulation(nowMs),
   };
 }
 
@@ -284,6 +270,8 @@ interface MakerCandidateOptions {
   readonly settlementRoute: QuoteCandidate['settlementRoute'];
   readonly premiumBps: number;
   readonly makerSecretKey: Uint8Array;
+  readonly localnetFixture?: LocalnetSettlementFixture;
+  readonly localnetRpc?: LocalnetRpcClient;
 }
 
 async function makeMakerCandidate(
@@ -293,23 +281,41 @@ async function makeMakerCandidate(
   options: MakerCandidateOptions,
 ): Promise<QuoteCandidate> {
   const gross = baseGross(request, asset, options.premiumBps);
+  if (isLocalnetMode()) {
+    if (!options.localnetFixture || !options.localnetRpc) throw new Error('governed localnet settlement fixture is not configured');
+    await options.localnetRpc.assertGovernedFixture(request.outputMint);
+    if (options.localnetFixture.sellerPublicKey && request.wallet !== options.localnetFixture.sellerPublicKey) throw new Error('Seller wallet does not match the provisioned localnet stock account');
+    await options.localnetRpc.alignTestClock(nowMs);
+    const issued = await buildLocalnetPrivateSettlement({
+      fixture: options.localnetFixture,
+      sellerPublicKey: request.wallet,
+      makerSecretKey: options.makerSecretKey,
+      asset,
+      request,
+      grossStableAmountAtomic: gross.toString(),
+      nowMs,
+      expiresAtMs: nowMs + 20_000,
+      recentBlockhash: await options.localnetRpc.latestBlockhash(),
+    });
+    const bytes = issued.candidate.transactionBase64;
+    if (!bytes) throw new Error('Private Maker did not issue settlement bytes');
+    validateMakerSettlement(bytes, issued.terms, nowMs);
+    const messageHash = await transactionHash(bytes);
+    const signatureCheck = await validateMakerPartialTransaction(bytes, issued.terms.makerPublicKey, messageHash, issued.terms.expiresAtMs, nowMs);
+    if (!signatureCheck.ok) throw new Error(signatureCheck.message);
+    return issued.candidate;
+  }
   const venueFee = 0n;
   const quoteId = `${options.sourceId}-${nowMs}`;
   const makerPubkey = publicKeyFromSeed(options.makerSecretKey);
   const sellerPubkey = sellerPubkeyFromRequest(request);
-  const built = isLocalnetMode()
-    ? buildLocalnetLandingV0Transaction({
-      sellerPubkey,
-      makerPubkey,
-      recentBlockhash: await fetchRecentBlockhashBytes(),
-    })
-    : buildQuoteBoundV0Transaction({
-      sellerPubkey,
-      makerPubkey,
-      quoteId,
-      inputAmountAtomic: request.inputAmountAtomic,
-      outputAtomic: gross.toString(),
-    });
+  const built = buildQuoteBoundV0Transaction({
+    sellerPubkey,
+    makerPubkey,
+    quoteId,
+    inputAmountAtomic: request.inputAmountAtomic,
+    outputAtomic: gross.toString(),
+  });
   const partial = partiallySignV0Transaction({
     message: built.message,
     signatures: built.signatures,
@@ -366,7 +372,10 @@ export class HeadlessPrivateMakerSource implements QuoteSource {
   readonly reliabilityBps = 9_700;
   private readonly makerSecretKey: Uint8Array;
 
-  constructor(makerSecretKey: Uint8Array = resolveMakerSecretKey()) {
+  constructor(
+    makerSecretKey: Uint8Array = resolveMakerSecretKey(),
+    private readonly localnet?: { readonly fixture: LocalnetSettlementFixture; readonly rpc: LocalnetRpcClient },
+  ) {
     this.makerSecretKey = makerSecretKey;
   }
 
@@ -382,6 +391,7 @@ export class HeadlessPrivateMakerSource implements QuoteSource {
       settlementRoute: this.settlementRoute,
       premiumBps: 8,
       makerSecretKey: this.makerSecretKey,
+      ...(this.localnet === undefined ? {} : { localnetFixture: this.localnet.fixture, localnetRpc: this.localnet.rpc }),
     });
   }
 }
@@ -397,6 +407,7 @@ export class TrustedRpcSender implements JupiterExecutor, PrivateSender {
   constructor(
     private readonly rpcUrl = process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899',
     private readonly options: { readonly simulateFirst?: boolean; readonly fetcher?: typeof fetch } = {},
+    private readonly localnet?: LocalnetRpcClient,
   ) {}
 
   async execute(candidate: QuoteCandidate, signedTransactionBase64: string): Promise<ExecutionEvidence> {
@@ -409,6 +420,7 @@ export class TrustedRpcSender implements JupiterExecutor, PrivateSender {
 
   private async submit(candidate: QuoteCandidate, signedTransactionBase64: string): Promise<ExecutionEvidence> {
     if (!signedTransactionBase64 || !candidate.transactionBase64) throw new Error('missing signed transaction');
+    if (this.localnet) return this.localnet.submitSettlement(candidate, signedTransactionBase64, this.options.fetcher ?? fetch);
     const fetcher = this.options.fetcher ?? fetch;
     if (this.options.simulateFirst !== false) {
       const simulation = await this.rpc(fetcher, 'simulateTransaction', [signedTransactionBase64, { encoding: 'base64', sigVerify: true }]);
@@ -439,6 +451,7 @@ export class TrustedRpcSender implements JupiterExecutor, PrivateSender {
     return body.result;
   }
 }
+
 
 /**
  * Test double that returns a deterministic non-mock signature derived from the
