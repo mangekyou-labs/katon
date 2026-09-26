@@ -3,6 +3,7 @@
 *.swp
 
 # Agent / IDE local trees (do not ship to the public hackathon repo)
+.worktrees/
 .agents/
 .claude/
 .codex/

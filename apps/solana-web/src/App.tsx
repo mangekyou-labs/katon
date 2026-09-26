@@ -40,10 +40,16 @@ function isExecutableAsset(entry: AssetView): boolean {
 }
 
 function issuerLabel(issuer: AssetView['issuer']): string {
-  return issuer === 'xstocks' ? 'Synthetic' : 'Ondo Global Markets';
+  return issuer === 'xstocks' ? 'xStocks' : 'Ondo Global Markets';
 }
 
 export function App(): ReactElement {
+  const hostedDeployment = typeof window !== 'undefined'
+    && !['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
+  return hostedDeployment ? <HostedSellerUnavailable /> : <LocalSellerDesk />;
+}
+
+function LocalSellerDesk(): ReactElement {
   const [path, setPath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/trade');
   useEffect(() => {
     const navigate = (event: MouseEvent): void => {
@@ -113,20 +119,25 @@ export function App(): ReactElement {
   const hasSellerSession = Boolean(wallet && !wrongCluster && sellerSession?.wallet === wallet && Date.now() < sellerSession.expiresAtMs);
 
   const asset = useMemo(
-    () => executableAssets.find((entry) => entry.mint === assetMint) ?? executableAssets[0] ?? assets[0],
+    () => executableAssets.find((entry) => entry.mint === assetMint) ?? executableAssets[0],
     [assetMint, assets, executableAssets],
   );
   const outputDecimals = 6;
+  const localReferenceFixture = asset?.referencePolicy?.primary?.provider.startsWith('fixture-') ?? false;
   const inputsLocked = ['collecting', 'ready', 'reviewing', 'submitting', 'reconciling', 'success'].includes(ticketState);
 
   const loadAssets = useCallback(async (address: string) => {
     try {
       const next = await api.listAssets(address, outputMint);
       if (currentWallet.current !== address) return;
-      if (next.length > 0) {
-        setAssets(next);
-        const nextExecutable = next.filter(isExecutableAsset);
-        setAssetMint((current) => nextExecutable.some((entry) => entry.mint === current) ? current : (nextExecutable[0]?.mint ?? current));
+      setAssets(next);
+      const nextExecutable = next.filter(isExecutableAsset);
+      setAssetMint((current) => nextExecutable.some((entry) => entry.mint === current) ? current : (nextExecutable[0]?.mint ?? ''));
+      if (nextExecutable.length === 0) {
+        setAmount('');
+        setSprint(undefined);
+        setReviewedSettlement(undefined);
+        setTrade(undefined);
       }
       setTicketState((current) => current === 'offline' ? 'idle' : current);
     } catch {
@@ -402,24 +413,25 @@ export function App(): ReactElement {
     <main className="main-grid">
       <section className="ticket-column" aria-labelledby="page-title">
         <div className="eyebrow">SELLER DESK <span className="live-dot" aria-hidden="true" /> LOCALNET</div>
-        <h1 id="page-title">Sell test stock.<br /><em>Keep control.</em></h1>
+        <h1 id="page-title">Sell tokenized stock.<br /><em>Keep control.</em></h1>
         <p className="lede">Request an exact-input Quote Sprint, inspect the frozen winner, and review the exact localnet transaction before deciding whether to sign.</p>
-        <div className="proof-disclosure" role="note"><strong>Localnet test settlement</strong><span>This desk settles synthetic test stock for locally provisioned test USDC or test USDT. These assets are not issuer-backed xStocks and are not Devnet or Mainnet assets.</span></div>
+        <div className="proof-disclosure" role="note"><strong>{localReferenceFixture ? 'Automated localnet fixture' : 'Issuer-backed stock required'}</strong><span>{localReferenceFixture ? 'This automated localnet flow uses synthetic stock and test stablecoins. They are isolated fixtures, not issuer-backed assets.' : 'Only issuer-verified stock appears here. No verified stock is configured for this cluster, so the asset list and trade controls stay empty.'}</span></div>
 
         <form className="trade-ticket" onSubmit={(event) => void submit(event)}>
-          <div className="ticket-header"><div><span className="label">SELL · TEST ASSET</span><strong>Local test stock</strong></div><span className="session-pill">{wrongCluster ? 'Wrong cluster' : hasSellerSession ? 'Seller session active' : wallet ? 'Wallet proof required' : 'Connect to begin'}</span></div>
+          <div className="ticket-header"><div><span className="label">{localReferenceFixture ? 'SELL · LOCAL TEST FIXTURE' : 'SELL · VERIFIED STOCK'}</span><strong>{localReferenceFixture ? 'Local test fixture' : 'Seller Desk'}</strong></div><span className="session-pill">{wrongCluster ? 'Wrong cluster' : hasSellerSession ? 'Seller session active' : wallet ? 'Wallet proof required' : 'Connect to begin'}</span></div>
           <label className="field-label" htmlFor="asset">Asset</label>
           <select id="asset" className="select-input" value={asset?.mint ?? ''} onChange={(event) => setAssetMint(event.target.value)} disabled={inputsLocked || !hasSellerSession || executableAssets.length === 0}>
-            {executableAssets.map((entry) => <option value={entry.mint} key={entry.mint}>{entry.ticker} · synthetic test stock · {entry.underlyingTicker}</option>)}
+            {executableAssets.length === 0 ? <option value="">No verified stock available</option> : null}
+            {executableAssets.map((entry) => <option value={entry.mint} key={entry.mint}>{localReferenceFixture ? `${entry.ticker} · synthetic localnet fixture · ${entry.underlyingTicker}` : `${entry.ticker} · ${entry.underlyingTicker}`}</option>)}
           </select>
-          <div className="asset-meta"><span className={`issuer-badge issuer-${asset?.issuer ?? 'xstocks'}`}>{asset ? `${issuerLabel(asset.issuer)} test stock` : 'Synthetic test stock'}</span><span>{asset?.tokenProgram === 'token-2022' ? 'Token-2022' : 'SPL Token'} · {asset?.decimals ?? 0} decimals</span><span>RPC balance {hasSellerSession ? formatAmount(asset?.balanceAtomic, asset?.decimals ?? 6) : 'prove wallet to view'}</span></div>
+          <div className="asset-meta"><span className={`issuer-badge ${asset ? `issuer-${asset.issuer}` : ''}`}>{asset ? (localReferenceFixture ? 'Synthetic local fixture' : issuerLabel(asset.issuer)) : 'No verified stock'}</span><span>{asset ? `${asset.tokenProgram === 'token-2022' ? 'Token-2022' : 'SPL Token'} · ${asset.decimals} decimals` : 'Issuer-backed token required'}</span><span>RPC balance {asset && hasSellerSession ? formatAmount(asset.balanceAtomic, asset.decimals) : '—'}</span></div>
           {hasSellerSession && informationalHeld.length > 0 ? <p className="ticket-footnote informational-note"><span aria-hidden="true">◇</span> Held Ondo / managed inventory is informational only — Managed Route not enabled.</p> : null}
 
           <div className="amount-label-row"><label className="field-label" htmlFor="amount">Amount</label><button type="button" className="max-button" onClick={() => asset && setAmount(formatAmount(asset.balanceAtomic, asset.decimals))} disabled={inputsLocked || !asset || !hasSellerSession}>Use full balance</button></div>
-          <div className="amount-wrap"><input id="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" autoComplete="off" placeholder="0.000000" disabled={inputsLocked || !hasSellerSession} required /><span>test stock</span></div>
+          <div className="amount-wrap"><input id="amount" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" autoComplete="off" placeholder="0.000000" disabled={inputsLocked || !hasSellerSession || !asset} required /><span>{asset?.ticker ?? ''}</span></div>
 
-          <fieldset className="output-fieldset"><legend className="field-label">Receive</legend><div className="output-options">{[[SOLANA_USDC_MINT, 'test USDC'], [SOLANA_USDT_MINT, 'test USDT']].map(([mint, symbol]) => <label className={`output-option ${outputMint === mint ? 'selected' : ''}`} key={mint}><input type="radio" name="output" value={mint} checked={outputMint === mint} onChange={() => setOutputMint(mint)} disabled={inputsLocked || !hasSellerSession} /><span>{symbol}</span><small>local token</small></label>)}</div></fieldset>
-          <button className="primary-button" type="submit" disabled={inputsLocked || !hasSellerSession || !asset || asset.eligibility.status !== 'eligible' || wrongCluster}>{ticketState === 'collecting' ? <><span className="spinner" aria-hidden="true" /> Finding executable prices</> : 'Find best executable price'}<span aria-hidden="true">↗</span></button>
+          <fieldset className="output-fieldset"><legend className="field-label">Receive</legend>{asset ? <div className="output-options">{[[SOLANA_USDC_MINT, localReferenceFixture ? 'test USDC' : 'USDC'], [SOLANA_USDT_MINT, localReferenceFixture ? 'test USDT' : 'USDT']].map(([mint, symbol]) => <label className={`output-option ${outputMint === mint ? 'selected' : ''}`} key={mint}><input type="radio" name="output" value={mint} checked={outputMint === mint} onChange={() => setOutputMint(mint)} disabled={inputsLocked || !hasSellerSession} /><span>{symbol}</span><small>{localReferenceFixture ? 'local test token' : 'Solana token'}</small></label>)}</div> : <p className="ticket-footnote">No supported settlement asset is available.</p>}</fieldset>
+          <button className="primary-button" type="submit" disabled={inputsLocked || !hasSellerSession || !asset || asset.eligibility.status !== 'eligible' || wrongCluster}>{ticketState === 'collecting' ? <><span className="spinner" aria-hidden="true" /> Finding executable prices</> : asset ? 'Find best executable price' : 'No verified stock available'}<span aria-hidden="true">↗</span></button>
           <p className="ticket-footnote"><span aria-hidden="true">♢</span> Exact input · full fill · no custody · max quote life 30 seconds</p>
         </form>
 
@@ -427,7 +439,7 @@ export function App(): ReactElement {
       </section>
 
       <aside className="context-column" aria-label="Execution context">
-        <div className="context-card reference-card"><div className="card-kicker">REFERENCE POLICY</div><div className="context-row"><span>Status</span><strong>{asset?.referencePolicy?.status ?? 'unavailable'}</strong></div><div className="context-row"><span>Pyth · Equity.US.AAPL/USD</span><strong>{asset?.referencePolicy?.pyth ? `${formatAmount(asset.referencePolicy.pyth.priceAtomic, 6)} USD · ${formatDateTime(asset.referencePolicy.pyth.observedAtMs)} · ${asset.referencePolicy.pyth.marketSession ?? 'session unknown'}` : 'Unavailable · no current observation'}</strong></div><div className="context-row"><span>Independent cross-check</span><strong>{asset?.referencePolicy?.crossCheck ? `${asset.referencePolicy.crossCheck.provider} · ${formatAmount(asset.referencePolicy.crossCheck.priceAtomic, 6)} USD · ${formatDateTime(asset.referencePolicy.crossCheck.observedAtMs)}` : 'Unavailable · separate provider required'}</strong></div><div className="reference-note">Quote eligibility requires fresh in-session Pyth data and a separate independent cross-check. Registry values are metadata and never price fallbacks.</div></div>
+        <div className="context-card reference-card"><div className="card-kicker">REFERENCE POLICY</div><div className="context-row"><span>Status</span><strong>{asset?.referencePolicy?.status ?? 'unavailable'}</strong></div><div className="context-row"><span>{localReferenceFixture ? 'Localnet test reference' : 'Pyth · Equity.US.AAPL/USD'}</span><strong>{localReferenceFixture && asset?.referencePolicy?.primary ? `${formatAmount(asset.referencePolicy.primary.priceAtomic, 6)} USD · deterministic fixture` : asset?.referencePolicy?.pyth ? `${formatAmount(asset.referencePolicy.pyth.priceAtomic, 6)} USD · ${formatDateTime(asset.referencePolicy.pyth.observedAtMs)} · ${asset.referencePolicy.pyth.marketSession ?? 'session unknown'}` : 'Unavailable · no current observation'}</strong></div><div className="context-row"><span>Independent cross-check</span><strong>{asset?.referencePolicy?.crossCheck ? `${asset.referencePolicy.crossCheck.provider} · ${formatAmount(asset.referencePolicy.crossCheck.priceAtomic, 6)} USD · ${formatDateTime(asset.referencePolicy.crossCheck.observedAtMs)}` : 'Unavailable · separate provider required'}</strong></div><div className="reference-note">{localReferenceFixture ? 'This offline localnet test uses deterministic reference values. They are not current market prices or Devnet/Mainnet prices.' : 'Quote eligibility requires fresh in-session Pyth data and a separate independent cross-check. Registry values are metadata and never price fallbacks.'}</div></div>
         <div className="context-card"><div className="card-kicker">BEST EXECUTION</div><div className="source-line"><span className="source-mark jupiter-mark">J</span><span><strong>Jupiter</strong><small>Non-executable demo stub</small></span><span className="source-state">Excluded</span></div><div className="source-line"><span className="source-mark maker-mark">K</span><span><strong>Private Maker</strong><small>Governed local RFQ settlement</small></span><span className="source-state">Executable</span></div><div className="context-divider" /><p className="context-note">Only the governed Private Maker can win this local settlement flow.</p></div>
         <div className="context-card safety-card"><div className="card-kicker">SETTLEMENT CONTROLS</div><div className="safety-item"><span>01</span><p><strong>Inspect exact bytes</strong>Review the stock debit, stablecoin minimum, fee, accounts, and instructions.</p></div><div className="safety-item"><span>02</span><p><strong>Authorize before submit</strong>The Seller signs the frozen message hash; the API checks both signatures.</p></div><div className="safety-item"><span>03</span><p><strong>RPC confirmed receipt</strong>Activity is published after confirmation and verified token-account deltas.</p></div><p className="context-note">{activity.length} confirmed {activity.length === 1 ? 'settlement' : 'settlements'} in this wallet</p></div>
       </aside>
@@ -436,6 +448,42 @@ export function App(): ReactElement {
     {sprint?.winner && reviewedSettlement && (ticketState === 'ready' || ticketState === 'reviewing') ? <ReviewPanel sprint={sprint} settlement={reviewedSettlement} outputDecimals={outputDecimals} onOpenAudit={() => setAuditOpen(true)} onSign={() => void signAndAuthorize()} onClose={() => setTicketState('ready')} /> : null}
     {auditOpen && sprint ? <AuditDrawer sprint={sprint} onClose={() => setAuditOpen(false)} outputDecimals={outputDecimals} /> : null}
     {trade ? <ReceiptPanel trade={trade} outputDecimals={outputDecimals} onClose={() => setTrade(undefined)} /> : null}
+  </div>;
+}
+
+function HostedSellerUnavailable(): ReactElement {
+  return <div className="shell">
+    <header className="topbar">
+      <a className="wordmark" href="/trade" aria-label="Katon home">KATON <span>/ SOLANA</span></a>
+      <span className="session-pill">TRADING UNAVAILABLE</span>
+    </header>
+    <main className="main-grid">
+      <section className="ticket-column" aria-labelledby="page-title">
+        <div className="eyebrow">SELLER DESK · HOSTED SHELL</div>
+        <h1 id="page-title">Seller trading<br /><em>unavailable.</em></h1>
+        <p className="lede">This hosted page is a static interface. Devnet Seller trading is unavailable because no Seller API or accepted Devnet execution setup is connected.</p>
+        <div className="proof-disclosure" role="note">
+          <strong>No verified stock available</strong>
+          <span>No issuer-verified stock is configured here. The asset list is empty, and this page cannot request quotes, authorize a wallet, or submit a settlement.</span>
+        </div>
+        <form className="trade-ticket" aria-label="Unavailable Seller Desk">
+          <div className="ticket-header"><div><span className="label">SELL · VERIFIED STOCK</span><strong>Seller Desk</strong></div><span className="session-pill">Unavailable</span></div>
+          <label className="field-label" htmlFor="hosted-asset">Asset</label>
+          <select id="hosted-asset" className="select-input" value="" disabled>
+            <option value="">No verified stock available</option>
+          </select>
+          <div className="asset-meta"><span className="issuer-badge">No verified stock</span><span>Issuer-backed token required</span><span>RPC balance —</span></div>
+          <div className="amount-label-row"><label className="field-label" htmlFor="hosted-amount">Amount</label></div>
+          <div className="amount-wrap"><input id="hosted-amount" value="" placeholder="Unavailable" disabled readOnly /><span>—</span></div>
+          <fieldset className="output-fieldset" disabled>
+            <legend className="field-label">Receive</legend>
+            <p className="ticket-footnote">No supported settlement asset is available.</p>
+          </fieldset>
+          <button className="primary-button" type="button" disabled>No verified stock available</button>
+          <p className="ticket-footnote">Quotes and settlements are unavailable on this hosted page.</p>
+        </form>
+      </section>
+    </main>
   </div>;
 }
 

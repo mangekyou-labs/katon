@@ -58,6 +58,7 @@ const api = spawn(process.execPath, ['--import', 'tsx', 'apps/solana-api/src/ser
     SOLANA_SELLER_SESSION_SECRET: 'browser-journey-seller-session-secret-with-entropy',
     SOLANA_ROLE_IDENTITIES: '',
     KATON_LOCALNET: '1',
+    KATON_LOCALNET_TEST_FIXTURE_ASSETS: '1',
     SOLANA_RPC_URL: localRpcUrl,
     KATON_LOCALNET_CONFIG: fixturePath,
   },

@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { transactionHash, validateMakerPartialTransaction } from '@katon/solana-sdk';
 import { validateMakerSettlement } from './maker-settlement';
 import { MemoryAssetProvider, MockQuoteSimulationProvider, QuoteDeskService } from './service';
-import { DEMO_WALLET, HeadlessPrivateMakerSource, JupiterStubSource, MemorySourceBalanceProvider, StreamedMakerSource, TrustedRpcSender } from './sources';
+import { HeadlessPrivateMakerSource, JupiterStubSource, MemorySourceBalanceProvider, StreamedMakerSource, TrustedRpcSender } from './sources';
 import { demoAssets } from './registry';
 import { loadLocalnetFixtureConfig, loadMakerSecretKey, LocalnetAssetProvider, LocalnetQuoteSimulationProvider, LocalnetRpcClient, LocalnetSourceBalanceProvider } from './localnet-runtime';
 import { DeskOperatorControls, loadProvisionedRoleIdentities, RoleSessionService, verifyProvisionedSignature, type DeskRole, type MakerCapability, type RoleSessionClaims } from './roles';
@@ -17,15 +17,13 @@ import type { QuoteSessionRequest } from '@katon/solana-core';
 const port = Number(process.env.SOLANA_API_PORT ?? 8787);
 const localnetFixture = process.env.KATON_LOCALNET === '1' ? loadLocalnetFixtureConfig() : undefined;
 const localnetRpc = localnetFixture ? new LocalnetRpcClient(localnetFixture) : undefined;
-const assets = localnetFixture && localnetRpc
+// The local Surfpool settlement asset is a synthetic test fixture. Keep it
+// out of the website unless a dedicated automated test opts in explicitly.
+const localnetTestFixtureAssetsEnabled = process.env.KATON_LOCALNET_TEST_FIXTURE_ASSETS === '1';
+const assets = localnetFixture && localnetRpc && localnetTestFixtureAssetsEnabled
   ? new LocalnetAssetProvider(localnetFixture, localnetRpc)
-  : new MemoryAssetProvider(demoAssets);
+  : new MemoryAssetProvider(process.env.NODE_ENV === 'test' ? demoAssets : []);
 const localnetAssets = assets instanceof LocalnetAssetProvider ? assets : undefined;
-const memoryAssets = assets instanceof MemoryAssetProvider ? assets : undefined;
-if (memoryAssets) {
-  memoryAssets.setBalance(DEMO_WALLET, demoAssets[0].mint, '2500000');
-  if (demoAssets[1]) memoryAssets.setBalance(DEMO_WALLET, demoAssets[1].mint, '2500000');
-}
 
 const maker = localnetFixture && localnetRpc
   ? new HeadlessPrivateMakerSource(loadMakerSecretKey(localnetFixture.makerKeypairPath), { fixture: localnetFixture, rpc: localnetRpc })
@@ -37,7 +35,14 @@ if (!localnetRpc && sourceBalances instanceof MemorySourceBalanceProvider) {
     sourceBalances.setBalance('maker-sandbox-01', outputMint, '1000000000000');
   }
 }
-const referencePolicyProvider = createLiveReferencePolicyProviderFromEnv();
+// The offline localnet harness uses an explicitly labeled deterministic
+// reference fixture. Every hosted or remote cluster still requires the live
+// licensed primary and independent cross-check providers.
+const referencePolicyProvider = localnetTestFixtureAssetsEnabled
+  && process.env.KATON_LOCALNET === '1'
+  && (process.env.SOLANA_CLUSTER?.trim() || 'localnet') === 'localnet'
+  ? undefined
+  : createLiveReferencePolicyProviderFromEnv();
 export const desk = new QuoteDeskService(
   assets,
   [new JupiterStubSource(), maker],
@@ -49,7 +54,7 @@ export const desk = new QuoteDeskService(
   undefined,
   referencePolicyProvider,
 );
-if (localnetFixture && localnetRpc) {
+if (localnetFixture && localnetRpc && localnetTestFixtureAssetsEnabled) {
   await localnetRpc.assertGovernedFixture();
   desk.observeGovernedMaker('maker-sandbox-01', localnetFixture.makerPublicKey, true);
 }
@@ -186,15 +191,6 @@ function canonicalMakerQuote(quote: Record<string, unknown>): string {
   return JSON.stringify(['Katon Private Maker Quote v0', ...values]);
 }
 
-function fundWalletIfNeeded(wallet: string): void {
-  if (!wallet || !memoryAssets) return;
-  const xstocks = demoAssets.find((asset) => asset.issuer === 'xstocks' && asset.enabled);
-  if (!xstocks) return;
-  if (memoryAssets.balance(wallet, xstocks) === '0') memoryAssets.setBalance(wallet, xstocks.mint, '2500000');
-  const ondo = demoAssets.find((asset) => asset.issuer === 'ondo');
-  if (ondo && memoryAssets.balance(wallet, ondo) === '0') memoryAssets.setBalance(wallet, ondo.mint, '2500000');
-}
-
 export function route(request: IncomingMessage, response: ServerResponse): void {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
   const parts = url.pathname.split('/').filter(Boolean);
@@ -310,7 +306,6 @@ export function route(request: IncomingMessage, response: ServerResponse): void 
         const wallet = url.searchParams.get('wallet') ?? '';
         const outputMint = url.searchParams.get('outputMint') ?? '';
         if (wallet) authenticateSeller(request, wallet);
-        fundWalletIfNeeded(wallet);
         if (wallet && localnetFixture && localnetAssets) await localnetAssets.refresh(wallet, localnetFixture.stockMint, outputMint);
         await desk.refreshReferencePolicy();
         json(response, 200, desk.listAssets(wallet, outputMint));

@@ -4,6 +4,12 @@ node_modules
 **/node_modules
 .local
 .worktrees
+.commandcode
+.freebuff
+.surfpool
+.playwright-cli
+.wayfinder-map-*.md
+.wayfinder-resolution-*.md
 contracts
 services
 src
